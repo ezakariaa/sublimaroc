@@ -1,0 +1,212 @@
+/* Font Families */
+.font-league-spartan {
+  font-family: 'League Spartan', sans-serif;
+}
+
+.font-montserrat {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.font-bebas-neue {
+  font-family: 'Bebas Neue', sans-serif;
+}
+
+.header {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: white !important;
+  padding: 1rem 0;
+}
+
+.header-bar {
+  height: 4px;
+  background-color: #6c757d;
+  width: 100%;
+}
+
+/* Logo Container */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-circles {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  animation: rotate 8s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.circle {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.circle.cyan {
+  background-color: #00ffff;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
+.circle.magenta {
+  background-color: #ff00ff;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.circle.yellow {
+  background-color: #ffff00;
+  bottom: 0;
+  right: 0;
+  z-index: 1;
+}
+
+/* Brand Text */
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.brand-main {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #000;
+  letter-spacing: 1px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.brand-sub {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #000;
+  letter-spacing: 0.5px;
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Navigation Links */
+.nav-link-custom {
+  color: #6c757d !important;
+  font-weight: 500;
+  font-size: 1rem;
+  padding: 0.5rem 1rem !important;
+  transition: color 0.3s ease;
+  text-decoration: none;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.nav-link-custom:hover {
+  color: #495057 !important;
+}
+
+.nav-link-custom.active {
+  color: #000 !important;
+  font-weight: 600;
+}
+
+/* User Button */
+.user-button {
+  display: flex;
+  align-items: center;
+  background-color: transparent;
+  border: 2px solid #007bff;
+  border-radius: 25px;
+  padding: 0.5rem 1rem;
+  color: #007bff;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.user-button:hover {
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+}
+
+.user-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.user-button i {
+  font-size: 1.2rem;
+}
+
+/* Dropdown */
+.user-dropdown .dropdown-toggle::after {
+  display: none;
+}
+
+.dropdown-menu {
+  border: none;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.dropdown-item {
+  padding: 0.5rem 1rem;
+  transition: background-color 0.3s ease;
+  color: #495057;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+  color: #000;
+}
+
+.dropdown-item i {
+  width: 16px;
+  text-align: center;
+  color: #6c757d;
+}
+
+/* Responsive */
+@media (max-width: 991px) {
+  .brand-main {
+    font-size: 1.5rem;
+  }
+  
+  .brand-sub {
+    font-size: 0.9rem;
+  }
+  
+  .logo-circles {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .circle {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .circle.yellow {
+    bottom: 0;
+    right: 0;
+  }
+}
+
+
+
+
