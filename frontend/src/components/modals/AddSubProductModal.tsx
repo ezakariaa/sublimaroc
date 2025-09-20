@@ -97,7 +97,7 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
       }
 
       // Initialiser les caractéristiques
-      setSelectedCharacteristics({
+      const characteristics = {
         type: Array.isArray(initialSubProduct.type) ? initialSubProduct.type : [],
         anse: Array.isArray(initialSubProduct.anse) ? initialSubProduct.anse : [],
         couleurs: Array.isArray(initialSubProduct.couleurs) ? initialSubProduct.couleurs : [],
@@ -105,9 +105,18 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
         materiau: Array.isArray(initialSubProduct.materiau) ? initialSubProduct.materiau : [],
         capacite: Array.isArray(initialSubProduct.capacite) ? initialSubProduct.capacite : [],
         poids: Array.isArray(initialSubProduct.poids) ? initialSubProduct.poids : []
-      });
+      };
+      
+      console.log('🏷️ Caractéristiques initialisées:', characteristics);
+      setSelectedCharacteristics(characteristics);
+
+      // Trouver et définir le produit parent pour afficher ses caractéristiques
+      const parentProduct = products.find(p => p.id === initialSubProduct.productId);
+      if (parentProduct) {
+        setSelectedProduct(parentProduct);
+      }
     }
-  }, [isEditMode, initialSubProduct]);
+  }, [isEditMode, initialSubProduct, products]);
 
   // Calculer le prix total automatiquement
   const prixTotal = newSubProduct.prix * newSubProduct.quantite;
@@ -118,16 +127,19 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
     setSelectedProduct(product || null);
     setNewSubProduct(prev => ({ ...prev, categorie: productId }));
     
-    // Réinitialiser les caractéristiques sélectionnées quand on change de catégorie
-    setSelectedCharacteristics({
-      type: [],
-      anse: [],
-      couleurs: [],
-      dimensions: [],
-      materiau: [],
-      capacite: [],
-      poids: []
-    });
+    // Réinitialiser les caractéristiques sélectionnées SEULEMENT si on n'est pas en mode édition
+    // ou si c'est un changement de catégorie différent de celle du sous-produit initial
+    if (!isEditMode || (isEditMode && initialSubProduct && productId !== initialSubProduct.productId)) {
+      setSelectedCharacteristics({
+        type: [],
+        anse: [],
+        couleurs: [],
+        dimensions: [],
+        materiau: [],
+        capacite: [],
+        poids: []
+      });
+    }
   };
 
   // Gérer la sélection/désélection d'un tag
