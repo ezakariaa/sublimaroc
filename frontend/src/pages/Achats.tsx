@@ -62,8 +62,8 @@ const Achats: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAchat, setSelectedAchat] = useState<Achat | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [newPurchase, setNewPurchase] = useState({
     supplier: '',
     products: [] as any[],
@@ -206,6 +206,12 @@ const Achats: React.FC = () => {
     setTimeout(() => setAlert(null), 3000);
   };
 
+  const handleCloseMaterialModal = () => {
+    setShowAddMaterialModal(false);
+    setIsEditMode(false);
+    setSelectedAchat(null);
+  };
+
   const refreshAchats = async () => {
     try {
       console.log('🔄 Rafraîchissement des achats...');
@@ -241,7 +247,8 @@ const Achats: React.FC = () => {
   const handleEditAchat = (purchase: any) => {
     if (purchase.type === 'material') {
       setSelectedAchat(purchase);
-      setShowEditModal(true);
+      setIsEditMode(true);
+      setShowAddMaterialModal(true);
     } else {
       // Logique pour l'édition des achats de produits
       console.log('Édition achat produit:', purchase);
@@ -249,27 +256,59 @@ const Achats: React.FC = () => {
   };
 
   const handleDeleteAchat = async (purchase: any) => {
-    const confirmed = window.confirm(
-      `Êtes-vous sûr de vouloir supprimer cet achat ?\n\nCette action est irréversible.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      if (purchase.type === 'material') {
-        await AchatService.deleteAchat(purchase.id);
-        setAlert({ type: 'success', message: 'Achat de matériel supprimé avec succès' });
-        refreshAchats();
-      } else {
-        // Logique pour la suppression des achats de produits
-        console.log('Suppression achat produit:', purchase);
-        setAlert({ type: 'success', message: 'Achat de produit supprimé avec succès' });
+    if (purchase.type === 'material') {
+      const materialNames = purchase.materials.map((m: any) => m.nom).join(', ');
+      const confirmed = window.confirm(
+        `Êtes-vous sûr de vouloir supprimer cet achat de matériel ?\n\n` +
+        `Matériel(s): ${materialNames}\n` +
+        `Fournisseur: ${purchase.fournisseur.nom}\n` +
+        `Total: ${formatPrice(purchase.totalAchat)}\n\n` +
+        `Cette action est irréversible et supprimera définitivement l'achat de Firebase.`
+      );
+      
+      if (!confirmed) {
+        return;
       }
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      setAlert({ type: 'danger', message: 'Erreur lors de la suppression de l\'achat' });
+
+      try {
+        console.log('🗑️ Suppression de l\'achat:', purchase.id);
+        await AchatService.deleteAchat(purchase.id);
+        setAlert({ type: 'success', message: `Achat de matériel "${materialNames}" supprimé avec succès` });
+        refreshAchats();
+        console.log('✅ Achat supprimé avec succès');
+      } catch (error) {
+        console.error('❌ Erreur lors de la suppression:', error);
+        setAlert({ type: 'danger', message: 'Erreur lors de la suppression de l\'achat de Firebase' });
+      }
+    } else {
+      // Logique pour la suppression des achats de produits
+      const productNames = purchase.products.map((p: any) => p.productName).join(', ');
+      const confirmed = window.confirm(
+        `Êtes-vous sûr de vouloir supprimer cet achat de produit ?\n\n` +
+        `Produit(s): ${productNames}\n` +
+        `Fournisseur: ${purchase.supplier}\n` +
+        `Total: ${formatPrice(purchase.total)}\n\n` +
+        `Cette action est irréversible.`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        console.log('🗑️ Suppression de l\'achat de produit:', purchase.id);
+        
+        // Supprimer de la liste locale (puisque c'est des données de démonstration)
+        setPurchases(prevPurchases => 
+          prevPurchases.filter(p => p.id !== purchase.id)
+        );
+        
+        setAlert({ type: 'success', message: `Achat de produit "${productNames}" supprimé avec succès` });
+        console.log('✅ Achat de produit supprimé avec succès');
+      } catch (error) {
+        console.error('❌ Erreur lors de la suppression:', error);
+        setAlert({ type: 'danger', message: 'Erreur lors de la suppression de l\'achat' });
+      }
     }
   };
 
@@ -661,17 +700,20 @@ const Achats: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Modal pour ajouter du matériel */}
+      {/* Modal pour ajouter/éditer du matériel */}
       <Suspense fallback={<div>Chargement...</div>}>
         <AddMaterialModal
           show={showAddMaterialModal}
-          onHide={() => setShowAddMaterialModal(false)}
+          onHide={handleCloseMaterialModal}
           onMaterialAdded={() => {
-            console.log('Matériel ajouté avec succès');
+            console.log(isEditMode ? 'Matériel modifié avec succès' : 'Matériel ajouté avec succès');
             // Rafraîchir la liste des achats
             refreshAchats();
+            handleCloseMaterialModal();
           }}
           onAlert={handleAlert}
+          initialAchat={selectedAchat}
+          isEditMode={isEditMode}
         />
       </Suspense>
 
@@ -737,29 +779,6 @@ const Achats: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Modal d'édition de l'achat de matériel */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>
-            <i className="bi bi-pencil me-2"></i>
-            Éditer l'Achat de Matériel
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="text-center py-4">
-            <i className="bi bi-tools display-1 text-muted"></i>
-            <h4 className="mt-3">Fonctionnalité en développement</h4>
-            <p className="text-muted">
-              L'édition des achats de matériel sera bientôt disponible.
-            </p>
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowEditModal(false)}>
-            Fermer
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </div>
   );
 };

@@ -24,18 +24,43 @@ interface Fournisseur {
   ville: string;
 }
 
+interface MaterialAchat {
+  nom: string;
+  description: string;
+  image: string;
+  referenceSublimaroc: string;
+  referenceFournisseur: string;
+  prixUnitaire: number;
+  quantite: number;
+  prixPaye: number;
+}
+
+interface Achat {
+  id: string;
+  fournisseur: Fournisseur;
+  materials: MaterialAchat[];
+  dateAchat: Date;
+  totalAchat: number;
+  createdAt: any;
+  updatedAt?: any;
+}
+
 interface AddMaterialModalProps {
   show: boolean;
   onHide: () => void;
   onMaterialAdded: () => void;
   onAlert: (type: 'success' | 'danger', message: string) => void;
+  initialAchat?: Achat | null;
+  isEditMode?: boolean;
 }
 
 const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   show,
   onHide,
   onMaterialAdded,
-  onAlert
+  onAlert,
+  initialAchat,
+  isEditMode = false
 }) => {
   const [materials, setMaterials] = useState<MaterialItem[]>([
     {
@@ -58,6 +83,37 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     email: '',
     ville: ''
   });
+
+  // Initialiser les données en mode édition
+  useEffect(() => {
+    if (isEditMode && initialAchat) {
+      console.log('🔧 Mode édition activé pour l\'achat:', initialAchat);
+      
+      // Initialiser les matériels
+      const formattedMaterials: MaterialItem[] = initialAchat.materials.map((material, index) => ({
+        id: (index + 1).toString(),
+        nom: material.nom,
+        description: material.description,
+        image: material.image,
+        imageFile: null,
+        referenceSublimaroc: material.referenceSublimaroc,
+        referenceFournisseur: material.referenceFournisseur,
+        prixUnitaire: material.prixUnitaire,
+        quantite: material.quantite,
+        prixPaye: material.prixPaye
+      }));
+      
+      setMaterials(formattedMaterials);
+      
+      // Initialiser le fournisseur
+      setFournisseur({
+        nom: initialAchat.fournisseur.nom,
+        telephone: initialAchat.fournisseur.telephone,
+        email: initialAchat.fournisseur.email,
+        ville: initialAchat.fournisseur.ville
+      });
+    }
+  }, [isEditMode, initialAchat]);
 
   // Réinitialiser les états quand la modale se ferme
   useEffect(() => {
@@ -246,10 +302,17 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
 
       console.log('Données à sauvegarder:', achatData);
 
-      // Sauvegarder dans Firebase
-      await AchatService.createAchat(achatData);
-
-      onAlert('success', `Achat enregistré avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
+      if (isEditMode && initialAchat) {
+        // Mode édition : mettre à jour l'achat existant
+        console.log('🔄 Mise à jour de l\'achat:', initialAchat.id);
+        await AchatService.updateAchat(initialAchat.id, achatData);
+        onAlert('success', `Achat modifié avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
+      } else {
+        // Mode création : créer un nouvel achat
+        console.log('🆕 Création d\'un nouvel achat');
+        await AchatService.createAchat(achatData);
+        onAlert('success', `Achat enregistré avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
+      }
       onMaterialAdded();
       onHide();
 
@@ -266,12 +329,12 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       onHide={onHide}
       size="xl"
     >
-      <Modal.Header closeButton>
-        <Modal.Title>
-          <i className="bi bi-plus-circle me-2"></i>
-          Nouveau Matériel Acheté
-        </Modal.Title>
-      </Modal.Header>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className={`bi ${isEditMode ? 'bi-pencil-square' : 'bi-plus-circle'} me-2`}></i>
+            {isEditMode ? 'Modifier l\'Achat de Matériel' : 'Nouveau Matériel Acheté'}
+          </Modal.Title>
+        </Modal.Header>
       <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto' }}>
         <Form>
           {/* Section 1: Informations Matériel */}
@@ -568,7 +631,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           disabled={!fournisseur.nom.trim() || materials.filter(m => m.nom.trim()).length === 0}
         >
           <i className="bi bi-check-circle me-2"></i>
-          Enregistrer l'Achat
+          {isEditMode ? 'Mettre à jour l\'Achat' : 'Enregistrer l\'Achat'}
         </Button>
       </Modal.Footer>
     </Modal>
