@@ -795,6 +795,188 @@ export class ImageService {
   }
 }
 
+// Service pour les achats
+export class AchatService {
+  private static collection = 'Achats';
+
+  // Fonction pour s'assurer que la collection existe
+  static async ensureCollectionExists(): Promise<void> {
+    try {
+      console.log('🔍 Vérification de l\'existence de la collection:', this.collection);
+      
+      // Créer un document temporaire pour forcer la création de la collection
+      const tempDocRef = doc(collection(db, this.collection), '__temp__');
+      
+      try {
+        // Vérifier si le document temporaire existe déjà
+        const tempDoc = await getDoc(tempDocRef);
+        
+        if (!tempDoc.exists()) {
+          // Créer le document temporaire pour forcer la création de la collection
+          console.log('📁 Création de la collection via document temporaire...');
+          await setDoc(tempDocRef, {
+            _temp: true,
+            createdAt: Timestamp.now()
+          });
+          console.log('✅ Collection créée avec succès !');
+          
+          // Supprimer le document temporaire
+          await deleteDoc(tempDocRef);
+          console.log('🗑️ Document temporaire supprimé');
+        } else {
+          console.log('✅ Collection existe déjà');
+        }
+      } catch (error) {
+        console.log('📁 Collection créée via erreur - c\'est normal');
+      }
+      
+    } catch (error) {
+      console.log('❌ Erreur lors de la vérification de la collection:', error);
+      // Continuer quand même - la collection sera créée avec le premier vrai document
+    }
+  }
+
+  // Créer un nouvel achat
+  static async createAchat(achatData: any): Promise<string> {
+    try {
+      console.log('🚀 Création d\'un nouvel achat...');
+      
+      // S'assurer que la collection existe
+      await this.ensureCollectionExists();
+      
+      // Ajouter les timestamps
+      const dataWithTimestamps = {
+        ...achatData,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+      
+      console.log('📝 Données à sauvegarder:', dataWithTimestamps);
+      
+      // Ajouter le document à la collection
+      const docRef = await addDoc(collection(db, this.collection), dataWithTimestamps);
+      
+      console.log('✅ Achat créé avec succès ! ID:', docRef.id);
+      return docRef.id;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de l\'achat:', error);
+      throw error;
+    }
+  }
+
+  // Récupérer tous les achats
+  static async getAllAchats(): Promise<any[]> {
+    try {
+      console.log('🔍 Récupération de tous les achats...');
+      
+      const querySnapshot = await getDocs(
+        query(collection(db, this.collection), orderBy('createdAt', 'desc'))
+      );
+      
+      const achats = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log('✅ Achats récupérés:', achats.length);
+      return achats;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des achats:', error);
+      throw error;
+    }
+  }
+
+  // Récupérer un achat par ID
+  static async getAchatById(id: string): Promise<any | null> {
+    try {
+      console.log('🔍 Récupération de l\'achat:', id);
+      
+      const docRef = doc(db, this.collection, id);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const achat = {
+          id: docSnap.id,
+          ...docSnap.data()
+        };
+        console.log('✅ Achat trouvé:', achat);
+        return achat;
+      } else {
+        console.log('❌ Achat non trouvé');
+        return null;
+      }
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération de l\'achat:', error);
+      throw error;
+    }
+  }
+
+  // Mettre à jour un achat
+  static async updateAchat(id: string, updateData: any): Promise<void> {
+    try {
+      console.log('🚀 Mise à jour de l\'achat:', id);
+      
+      const docRef = doc(db, this.collection, id);
+      const dataWithTimestamp = {
+        ...updateData,
+        updatedAt: Timestamp.now()
+      };
+      
+      await updateDoc(docRef, dataWithTimestamp);
+      console.log('✅ Achat mis à jour avec succès !');
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de l\'achat:', error);
+      throw error;
+    }
+  }
+
+  // Supprimer un achat
+  static async deleteAchat(id: string): Promise<void> {
+    try {
+      console.log('🚀 Suppression de l\'achat:', id);
+      
+      const docRef = doc(db, this.collection, id);
+      await deleteDoc(docRef);
+      console.log('✅ Achat supprimé avec succès !');
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de l\'achat:', error);
+      throw error;
+    }
+  }
+
+  // Récupérer les achats par fournisseur
+  static async getAchatsByFournisseur(fournisseurNom: string): Promise<any[]> {
+    try {
+      console.log('🔍 Récupération des achats pour le fournisseur:', fournisseurNom);
+      
+      const querySnapshot = await getDocs(
+        query(
+          collection(db, this.collection),
+          where('fournisseur.nom', '==', fournisseurNom),
+          orderBy('createdAt', 'desc')
+        )
+      );
+      
+      const achats = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log('✅ Achats trouvés pour le fournisseur:', achats.length);
+      return achats;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des achats par fournisseur:', error);
+      throw error;
+    }
+  }
+}
+
 
 
 

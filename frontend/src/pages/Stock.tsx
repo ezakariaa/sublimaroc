@@ -1221,6 +1221,7 @@ const Stock: React.FC = () => {
             </Modal.Footer>
           </Modal>
         )}
+
       </Container>
     </div>
   );

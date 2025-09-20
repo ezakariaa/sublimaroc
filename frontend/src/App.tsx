@@ -10,6 +10,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Products from './pages/Products';
 import Stock from './pages/Stock';
+import Achats from './pages/Achats';
 import './App.css';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/products" element={<Products />} />
               <Route path="/stock" element={<Stock />} />
+              <Route path="/achats" element={<Achats />} />
               <Route path="/admin/products" element={<Products />} />
               <Route path="/admin/orders" element={<div>Commandes (À implémenter)</div>} />
               <Route path="/admin/users" element={<div>Utilisateurs (À implémenter)</div>} />

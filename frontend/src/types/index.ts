@@ -42,6 +42,25 @@ export interface SubProduct {
   dateModification: Date;
 }
 
+export interface Material {
+  id: string;
+  nom: string;
+  description: string;
+  type: string; // Type de matériel (ex: "Encre", "Papier", "Équipement")
+  image: string;
+  stock: number;
+  stockMin: number; // Stock minimum avant alerte
+  fournisseur: {
+    nom: string;
+    ville: string;
+    contact: string;
+  };
+  prixUnitaire: number;
+  unite: string; // Unité de mesure (ex: "Litre", "Kg", "Pièce")
+  dateCreation: Date;
+  dateModification: Date;
+}
+
 export interface User {
   id: string;
   email: string;
