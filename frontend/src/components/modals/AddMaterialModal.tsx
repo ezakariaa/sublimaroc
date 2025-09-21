@@ -328,15 +328,21 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         // Mode édition : mettre à jour l'achat existant
         console.log('🔄 Mise à jour de l\'achat:', initialAchat.id);
         await AchatService.updateAchat(initialAchat.id, achatData);
+        console.log('✅ Mise à jour terminée, affichage de l\'alerte...');
         onAlert('success', `Achat modifié avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
       } else {
         // Mode création : créer un nouvel achat
         console.log('🆕 Création d\'un nouvel achat');
         await AchatService.createAchat(achatData);
+        console.log('✅ Création terminée, affichage de l\'alerte...');
         onAlert('success', `Achat enregistré avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
       }
+      
+      console.log('🔄 Appel de onMaterialAdded...');
       onMaterialAdded();
+      console.log('🔄 Appel de onHide...');
       onHide();
+      console.log('🎉 Fonction handleSavePurchases terminée avec succès');
 
     } catch (error) {
       console.error('Erreur lors de l\'enregistrement de l\'achat:', error);

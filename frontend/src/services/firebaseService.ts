@@ -801,28 +801,48 @@ export class AchatService {
   private static storageFolder = 'Achats';
 
   // Fonction pour uploader une image dans Firebase Storage
-  static async uploadMaterialImage(file: File, achatId: string, materialIndex: number): Promise<string> {
+  static async uploadMaterialImage(file: File, achatId: string, materialIndex: number, referenceAchat: string): Promise<string> {
     try {
-      console.log('📤 Upload de l\'image du matériel...');
+      console.log('📤 Upload de l\'image du matériel...', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        achatId,
+        materialIndex,
+        referenceAchat
+      });
       
       // Créer un nom de fichier unique
       const timestamp = Date.now();
-      const fileName = `achat_${achatId}_material_${materialIndex}_${timestamp}.${file.name.split('.').pop()}`;
+      const fileExtension = file.name.split('.').pop() || 'jpg';
+      const fileName = `material_${materialIndex}_${timestamp}.${fileExtension}`;
       
-      // Référence vers le fichier dans Storage
-      const storageRef = ref(storage, `${this.storageFolder}/${fileName}`);
+      console.log('📁 Nom de fichier généré:', fileName);
+      
+      // Référence vers le fichier dans Storage avec sous-dossier par référence d'achat
+      const storageRef = ref(storage, `${this.storageFolder}/Materiel/${referenceAchat}/${fileName}`);
+      console.log('📍 Référence Storage créée:', `${this.storageFolder}/Materiel/${referenceAchat}/${fileName}`);
       
       // Upload du fichier
+      console.log('⬆️ Début de l\'upload...');
       const snapshot = await uploadBytes(storageRef, file);
       console.log('✅ Image uploadée avec succès:', snapshot.metadata.name);
       
       // Obtenir l'URL de téléchargement
+      console.log('🔗 Récupération de l\'URL de téléchargement...');
       const downloadURL = await getDownloadURL(snapshot.ref);
-      console.log('🔗 URL de téléchargement:', downloadURL);
+      console.log('🔗 URL de téléchargement obtenue:', downloadURL);
       
       return downloadURL;
     } catch (error) {
-      console.error('❌ Erreur lors de l\'upload de l\'image:', error);
+      console.error('❌ Erreur détaillée lors de l\'upload de l\'image:', {
+        error: error,
+        message: error instanceof Error ? error.message : 'Erreur inconnue',
+        code: (error as any)?.code,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      });
       throw error;
     }
   }
@@ -832,14 +852,36 @@ export class AchatService {
     try {
       if (!imageUrl) return;
       
-      console.log('🗑️ Suppression de l\'image:', imageUrl);
+      // Vérifier si c'est une URL blob locale (pas une URL Firebase Storage)
+      if (imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')) {
+        console.log('⚠️ URL blob locale détectée, pas de suppression nécessaire:', imageUrl);
+        return;
+      }
       
-      // Extraire le nom du fichier de l'URL
-      const fileName = imageUrl.split('/').pop()?.split('?')[0];
-      if (!fileName) return;
+      // Vérifier si c'est une URL Firebase Storage
+      if (!imageUrl.includes('firebasestorage.googleapis.com')) {
+        console.log('⚠️ URL non-Firebase détectée, pas de suppression:', imageUrl);
+        return;
+      }
+      
+      console.log('🗑️ Suppression de l\'image Firebase Storage:', imageUrl);
+      
+      // Extraire le chemin complet du fichier de l'URL Firebase Storage
+      // URL format: https://firebasestorage.googleapis.com/v0/b/bucket/o/Achats%2FREF%2Ffile.jpg?alt=media&token=...
+      const urlParts = imageUrl.split('/');
+      const encodedPath = urlParts.find(part => part.includes('Achats%2F'));
+      
+      if (!encodedPath) {
+        console.log('⚠️ Impossible d\'extraire le chemin du fichier de l\'URL');
+        return;
+      }
+      
+      // Décoder le chemin (remplacer %2F par /)
+      const decodedPath = decodeURIComponent(encodedPath);
+      console.log('📍 Chemin décodé:', decodedPath);
       
       // Référence vers le fichier dans Storage
-      const storageRef = ref(storage, `${this.storageFolder}/${fileName}`);
+      const storageRef = ref(storage, decodedPath);
       
       // Supprimer le fichier
       await deleteObject(storageRef);
@@ -894,6 +936,7 @@ export class AchatService {
       
       // S'assurer que la collection existe
       await this.ensureCollectionExists();
+      console.log('✅ Collection vérifiée, création du document...');
       
       // Créer d'abord le document pour obtenir un ID
       const tempData = {
@@ -906,15 +949,60 @@ export class AchatService {
         updatedAt: Timestamp.now()
       };
       
-      const docRef = await addDoc(collection(db, this.collection), tempData);
-      console.log('📄 Document temporaire créé avec ID:', docRef.id);
+      console.log('📝 Données temporaires préparées:', tempData);
+      
+      // Nettoyer les données pour éviter les erreurs Firestore
+      const cleanTempData = {
+        referenceAchat: tempData.referenceAchat,
+        fournisseur: {
+          nom: tempData.fournisseur.nom || '',
+          telephone: tempData.fournisseur.telephone || '',
+          email: tempData.fournisseur.email || '',
+          ville: tempData.fournisseur.ville || ''
+        },
+        materials: tempData.materials.map((material: any) => ({
+          id: material.id || '',
+          nom: material.nom || '',
+          description: material.description || '',
+          referenceSublimaroc: material.referenceSublimaroc || '',
+          referenceFournisseur: material.referenceFournisseur || '',
+          prixUnitaire: Number(material.prixUnitaire) || 0,
+          quantite: Number(material.quantite) || 0,
+          prixPaye: Number(material.prixPaye) || 0,
+          image: material.image || ''
+        })),
+        dateAchat: tempData.dateAchat,
+        totalAchat: Number(tempData.totalAchat) || 0,
+        createdAt: tempData.createdAt,
+        updatedAt: tempData.updatedAt
+      };
+      
+      console.log('🧹 Données nettoyées:', cleanTempData);
+      
+      let docRef: any;
+      try {
+        docRef = await addDoc(collection(db, this.collection), cleanTempData);
+        console.log('📄 Document temporaire créé avec ID:', docRef.id);
+      } catch (addDocError) {
+        console.error('❌ Erreur lors de la création du document temporaire:', addDocError);
+        throw addDocError;
+      }
       
       // Uploader les images et mettre à jour les URLs
+      console.log('🔄 Début de l\'upload des images...');
       const materialsWithImages = await Promise.all(
         achatData.materials.map(async (material: any, index: number) => {
+          console.log(`🔍 Traitement matériel ${index}:`, {
+            hasImageFile: !!material.imageFile,
+            isFile: material.imageFile instanceof File,
+            currentImage: material.image
+          });
+          
           if (material.imageFile && material.imageFile instanceof File) {
             try {
-              const imageUrl = await this.uploadMaterialImage(material.imageFile, docRef.id, index);
+              console.log(`📤 Upload image pour matériel ${index}...`);
+              const imageUrl = await this.uploadMaterialImage(material.imageFile, docRef.id, index, achatData.referenceAchat);
+              console.log(`✅ Upload réussi pour matériel ${index}, URL:`, imageUrl);
               return {
                 ...material,
                 image: imageUrl
@@ -927,18 +1015,38 @@ export class AchatService {
               };
             }
           }
+          console.log(`📋 Matériel ${index} - pas d'image à uploader`);
           return material;
         })
       );
+      console.log('✅ Tous les matériels traités:', materialsWithImages.length);
       
       // Mettre à jour le document avec les URLs des images
+      console.log('💾 Mise à jour du document Firestore...');
+      
+      // Nettoyer les données finales en supprimant les objets File
       const finalData = {
-        ...achatData,
-        materials: materialsWithImages,
+        referenceAchat: achatData.referenceAchat,
+        fournisseur: achatData.fournisseur,
+        materials: materialsWithImages.map((material: any) => ({
+          id: material.id,
+          nom: material.nom,
+          description: material.description,
+          referenceSublimaroc: material.referenceSublimaroc,
+          referenceFournisseur: material.referenceFournisseur,
+          prixUnitaire: Number(material.prixUnitaire),
+          quantite: Number(material.quantite),
+          prixPaye: Number(material.prixPaye),
+          image: material.image
+          // imageFile est supprimé car c'est un objet File non supporté par Firestore
+        })),
+        dateAchat: achatData.dateAchat,
+        totalAchat: Number(achatData.totalAchat),
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       };
       
+      console.log('📝 Données finales à sauvegarder:', finalData);
       await updateDoc(docRef, finalData);
       console.log('✅ Achat créé avec succès ! ID:', docRef.id);
       return docRef.id;
@@ -1010,45 +1118,92 @@ export class AchatService {
       }
       
       // Traiter les images des matériels
+      console.log('🔄 Traitement des images des matériels...');
       const materialsWithImages = await Promise.all(
         updateData.materials.map(async (material: any, index: number) => {
+          console.log(`🔍 Traitement matériel ${index}:`, {
+            hasImageFile: !!material.imageFile,
+            isFile: material.imageFile instanceof File,
+            currentImage: material.image
+          });
+          
           // Si c'est un nouveau fichier, l'uploader
           if (material.imageFile && material.imageFile instanceof File) {
             try {
-              // Supprimer l'ancienne image si elle existe
-              const existingMaterial = existingAchat.materials[index];
-              if (existingMaterial && existingMaterial.image) {
-                await this.deleteMaterialImage(existingMaterial.image);
-              }
+              console.log(`📤 Upload nouvelle image pour matériel ${index}`);
               
               // Uploader la nouvelle image
-              const imageUrl = await this.uploadMaterialImage(material.imageFile, id, index);
-              return {
+              const imageUrl = await this.uploadMaterialImage(material.imageFile, id, index, updateData.referenceAchat);
+              console.log(`✅ Upload réussi pour matériel ${index}, URL:`, imageUrl);
+              
+              // Supprimer l'ancienne image si elle existe (après upload réussi)
+              const existingMaterial = existingAchat.materials[index];
+              if (existingMaterial && existingMaterial.image) {
+                console.log(`🗑️ Suppression de l'ancienne image pour matériel ${index}:`, existingMaterial.image);
+                // Supprimer immédiatement l'ancienne image
+                try {
+                  await this.deleteMaterialImage(existingMaterial.image);
+                  console.log(`✅ Ancienne image supprimée pour matériel ${index}`);
+                } catch (deleteError) {
+                  console.error(`❌ Erreur suppression ancienne image matériel ${index}:`, deleteError);
+                  // Ne pas faire échouer la mise à jour si la suppression échoue
+                }
+              }
+              
+              const result = {
                 ...material,
                 image: imageUrl
               };
+              console.log(`✅ Matériel ${index} traité avec succès`);
+              return result;
             } catch (error) {
               console.error(`❌ Erreur upload image matériel ${index}:`, error);
-              return {
+              // En cas d'erreur, garder l'image existante
+              const existingMaterial = existingAchat.materials[index];
+              const result = {
                 ...material,
-                image: material.image || '' // Garder l'ancienne URL si l'upload échoue
+                image: existingMaterial?.image || ''
               };
+              console.log(`⚠️ Matériel ${index} traité avec l'ancienne image`);
+              return result;
             }
           }
           // Si pas de nouveau fichier, garder l'image existante
+          console.log(`📋 Matériel ${index} - pas de nouveau fichier, garde l'image existante`);
           return material;
         })
       );
       
+      console.log('✅ Tous les matériels traités:', materialsWithImages.length);
+      
+      console.log('💾 Mise à jour du document Firestore...');
       const docRef = doc(db, this.collection, id);
+      
+      // Nettoyer les données en supprimant les objets File
       const dataWithTimestamp = {
-        ...updateData,
-        materials: materialsWithImages,
+        referenceAchat: updateData.referenceAchat,
+        fournisseur: updateData.fournisseur,
+        materials: materialsWithImages.map((material: any) => ({
+          id: material.id,
+          nom: material.nom,
+          description: material.description,
+          referenceSublimaroc: material.referenceSublimaroc,
+          referenceFournisseur: material.referenceFournisseur,
+          prixUnitaire: Number(material.prixUnitaire),
+          quantite: Number(material.quantite),
+          prixPaye: Number(material.prixPaye),
+          image: material.image
+          // imageFile est supprimé car c'est un objet File non supporté par Firestore
+        })),
+        dateAchat: updateData.dateAchat,
+        totalAchat: Number(updateData.totalAchat),
         updatedAt: Timestamp.now()
       };
       
+      console.log('📝 Données à mettre à jour:', dataWithTimestamp);
       await updateDoc(docRef, dataWithTimestamp);
       console.log('✅ Achat mis à jour avec succès !');
+      console.log('🎉 Fonction updateAchat terminée avec succès');
       
     } catch (error) {
       console.error('❌ Erreur lors de la mise à jour de l\'achat:', error);
