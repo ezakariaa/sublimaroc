@@ -489,18 +489,19 @@ const Achats: React.FC = () => {
               <Card.Body className="p-0">
                 <div className="table-responsive">
                   <Table hover className="mb-0">
-                    <thead className="table-header">
-                      <tr>
-                        <th>ID Achat / Matériel</th>
-                        <th>Fournisseur</th>
-                        <th>Produits / Matériels</th>
-                        <th>Total</th>
-                        <th>Statut</th>
-                        <th>Date Commande</th>
-                        <th>Date Livraison</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
+                     <thead className="table-header">
+                       <tr>
+                         <th>ID Achat / Matériel</th>
+                         <th>Fournisseur</th>
+                         <th>Image du Matériel</th>
+                         <th>Produits / Matériels</th>
+                         <th>Total</th>
+                         <th>Statut</th>
+                         <th>Date Commande</th>
+                         <th>Date Livraison</th>
+                         <th>Actions</th>
+                       </tr>
+                     </thead>
                     <tbody>
                       {filteredPurchases.map((purchase) => (
                         <tr key={purchase.id}>
@@ -516,18 +517,76 @@ const Achats: React.FC = () => {
                               </div>
                             )}
                           </td>
-                          <td>
-                            <div className="supplier-info">
-                              <div className="supplier-name">
-                                {purchase.type === 'product' ? purchase.supplier : purchase.fournisseur.nom}
-                              </div>
-                              {purchase.type === 'material' && purchase.fournisseur.ville && (
-                                <small className="text-muted">{purchase.fournisseur.ville}</small>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="products-info">
+                           <td>
+                             <div className="supplier-info">
+                               <div className="supplier-name">
+                                 {purchase.type === 'product' ? purchase.supplier : purchase.fournisseur.nom}
+                               </div>
+                               {purchase.type === 'material' && purchase.fournisseur.ville && (
+                                 <small className="text-muted">{purchase.fournisseur.ville}</small>
+                               )}
+                             </div>
+                           </td>
+                           <td>
+                             <div className="material-images">
+                               {purchase.type === 'material' ? (
+                                 <div>
+                                   {purchase.materials.map((material, index) => (
+                                     <div key={index} style={{ marginBottom: '8px' }}>
+                                       {material.image ? (
+                                         <img 
+                                           src={material.image} 
+                                           alt={material.nom}
+                                           style={{ 
+                                             width: '40px', 
+                                             height: '40px', 
+                                             objectFit: 'cover',
+                                             borderRadius: '4px',
+                                             border: '1px solid #dee2e6'
+                                           }}
+                                           title={material.nom}
+                                         />
+                                       ) : (
+                                         <div 
+                                           style={{ 
+                                             width: '40px', 
+                                             height: '40px', 
+                                             backgroundColor: '#f8f9fa',
+                                             border: '1px solid #dee2e6',
+                                             borderRadius: '4px',
+                                             display: 'flex',
+                                             alignItems: 'center',
+                                             justifyContent: 'center'
+                                           }}
+                                           title={`${material.nom} - Aucune image`}
+                                         >
+                                           <i className="bi bi-image text-muted" style={{ fontSize: '12px' }}></i>
+                                         </div>
+                                       )}
+                                     </div>
+                                   ))}
+                                 </div>
+                               ) : (
+                                 <div 
+                                   style={{ 
+                                     width: '50px', 
+                                     height: '50px', 
+                                     backgroundColor: '#f8f9fa',
+                                     border: '1px solid #dee2e6',
+                                     borderRadius: '4px',
+                                     display: 'flex',
+                                     alignItems: 'center',
+                                     justifyContent: 'center'
+                                   }}
+                                   title="Achat de produit"
+                                 >
+                                   <i className="bi bi-box text-muted"></i>
+                                 </div>
+                               )}
+                             </div>
+                           </td>
+                           <td>
+                             <div className="products-info">
                               {purchase.type === 'product' ? (
                                 purchase.products.map((product, index) => (
                                   <div key={index} className="product-item">
@@ -539,7 +598,7 @@ const Achats: React.FC = () => {
                                 ))
                               ) : (
                                 purchase.materials.map((material, index) => (
-                                  <div key={index} className="product-item">
+                                  <div key={index} className="product-item" style={{ marginBottom: '8px' }}>
                                     <span className="product-name">{material.nom}</span>
                                     <small className="text-muted">
                                       x{material.quantite} - {formatPrice(material.prixUnitaire)}
@@ -552,8 +611,8 @@ const Achats: React.FC = () => {
                                   </div>
                                 ))
                               )}
-                            </div>
-                          </td>
+                             </div>
+                           </td>
                           <td>
                             <span className="purchase-total">
                               {formatPrice(purchase.type === 'product' ? purchase.total : purchase.totalAchat)}
