@@ -798,6 +798,57 @@ export class ImageService {
 // Service pour les achats
 export class AchatService {
   private static collection = 'Achats';
+  private static storageFolder = 'Achats';
+
+  // Fonction pour uploader une image dans Firebase Storage
+  static async uploadMaterialImage(file: File, achatId: string, materialIndex: number): Promise<string> {
+    try {
+      console.log('📤 Upload de l\'image du matériel...');
+      
+      // Créer un nom de fichier unique
+      const timestamp = Date.now();
+      const fileName = `achat_${achatId}_material_${materialIndex}_${timestamp}.${file.name.split('.').pop()}`;
+      
+      // Référence vers le fichier dans Storage
+      const storageRef = ref(storage, `${this.storageFolder}/${fileName}`);
+      
+      // Upload du fichier
+      const snapshot = await uploadBytes(storageRef, file);
+      console.log('✅ Image uploadée avec succès:', snapshot.metadata.name);
+      
+      // Obtenir l'URL de téléchargement
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log('🔗 URL de téléchargement:', downloadURL);
+      
+      return downloadURL;
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'upload de l\'image:', error);
+      throw error;
+    }
+  }
+
+  // Fonction pour supprimer une image de Firebase Storage
+  static async deleteMaterialImage(imageUrl: string): Promise<void> {
+    try {
+      if (!imageUrl) return;
+      
+      console.log('🗑️ Suppression de l\'image:', imageUrl);
+      
+      // Extraire le nom du fichier de l'URL
+      const fileName = imageUrl.split('/').pop()?.split('?')[0];
+      if (!fileName) return;
+      
+      // Référence vers le fichier dans Storage
+      const storageRef = ref(storage, `${this.storageFolder}/${fileName}`);
+      
+      // Supprimer le fichier
+      await deleteObject(storageRef);
+      console.log('✅ Image supprimée avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de l\'image:', error);
+      // Ne pas faire échouer la suppression de l'achat si l'image ne peut pas être supprimée
+    }
+  }
 
   // Fonction pour s'assurer que la collection existe
   static async ensureCollectionExists(): Promise<void> {
@@ -844,18 +895,51 @@ export class AchatService {
       // S'assurer que la collection existe
       await this.ensureCollectionExists();
       
-      // Ajouter les timestamps
-      const dataWithTimestamps = {
+      // Créer d'abord le document pour obtenir un ID
+      const tempData = {
         ...achatData,
+        materials: achatData.materials.map((material: any) => ({
+          ...material,
+          image: '' // Temporairement vide
+        })),
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       };
       
-      console.log('📝 Données à sauvegarder:', dataWithTimestamps);
+      const docRef = await addDoc(collection(db, this.collection), tempData);
+      console.log('📄 Document temporaire créé avec ID:', docRef.id);
       
-      // Ajouter le document à la collection
-      const docRef = await addDoc(collection(db, this.collection), dataWithTimestamps);
+      // Uploader les images et mettre à jour les URLs
+      const materialsWithImages = await Promise.all(
+        achatData.materials.map(async (material: any, index: number) => {
+          if (material.imageFile && material.imageFile instanceof File) {
+            try {
+              const imageUrl = await this.uploadMaterialImage(material.imageFile, docRef.id, index);
+              return {
+                ...material,
+                image: imageUrl
+              };
+            } catch (error) {
+              console.error(`❌ Erreur upload image matériel ${index}:`, error);
+              return {
+                ...material,
+                image: '' // Garder vide si l'upload échoue
+              };
+            }
+          }
+          return material;
+        })
+      );
       
+      // Mettre à jour le document avec les URLs des images
+      const finalData = {
+        ...achatData,
+        materials: materialsWithImages,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+      
+      await updateDoc(docRef, finalData);
       console.log('✅ Achat créé avec succès ! ID:', docRef.id);
       return docRef.id;
       
@@ -919,9 +1003,47 @@ export class AchatService {
     try {
       console.log('🚀 Mise à jour de l\'achat:', id);
       
+      // Récupérer l'achat existant pour comparer les images
+      const existingAchat = await this.getAchatById(id);
+      if (!existingAchat) {
+        throw new Error('Achat non trouvé');
+      }
+      
+      // Traiter les images des matériels
+      const materialsWithImages = await Promise.all(
+        updateData.materials.map(async (material: any, index: number) => {
+          // Si c'est un nouveau fichier, l'uploader
+          if (material.imageFile && material.imageFile instanceof File) {
+            try {
+              // Supprimer l'ancienne image si elle existe
+              const existingMaterial = existingAchat.materials[index];
+              if (existingMaterial && existingMaterial.image) {
+                await this.deleteMaterialImage(existingMaterial.image);
+              }
+              
+              // Uploader la nouvelle image
+              const imageUrl = await this.uploadMaterialImage(material.imageFile, id, index);
+              return {
+                ...material,
+                image: imageUrl
+              };
+            } catch (error) {
+              console.error(`❌ Erreur upload image matériel ${index}:`, error);
+              return {
+                ...material,
+                image: material.image || '' // Garder l'ancienne URL si l'upload échoue
+              };
+            }
+          }
+          // Si pas de nouveau fichier, garder l'image existante
+          return material;
+        })
+      );
+      
       const docRef = doc(db, this.collection, id);
       const dataWithTimestamp = {
         ...updateData,
+        materials: materialsWithImages,
         updatedAt: Timestamp.now()
       };
       
@@ -938,6 +1060,19 @@ export class AchatService {
   static async deleteAchat(id: string): Promise<void> {
     try {
       console.log('🚀 Suppression de l\'achat:', id);
+      
+      // Récupérer l'achat pour supprimer les images
+      const achat = await this.getAchatById(id);
+      if (achat && achat.materials) {
+        // Supprimer toutes les images des matériels
+        await Promise.all(
+          achat.materials.map(async (material: any) => {
+            if (material.image) {
+              await this.deleteMaterialImage(material.image);
+            }
+          })
+        );
+      }
       
       const docRef = doc(db, this.collection, id);
       await deleteDoc(docRef);

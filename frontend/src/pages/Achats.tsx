@@ -27,6 +27,7 @@ interface Fournisseur {
 
 interface Achat {
   id: string;
+  referenceAchat: string;
   fournisseur: Fournisseur;
   materials: MaterialAchat[];
   dateAchat: Date;
@@ -35,25 +36,8 @@ interface Achat {
   updatedAt?: any;
 }
 
-interface Purchase {
-  id: string;
-  supplier: string;
-  products: {
-    productId: string;
-    productName: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-  }[];
-  total: number;
-  status: 'pending' | 'ordered' | 'received' | 'cancelled';
-  orderDate: Date;
-  expectedDate: Date;
-  receivedDate?: Date;
-}
 
 const Achats: React.FC = () => {
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [achats, setAchats] = useState<Achat[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +73,7 @@ const Achats: React.FC = () => {
         // Convertir les données Firebase en format compatible
         const formattedAchats: Achat[] = achatsData.map(achat => ({
           id: achat.id,
+          referenceAchat: achat.referenceAchat || `SUB-ACH-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
           fournisseur: achat.fournisseur,
           materials: achat.materials,
           dateAchat: achat.dateAchat?.toDate ? achat.dateAchat.toDate() : new Date(achat.dateAchat),
@@ -99,24 +84,6 @@ const Achats: React.FC = () => {
         
         setAchats(formattedAchats);
         console.log('✅ Achats formatés:', formattedAchats.length);
-        
-        // Données de démonstration pour les anciens achats (à supprimer plus tard)
-        const mockPurchases: Purchase[] = [
-          {
-            id: 'PUR-001',
-            supplier: 'Fournisseur A',
-            products: [
-              { productId: 'prod1', productName: 'T-shirt Blanc', quantity: 100, unitPrice: 25, totalPrice: 2500 },
-              { productId: 'prod2', productName: 'Mug Céramique', quantity: 50, unitPrice: 15, totalPrice: 750 }
-            ],
-            total: 3250,
-            status: 'received',
-            orderDate: new Date('2024-01-10'),
-            expectedDate: new Date('2024-01-15'),
-            receivedDate: new Date('2024-01-14')
-          }
-        ];
-        setPurchases(mockPurchases);
         
         setLoading(false);
         console.log('🎉 Chargement terminé');
@@ -131,17 +98,6 @@ const Achats: React.FC = () => {
     loadData();
   }, []);
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { variant: 'warning', text: 'En attente' },
-      ordered: { variant: 'info', text: 'Commandé' },
-      received: { variant: 'success', text: 'Reçu' },
-      cancelled: { variant: 'danger', text: 'Annulé' }
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    return <Badge bg={config.variant}>{config.text}</Badge>;
-  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-MA', {
@@ -158,40 +114,21 @@ const Achats: React.FC = () => {
     }).format(date);
   };
 
-  // Combiner les achats de matériel et les achats de produits
-  const allPurchases = [
-    ...purchases.map(p => ({ ...p, type: 'product' as const })),
-    ...achats.map(a => ({ ...a, type: 'material' as const }))
-  ];
-
-  const filteredPurchases = allPurchases.filter(purchase => {
-    if (purchase.type === 'product') {
-      const matchesSearch = purchase.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           purchase.supplier.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = !statusFilter || purchase.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    } else {
-      // Pour les achats de matériel
-      const matchesSearch = purchase.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           purchase.fournisseur.nom.toLowerCase().includes(searchTerm.toLowerCase());
-      // Les achats de matériel sont toujours "received" (reçus)
-      const matchesStatus = !statusFilter || statusFilter === 'received';
-      return matchesSearch && matchesStatus;
-    }
+  // Filtrer seulement les achats de matériel
+  const filteredPurchases = achats.filter(achat => {
+    const matchesSearch = achat.referenceAchat.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         achat.fournisseur.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         achat.materials.some(m => m.nom.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesSearch;
   });
 
   const getTotalPurchases = () => {
-    const productTotal = purchases.reduce((total, purchase) => total + purchase.total, 0);
-    const materialTotal = achats.reduce((total, achat) => total + achat.totalAchat, 0);
-    return productTotal + materialTotal;
+    return achats.reduce((total, achat) => total + achat.totalAchat, 0);
   };
 
   const getPurchasesByStatus = (status: string) => {
-    if (status === 'received') {
-      // Inclure les achats de matériel qui sont toujours "received"
-      return purchases.filter(purchase => purchase.status === status).length + achats.length;
-    }
-    return purchases.filter(purchase => purchase.status === status).length;
+    // Tous les achats de matériel sont considérés comme "received"
+    return status === 'received' ? achats.length : 0;
   };
 
   const handleAddPurchase = () => {
@@ -219,6 +156,7 @@ const Achats: React.FC = () => {
       
       const formattedAchats: Achat[] = achatsData.map(achat => ({
         id: achat.id,
+        referenceAchat: achat.referenceAchat || `SUB-ACH-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         fournisseur: achat.fournisseur,
         materials: achat.materials,
         dateAchat: achat.dateAchat?.toDate ? achat.dateAchat.toDate() : new Date(achat.dateAchat),
@@ -235,80 +173,39 @@ const Achats: React.FC = () => {
   };
 
   const handlePreviewAchat = (purchase: any) => {
-    if (purchase.type === 'material') {
-      setSelectedAchat(purchase);
-      setShowPreviewModal(true);
-    } else {
-      // Logique pour l'aperçu des achats de produits
-      console.log('Aperçu achat produit:', purchase);
-    }
+    setSelectedAchat(purchase);
+    setShowPreviewModal(true);
   };
 
   const handleEditAchat = (purchase: any) => {
-    if (purchase.type === 'material') {
-      setSelectedAchat(purchase);
-      setIsEditMode(true);
-      setShowAddMaterialModal(true);
-    } else {
-      // Logique pour l'édition des achats de produits
-      console.log('Édition achat produit:', purchase);
-    }
+    setSelectedAchat(purchase);
+    setIsEditMode(true);
+    setShowAddMaterialModal(true);
   };
 
   const handleDeleteAchat = async (purchase: any) => {
-    if (purchase.type === 'material') {
-      const materialNames = purchase.materials.map((m: any) => m.nom).join(', ');
-      const confirmed = window.confirm(
-        `Êtes-vous sûr de vouloir supprimer cet achat de matériel ?\n\n` +
-        `Matériel(s): ${materialNames}\n` +
-        `Fournisseur: ${purchase.fournisseur.nom}\n` +
-        `Total: ${formatPrice(purchase.totalAchat)}\n\n` +
-        `Cette action est irréversible et supprimera définitivement l'achat de Firebase.`
-      );
-      
-      if (!confirmed) {
-        return;
-      }
+    const materialNames = purchase.materials.map((m: any) => m.nom).join(', ');
+    const confirmed = window.confirm(
+      `Êtes-vous sûr de vouloir supprimer cet achat de matériel ?\n\n` +
+      `Matériel(s): ${materialNames}\n` +
+      `Fournisseur: ${purchase.fournisseur.nom}\n` +
+      `Total: ${formatPrice(purchase.totalAchat)}\n\n` +
+      `Cette action est irréversible et supprimera définitivement l'achat de Firebase.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
 
-      try {
-        console.log('🗑️ Suppression de l\'achat:', purchase.id);
-        await AchatService.deleteAchat(purchase.id);
-        setAlert({ type: 'success', message: `Achat de matériel "${materialNames}" supprimé avec succès` });
-        refreshAchats();
-        console.log('✅ Achat supprimé avec succès');
-      } catch (error) {
-        console.error('❌ Erreur lors de la suppression:', error);
-        setAlert({ type: 'danger', message: 'Erreur lors de la suppression de l\'achat de Firebase' });
-      }
-    } else {
-      // Logique pour la suppression des achats de produits
-      const productNames = purchase.products.map((p: any) => p.productName).join(', ');
-      const confirmed = window.confirm(
-        `Êtes-vous sûr de vouloir supprimer cet achat de produit ?\n\n` +
-        `Produit(s): ${productNames}\n` +
-        `Fournisseur: ${purchase.supplier}\n` +
-        `Total: ${formatPrice(purchase.total)}\n\n` +
-        `Cette action est irréversible.`
-      );
-      
-      if (!confirmed) {
-        return;
-      }
-
-      try {
-        console.log('🗑️ Suppression de l\'achat de produit:', purchase.id);
-        
-        // Supprimer de la liste locale (puisque c'est des données de démonstration)
-        setPurchases(prevPurchases => 
-          prevPurchases.filter(p => p.id !== purchase.id)
-        );
-        
-        setAlert({ type: 'success', message: `Achat de produit "${productNames}" supprimé avec succès` });
-        console.log('✅ Achat de produit supprimé avec succès');
-      } catch (error) {
-        console.error('❌ Erreur lors de la suppression:', error);
-        setAlert({ type: 'danger', message: 'Erreur lors de la suppression de l\'achat' });
-      }
+    try {
+      console.log('🗑️ Suppression de l\'achat:', purchase.id);
+      await AchatService.deleteAchat(purchase.id);
+      setAlert({ type: 'success', message: `Achat de matériel "${materialNames}" supprimé avec succès` });
+      refreshAchats();
+      console.log('✅ Achat supprimé avec succès');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+      setAlert({ type: 'danger', message: 'Erreur lors de la suppression de l\'achat de Firebase' });
     }
   };
 
@@ -360,7 +257,7 @@ const Achats: React.FC = () => {
                 <div className="stat-icon">
                   <i className="bi bi-cart-dash"></i>
                 </div>
-                <h3 className="stat-number">{purchases.length}</h3>
+                <h3 className="stat-number">{achats.length}</h3>
                 <p className="stat-label">Total Achats</p>
               </Card.Body>
             </Card>
@@ -491,9 +388,7 @@ const Achats: React.FC = () => {
                   <Table hover className="mb-0">
                      <thead className="table-header">
                        <tr>
-                         <th>ID Achat / Matériel</th>
-                         <th>Fournisseur</th>
-                         <th>Image du Matériel</th>
+                         <th>Référence Achat / Matériel</th>
                          <th>Produits / Matériels</th>
                          <th>Total</th>
                          <th>Statut</th>
@@ -506,101 +401,56 @@ const Achats: React.FC = () => {
                       {filteredPurchases.map((purchase) => (
                         <tr key={purchase.id}>
                           <td>
-                            {purchase.type === 'product' ? (
-                              <strong>{purchase.id}</strong>
-                            ) : (
-                              <div>
-                                <strong>{purchase.materials[0]?.nom || 'Matériel'}</strong>
-                                <Badge bg="info" className="ms-2">Matériel</Badge>
-                                <br />
-                                <small className="text-muted">ID: {purchase.id}</small>
-                              </div>
-                            )}
+                            <div>
+                              <strong className="text-primary">{purchase.referenceAchat}</strong>
+                              <br />
+                              <Badge bg="info" className="mt-1">Matériel</Badge>
+                              <br />
+                              <small className="text-muted">{purchase.materials[0]?.nom || 'Matériel'}</small>
+                            </div>
                           </td>
                            <td>
-                             <div className="supplier-info">
-                               <div className="supplier-name">
-                                 {purchase.type === 'product' ? purchase.supplier : purchase.fournisseur.nom}
-                               </div>
-                               {purchase.type === 'material' && purchase.fournisseur.ville && (
-                                 <small className="text-muted">{purchase.fournisseur.ville}</small>
-                               )}
-                             </div>
-                           </td>
-                           <td>
-                             <div className="material-images">
-                               {purchase.type === 'material' ? (
-                                 <div>
-                                   {purchase.materials.map((material, index) => (
-                                     <div key={index} style={{ marginBottom: '8px' }}>
-                                       {material.image ? (
-                                         <img 
-                                           src={material.image} 
-                                           alt={material.nom}
-                                           style={{ 
-                                             width: '40px', 
-                                             height: '40px', 
-                                             objectFit: 'cover',
-                                             borderRadius: '4px',
-                                             border: '1px solid #dee2e6'
-                                           }}
-                                           title={material.nom}
-                                         />
-                                       ) : (
-                                         <div 
-                                           style={{ 
-                                             width: '40px', 
-                                             height: '40px', 
-                                             backgroundColor: '#f8f9fa',
-                                             border: '1px solid #dee2e6',
-                                             borderRadius: '4px',
-                                             display: 'flex',
-                                             alignItems: 'center',
-                                             justifyContent: 'center'
-                                           }}
-                                           title={`${material.nom} - Aucune image`}
-                                         >
-                                           <i className="bi bi-image text-muted" style={{ fontSize: '12px' }}></i>
-                                         </div>
-                                       )}
-                                     </div>
-                                   ))}
-                                 </div>
-                               ) : (
-                                 <div 
-                                   style={{ 
-                                     width: '50px', 
-                                     height: '50px', 
-                                     backgroundColor: '#f8f9fa',
-                                     border: '1px solid #dee2e6',
-                                     borderRadius: '4px',
-                                     display: 'flex',
-                                     alignItems: 'center',
-                                     justifyContent: 'center'
-                                   }}
-                                   title="Achat de produit"
-                                 >
-                                   <i className="bi bi-box text-muted"></i>
-                                 </div>
-                               )}
-                             </div>
-                           </td>
-                           <td>
                              <div className="products-info">
-                              {purchase.type === 'product' ? (
-                                purchase.products.map((product, index) => (
-                                  <div key={index} className="product-item">
-                                    <span className="product-name">{product.productName}</span>
-                                    <small className="text-muted">
-                                      x{product.quantity} - {formatPrice(product.unitPrice)}
-                                    </small>
+                              {purchase.materials.map((material, index) => (
+                                <div key={index} className="product-item" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {/* Image du matériel */}
+                                  <div style={{ flexShrink: 0 }}>
+                                    {material.image ? (
+                                      <img 
+                                        src={material.image} 
+                                        alt={material.nom}
+                                        style={{ 
+                                          width: '40px', 
+                                          height: '40px', 
+                                          objectFit: 'cover',
+                                          borderRadius: '4px',
+                                          border: '1px solid #dee2e6'
+                                        }}
+                                        title={material.nom}
+                                      />
+                                    ) : (
+                                      <div 
+                                        style={{ 
+                                          width: '40px', 
+                                          height: '40px', 
+                                          backgroundColor: '#f8f9fa',
+                                          border: '1px solid #dee2e6',
+                                          borderRadius: '4px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                        title={`${material.nom} - Aucune image`}
+                                      >
+                                        <i className="bi bi-image text-muted" style={{ fontSize: '12px' }}></i>
+                                      </div>
+                                    )}
                                   </div>
-                                ))
-                              ) : (
-                                purchase.materials.map((material, index) => (
-                                  <div key={index} className="product-item" style={{ marginBottom: '8px' }}>
+                                  
+                                  {/* Informations du matériel */}
+                                  <div style={{ flex: 1 }}>
                                     <span className="product-name">{material.nom}</span>
-                                    <small className="text-muted">
+                                    <small className="text-muted d-block">
                                       x{material.quantite} - {formatPrice(material.prixUnitaire)}
                                     </small>
                                     {material.referenceSublimaroc && (
@@ -609,47 +459,29 @@ const Achats: React.FC = () => {
                                       </small>
                                     )}
                                   </div>
-                                ))
-                              )}
+                                </div>
+                              ))}
                              </div>
                            </td>
                           <td>
                             <span className="purchase-total">
-                              {formatPrice(purchase.type === 'product' ? purchase.total : purchase.totalAchat)}
+                              {formatPrice(purchase.totalAchat)}
                             </span>
                           </td>
                           <td>
-                            {purchase.type === 'product' ? (
-                              getStatusBadge(purchase.status)
-                            ) : (
-                              <Badge bg="success">Reçu</Badge>
-                            )}
+                            <Badge bg="success">Reçu</Badge>
                           </td>
                           <td>
                             <div className="date-info">
-                              {purchase.type === 'product' ? 
-                                formatDate(purchase.orderDate) : 
-                                formatDate(purchase.dateAchat)
-                              }
+                              {formatDate(purchase.dateAchat)}
                             </div>
                           </td>
                           <td>
                             <div className="date-info">
-                              {purchase.type === 'product' ? (
-                                <>
-                                  <div>{formatDate(purchase.expectedDate)}</div>
-                                  {purchase.receivedDate && (
-                                    <small className="text-success">
-                                      Reçu: {formatDate(purchase.receivedDate)}
-                                    </small>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="text-success">
-                                  <i className="bi bi-check-circle me-1"></i>
-                                  Livré
-                                </div>
-                              )}
+                              <div className="text-success">
+                                <i className="bi bi-check-circle me-1"></i>
+                                Livré
+                              </div>
                             </div>
                           </td>
                           <td>
@@ -787,6 +619,14 @@ const Achats: React.FC = () => {
         <Modal.Body>
           {selectedAchat && (
             <div>
+              <Row className="mb-3">
+                <Col md={12}>
+                  <div className="alert alert-primary">
+                    <h6 className="mb-1"><i className="bi bi-tag-fill me-2"></i>Référence d'Achat</h6>
+                    <h4 className="mb-0 font-monospace">{selectedAchat.referenceAchat}</h4>
+                  </div>
+                </Col>
+              </Row>
               <Row className="mb-3">
                 <Col md={6}>
                   <h6>Informations Fournisseur</h6>

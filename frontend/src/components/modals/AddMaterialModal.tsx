@@ -37,6 +37,7 @@ interface MaterialAchat {
 
 interface Achat {
   id: string;
+  referenceAchat: string;
   fournisseur: Fournisseur;
   materials: MaterialAchat[];
   dateAchat: Date;
@@ -62,6 +63,16 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   initialAchat,
   isEditMode = false
 }) => {
+  // Fonction pour générer la référence d'achat
+  const generateReferenceAchat = useCallback(() => {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = String(now.getFullYear()).slice(-2);
+    const randomNumbers = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+    return `SUB-ACH-${day}${month}${year}-${randomNumbers}`;
+  }, []);
+
   const [materials, setMaterials] = useState<MaterialItem[]>([
     {
       id: '1',
@@ -84,10 +95,15 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     ville: ''
   });
 
+  const [referenceAchat, setReferenceAchat] = useState<string>('');
+
   // Initialiser les données en mode édition
   useEffect(() => {
     if (isEditMode && initialAchat) {
       console.log('🔧 Mode édition activé pour l\'achat:', initialAchat);
+      
+      // Initialiser la référence d'achat
+      setReferenceAchat(initialAchat.referenceAchat || '');
       
       // Initialiser les matériels
       const formattedMaterials: MaterialItem[] = initialAchat.materials.map((material, index) => ({
@@ -112,8 +128,11 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         email: initialAchat.fournisseur.email,
         ville: initialAchat.fournisseur.ville
       });
+    } else if (!isEditMode && show) {
+      // Générer une nouvelle référence pour un nouvel achat
+      setReferenceAchat(generateReferenceAchat());
     }
-  }, [isEditMode, initialAchat]);
+  }, [isEditMode, initialAchat, show, generateReferenceAchat]);
 
   // Réinitialiser les états quand la modale se ferme
   useEffect(() => {
@@ -138,6 +157,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         email: '',
         ville: ''
       });
+      setReferenceAchat('');
     }
   }, [show]);
 
@@ -279,6 +299,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
 
       // Préparer les données pour Firebase
       const achatData = {
+        referenceAchat: referenceAchat,
         fournisseur: {
           nom: fournisseur.nom.trim(),
           telephone: fournisseur.telephone.trim(),
@@ -288,7 +309,8 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         materials: validMaterials.map(material => ({
           nom: material.nom.trim(),
           description: material.description.trim(),
-          image: material.image,
+          image: material.image, // URL temporaire pour l'aperçu
+          imageFile: material.imageFile, // Fichier à uploader
           referenceSublimaroc: material.referenceSublimaroc.trim(),
           referenceFournisseur: material.referenceFournisseur.trim(),
           prixUnitaire: material.prixUnitaire,
@@ -321,7 +343,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'enregistrement de l\'achat';
       onAlert('danger', errorMessage);
     }
-  }, [materials, fournisseur, onAlert, onMaterialAdded, onHide]);
+  }, [materials, fournisseur, onAlert, onMaterialAdded, onHide, referenceAchat, isEditMode, initialAchat]);
 
   return (
     <Modal 
@@ -337,6 +359,23 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         </Modal.Header>
       <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto' }}>
         <Form>
+          {/* Référence d'Achat */}
+          {referenceAchat && (
+            <div className="mb-4">
+              <Card className="bg-primary text-white">
+                <Card.Body className="py-3">
+                  <div className="d-flex align-items-center">
+                    <i className="bi bi-tag-fill me-2" style={{ fontSize: '1.2rem' }}></i>
+                    <div>
+                      <h6 className="mb-1">Référence d'Achat</h6>
+                      <h4 className="mb-0 font-monospace">{referenceAchat}</h4>
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </div>
+          )}
+
           {/* Section 1: Informations Matériel */}
           <div className="mb-4">
             <h5 className="text-primary mb-3">
