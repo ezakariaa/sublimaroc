@@ -961,10 +961,8 @@ export class AchatService {
           ville: tempData.fournisseur.ville || ''
         },
         materials: tempData.materials.map((material: any) => ({
-          id: material.id || '',
           nom: material.nom || '',
           description: material.description || '',
-          referenceSublimaroc: material.referenceSublimaroc || '',
           referenceFournisseur: material.referenceFournisseur || '',
           prixUnitaire: Number(material.prixUnitaire) || 0,
           quantite: Number(material.quantite) || 0,
@@ -1024,24 +1022,31 @@ export class AchatService {
       // Mettre à jour le document avec les URLs des images
       console.log('💾 Mise à jour du document Firestore...');
       
-      // Nettoyer les données finales en supprimant les objets File
+      // Nettoyer les données finales en supprimant les objets File et les valeurs undefined
       const finalData = {
-        referenceAchat: achatData.referenceAchat,
-        fournisseur: achatData.fournisseur,
+        referenceAchat: achatData.referenceAchat || '',
+        fournisseur: {
+          nom: achatData.fournisseur?.nom || '',
+          telephone: achatData.fournisseur?.telephone || '',
+          email: achatData.fournisseur?.email || '',
+          ville: achatData.fournisseur?.ville || ''
+        },
         materials: materialsWithImages.map((material: any) => ({
-          id: material.id,
-          nom: material.nom,
-          description: material.description,
-          referenceSublimaroc: material.referenceSublimaroc,
-          referenceFournisseur: material.referenceFournisseur,
-          prixUnitaire: Number(material.prixUnitaire),
-          quantite: Number(material.quantite),
-          prixPaye: Number(material.prixPaye),
-          image: material.image
+          nom: material.nom || '',
+          description: material.description || '',
+          referenceFournisseur: material.referenceFournisseur || '',
+          prixUnitaire: Number(material.prixUnitaire) || 0,
+          quantite: Number(material.quantite) || 1,
+          prixPaye: Number(material.prixPaye) || 0,
+          image: material.image || ''
           // imageFile est supprimé car c'est un objet File non supporté par Firestore
+          // id est supprimé car il n'est pas nécessaire dans Firestore
         })),
-        dateAchat: achatData.dateAchat,
-        totalAchat: Number(achatData.totalAchat),
+        dateAchat: achatData.dateAchat || new Date(),
+        dateCommande: (achatData.dateCommande && !isNaN(new Date(achatData.dateCommande).getTime())) ? achatData.dateCommande : new Date(),
+        dateLivraison: (achatData.dateLivraison && !isNaN(new Date(achatData.dateLivraison).getTime())) ? achatData.dateLivraison : new Date(),
+        etat: achatData.etat || 'En cours',
+        totalAchat: Number(achatData.totalAchat) || 0,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       };
@@ -1179,28 +1184,37 @@ export class AchatService {
       console.log('💾 Mise à jour du document Firestore...');
       const docRef = doc(db, this.collection, id);
       
-      // Nettoyer les données en supprimant les objets File
+      // Nettoyer les données en supprimant les objets File et les valeurs undefined
       const dataWithTimestamp = {
-        referenceAchat: updateData.referenceAchat,
-        fournisseur: updateData.fournisseur,
+        referenceAchat: updateData.referenceAchat || '',
+        fournisseur: {
+          nom: updateData.fournisseur?.nom || '',
+          telephone: updateData.fournisseur?.telephone || '',
+          email: updateData.fournisseur?.email || '',
+          ville: updateData.fournisseur?.ville || ''
+        },
         materials: materialsWithImages.map((material: any) => ({
-          id: material.id,
-          nom: material.nom,
-          description: material.description,
-          referenceSublimaroc: material.referenceSublimaroc,
-          referenceFournisseur: material.referenceFournisseur,
-          prixUnitaire: Number(material.prixUnitaire),
-          quantite: Number(material.quantite),
-          prixPaye: Number(material.prixPaye),
-          image: material.image
+          nom: material.nom || '',
+          description: material.description || '',
+          referenceFournisseur: material.referenceFournisseur || '',
+          prixUnitaire: Number(material.prixUnitaire) || 0,
+          quantite: Number(material.quantite) || 1,
+          prixPaye: Number(material.prixPaye) || 0,
+          image: material.image || ''
           // imageFile est supprimé car c'est un objet File non supporté par Firestore
+          // id est supprimé car il n'est pas nécessaire dans Firestore
         })),
-        dateAchat: updateData.dateAchat,
-        totalAchat: Number(updateData.totalAchat),
+        dateAchat: updateData.dateAchat || new Date(),
+        dateCommande: (updateData.dateCommande && !isNaN(new Date(updateData.dateCommande).getTime())) ? updateData.dateCommande : new Date(),
+        dateLivraison: (updateData.dateLivraison && !isNaN(new Date(updateData.dateLivraison).getTime())) ? updateData.dateLivraison : new Date(),
+        etat: updateData.etat || 'En cours',
+        totalAchat: Number(updateData.totalAchat) || 0,
         updatedAt: Timestamp.now()
       };
       
       console.log('📝 Données à mettre à jour:', dataWithTimestamp);
+      console.log('🔍 État à sauvegarder:', updateData.etat);
+      console.log('🔍 État dans dataWithTimestamp:', dataWithTimestamp.etat);
       await updateDoc(docRef, dataWithTimestamp);
       console.log('✅ Achat mis à jour avec succès !');
       console.log('🎉 Fonction updateAchat terminée avec succès');

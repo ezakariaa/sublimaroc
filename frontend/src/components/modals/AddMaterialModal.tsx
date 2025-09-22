@@ -10,7 +10,6 @@ interface MaterialItem {
   description: string;
   image: string;
   imageFile: File | null;
-  referenceSublimaroc: string;
   referenceFournisseur: string;
   prixUnitaire: number;
   quantite: number;
@@ -28,7 +27,6 @@ interface MaterialAchat {
   nom: string;
   description: string;
   image: string;
-  referenceSublimaroc: string;
   referenceFournisseur: string;
   prixUnitaire: number;
   quantite: number;
@@ -41,6 +39,9 @@ interface Achat {
   fournisseur: Fournisseur;
   materials: MaterialAchat[];
   dateAchat: Date;
+  dateCommande: Date;
+  dateLivraison: Date;
+  etat: 'Reçue' | 'En cours';
   totalAchat: number;
   createdAt: any;
   updatedAt?: any;
@@ -80,7 +81,6 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       description: '',
       image: '',
       imageFile: null,
-      referenceSublimaroc: '',
       referenceFournisseur: '',
       prixUnitaire: 0,
       quantite: 1,
@@ -96,6 +96,10 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   });
 
   const [referenceAchat, setReferenceAchat] = useState<string>('');
+  const [dateCommande, setDateCommande] = useState<Date>(new Date());
+  const [dateLivraison, setDateLivraison] = useState<Date>(new Date());
+  const [etat, setEtat] = useState<'Reçue' | 'En cours'>('En cours');
+  const [currentEtat, setCurrentEtat] = useState<'Reçue' | 'En cours'>('En cours');
 
   // Initialiser les données en mode édition
   useEffect(() => {
@@ -105,6 +109,15 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       // Initialiser la référence d'achat
       setReferenceAchat(initialAchat.referenceAchat || '');
       
+      // Initialiser les dates et l'état avec validation
+      const commandeDate = initialAchat.dateCommande ? new Date(initialAchat.dateCommande) : new Date();
+      const livraisonDate = initialAchat.dateLivraison ? new Date(initialAchat.dateLivraison) : new Date();
+      
+      setDateCommande(isNaN(commandeDate.getTime()) ? new Date() : commandeDate);
+      setDateLivraison(isNaN(livraisonDate.getTime()) ? new Date() : livraisonDate);
+      setEtat(initialAchat.etat || 'En cours');
+      setCurrentEtat(initialAchat.etat || 'En cours');
+      
       // Initialiser les matériels
       const formattedMaterials: MaterialItem[] = initialAchat.materials.map((material, index) => ({
         id: (index + 1).toString(),
@@ -112,7 +125,6 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         description: material.description,
         image: material.image,
         imageFile: null,
-        referenceSublimaroc: material.referenceSublimaroc,
         referenceFournisseur: material.referenceFournisseur,
         prixUnitaire: material.prixUnitaire,
         quantite: material.quantite,
@@ -134,9 +146,9 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     }
   }, [isEditMode, initialAchat, show, generateReferenceAchat]);
 
-  // Réinitialiser les états quand la modale se ferme
+  // Réinitialiser les états quand la modale se ferme (seulement si pas en mode édition)
   useEffect(() => {
-    if (!show) {
+    if (!show && !isEditMode) {
       setMaterials([
         {
           id: '1',
@@ -144,7 +156,6 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           description: '',
           image: '',
           imageFile: null,
-          referenceSublimaroc: '',
           referenceFournisseur: '',
           prixUnitaire: 0,
           quantite: 1,
@@ -158,8 +169,12 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         ville: ''
       });
       setReferenceAchat('');
+      setDateCommande(new Date());
+      setDateLivraison(new Date());
+      setEtat('En cours');
+      setCurrentEtat('En cours');
     }
-  }, [show]);
+  }, [show, isEditMode]);
 
   // Calculer automatiquement le prix payé
   const calculatePrixPaye = useCallback((prixUnitaire: number, quantite: number) => {
@@ -195,7 +210,6 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       description: '',
       image: '',
       imageFile: null,
-      referenceSublimaroc: '',
       referenceFournisseur: '',
       prixUnitaire: 0,
       quantite: 1,
@@ -311,18 +325,23 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           description: material.description.trim(),
           image: material.image, // URL temporaire pour l'aperçu
           imageFile: material.imageFile, // Fichier à uploader
-          referenceSublimaroc: material.referenceSublimaroc.trim(),
           referenceFournisseur: material.referenceFournisseur.trim(),
           prixUnitaire: material.prixUnitaire,
           quantite: material.quantite,
           prixPaye: material.prixPaye
         })),
         dateAchat: new Date(),
+        dateCommande: isNaN(dateCommande.getTime()) ? new Date() : dateCommande,
+        dateLivraison: isNaN(dateLivraison.getTime()) ? new Date() : dateLivraison,
+        etat: currentEtat, // Utiliser la valeur actuelle de l'état
         totalAchat: validMaterials.reduce((sum, material) => sum + material.prixPaye, 0),
         createdAt: Timestamp.now()
       };
 
       console.log('Données à sauvegarder:', achatData);
+      console.log('🔍 État actuel avant sauvegarde:', etat);
+      console.log('🔍 CurrentEtat avant sauvegarde:', currentEtat);
+      console.log('🔍 État dans achatData:', achatData.etat);
 
       if (isEditMode && initialAchat) {
         // Mode édition : mettre à jour l'achat existant
@@ -430,72 +449,6 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                           placeholder="Description du matériel..."
                         />
                       </Form.Group>
-
-                      <Row>
-                        <Col md={6}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>Référence Sublimaroc</Form.Label>
-                            <Form.Control
-                              type="text"
-                              value={material.referenceSublimaroc}
-                              onChange={(e) => updateMaterial(material.id, 'referenceSublimaroc', e.target.value)}
-                              placeholder="REF-SUB-001"
-                            />
-                          </Form.Group>
-                        </Col>
-                        <Col md={6}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>Référence Fournisseur</Form.Label>
-                            <Form.Control
-                              type="text"
-                              value={material.referenceFournisseur}
-                              onChange={(e) => updateMaterial(material.id, 'referenceFournisseur', e.target.value)}
-                              placeholder="REF-FOUR-001"
-                            />
-                          </Form.Group>
-                        </Col>
-                      </Row>
-
-                      <Row>
-                        <Col md={4}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>Prix Unitaire (DH) *</Form.Label>
-                            <Form.Control
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={material.prixUnitaire}
-                              onChange={(e) => updateMaterial(material.id, 'prixUnitaire', parseFloat(e.target.value) || 0)}
-                              placeholder="0.00"
-                              required
-                            />
-                          </Form.Group>
-                        </Col>
-                        <Col md={4}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>Quantité *</Form.Label>
-                            <Form.Control
-                              type="number"
-                              min="1"
-                              value={material.quantite}
-                              onChange={(e) => updateMaterial(material.id, 'quantite', parseInt(e.target.value) || 1)}
-                              placeholder="1"
-                              required
-                            />
-                          </Form.Group>
-                        </Col>
-                        <Col md={4}>
-                          <Form.Group className="mb-3">
-                            <Form.Label>Prix Payé (DH)</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={material.prixPaye}
-                              readOnly
-                              className="bg-light"
-                            />
-                          </Form.Group>
-                        </Col>
-                      </Row>
                     </Col>
                     
                     <Col md={6}>
@@ -568,6 +521,59 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                       </Form.Group>
                     </Col>
                   </Row>
+                  
+                  {/* 2ème ligne : 4 colonnes sur toute la largeur */}
+                  <Row>
+                    <Col md={3}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Référence Fournisseur</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={material.referenceFournisseur}
+                          onChange={(e) => updateMaterial(material.id, 'referenceFournisseur', e.target.value)}
+                          placeholder="REF-FOUR-001"
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={3}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Prix Unitaire (DH) *</Form.Label>
+                        <Form.Control
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={material.prixUnitaire}
+                          onChange={(e) => updateMaterial(material.id, 'prixUnitaire', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={3}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Quantité *</Form.Label>
+                        <Form.Control
+                          type="number"
+                          min="1"
+                          value={material.quantite}
+                          onChange={(e) => updateMaterial(material.id, 'quantite', parseInt(e.target.value) || 1)}
+                          placeholder="1"
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={3}>
+                      <Form.Group className="mb-3">
+                        <Form.Label>Prix Payé (DH)</Form.Label>
+                        <Form.Control
+                          type="number"
+                          value={material.prixPaye}
+                          readOnly
+                          className="bg-light"
+                        />
+                      </Form.Group>
+                    </Col>
+                  </Row>
                 </Card.Body>
               </Card>
             ))}
@@ -634,6 +640,73 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                     onChange={(e) => setFournisseur(prev => ({ ...prev, ville: e.target.value }))}
                     placeholder="Ex: Casablanca"
                   />
+                </Form.Group>
+              </Col>
+            </Row>
+          </div>
+
+          {/* Section 3: Dates */}
+          <div className="mb-4">
+            <h5 className="text-primary mb-3">
+              <i className="bi bi-calendar-event me-2"></i>
+              Section 3: Dates et État
+            </h5>
+            
+            <Row>
+              <Col md={3}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date de Commande *</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={dateCommande && !isNaN(dateCommande.getTime()) ? dateCommande.toISOString().split('T')[0] : ''}
+                    onChange={(e) => setDateCommande(new Date(e.target.value))}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              
+              <Col md={3}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date de Livraison *</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={dateLivraison && !isNaN(dateLivraison.getTime()) ? dateLivraison.toISOString().split('T')[0] : ''}
+                    onChange={(e) => setDateLivraison(new Date(e.target.value))}
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              
+              <Col md={3}>
+                <Form.Group className="mb-3">
+                  <Form.Label>État *</Form.Label>
+                  <Form.Select
+                    value={etat}
+                    onChange={(e) => {
+                      console.log('🔄 Changement d\'état:', e.target.value);
+                      setEtat(e.target.value as 'Reçue' | 'En cours');
+                      setCurrentEtat(e.target.value as 'Reçue' | 'En cours');
+                    }}
+                    required
+                  >
+                    <option value="En cours">En cours</option>
+                    <option value="Reçue">Reçue</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+              
+              <Col md={3}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Date d'Achat</Form.Label>
+                  <Form.Control
+                    type="date"
+                    value={new Date().toISOString().split('T')[0]}
+                    readOnly
+                    className="bg-light"
+                  />
+                  <Form.Text className="text-muted">
+                    Générée automatiquement
+                  </Form.Text>
                 </Form.Group>
               </Col>
             </Row>

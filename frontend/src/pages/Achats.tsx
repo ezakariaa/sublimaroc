@@ -11,7 +11,6 @@ interface MaterialAchat {
   nom: string;
   description: string;
   image: string;
-  referenceSublimaroc: string;
   referenceFournisseur: string;
   prixUnitaire: number;
   quantite: number;
@@ -31,6 +30,9 @@ interface Achat {
   fournisseur: Fournisseur;
   materials: MaterialAchat[];
   dateAchat: Date;
+  dateCommande: Date;
+  dateLivraison: Date;
+  etat: 'Reçue' | 'En cours';
   totalAchat: number;
   createdAt: any;
   updatedAt?: any;
@@ -77,6 +79,9 @@ const Achats: React.FC = () => {
           fournisseur: achat.fournisseur,
           materials: achat.materials,
           dateAchat: achat.dateAchat?.toDate ? achat.dateAchat.toDate() : new Date(achat.dateAchat),
+          dateCommande: achat.dateCommande?.toDate ? achat.dateCommande.toDate() : new Date(achat.dateCommande || new Date()),
+          dateLivraison: achat.dateLivraison?.toDate ? achat.dateLivraison.toDate() : new Date(achat.dateLivraison || new Date()),
+          etat: achat.etat || 'En cours',
           totalAchat: achat.totalAchat,
           createdAt: achat.createdAt,
           updatedAt: achat.updatedAt
@@ -119,7 +124,11 @@ const Achats: React.FC = () => {
     const matchesSearch = achat.referenceAchat.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          achat.fournisseur.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          achat.materials.some(m => m.nom.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesSearch;
+    
+    // Appliquer le filtre de statut
+    const matchesStatus = !statusFilter || achat.etat === statusFilter;
+    
+    return matchesSearch && matchesStatus;
   });
 
   const getTotalPurchases = () => {
@@ -160,11 +169,15 @@ const Achats: React.FC = () => {
         fournisseur: achat.fournisseur,
         materials: achat.materials,
         dateAchat: achat.dateAchat?.toDate ? achat.dateAchat.toDate() : new Date(achat.dateAchat),
+        dateCommande: achat.dateCommande?.toDate ? achat.dateCommande.toDate() : new Date(achat.dateCommande || new Date()),
+        dateLivraison: achat.dateLivraison?.toDate ? achat.dateLivraison.toDate() : new Date(achat.dateLivraison || new Date()),
+        etat: achat.etat || 'En cours',
         totalAchat: achat.totalAchat,
         createdAt: achat.createdAt,
         updatedAt: achat.updatedAt
       }));
       
+      console.log('🔍 Achats chargés avec leurs états:', formattedAchats.map(a => ({ id: a.id, etat: a.etat })));
       setAchats(formattedAchats);
       console.log('✅ Achats rafraîchis:', formattedAchats.length);
     } catch (error) {
@@ -238,7 +251,7 @@ const Achats: React.FC = () => {
 
         {/* Header */}
         <Row className="mb-4">
-          <Col>
+          <Col md={8}>
             <h1 className="page-title">
               <i className="bi bi-cart-dash me-2"></i>
               Gestion des Achats
@@ -246,6 +259,24 @@ const Achats: React.FC = () => {
             <p className="page-subtitle">
               Gérez vos commandes et achats auprès des fournisseurs
             </p>
+          </Col>
+          <Col md={4} className="d-flex justify-content-end align-items-center">
+            <div className="d-flex gap-2">
+              <Button
+                variant="primary"
+                onClick={() => setShowAddModal(true)}
+              >
+                <i className="bi bi-plus me-1"></i>
+                Nouvel Achat
+              </Button>
+              <Button
+                variant="success"
+                onClick={() => setShowAddMaterialModal(true)}
+              >
+                <i className="bi bi-box-seam me-1"></i>
+                Nouveau Matériel
+              </Button>
+            </div>
           </Col>
         </Row>
 
@@ -302,7 +333,7 @@ const Achats: React.FC = () => {
 
         {/* Actions et Filtres */}
         <Row className="mb-4">
-          <Col md={3}>
+          <Col md={4}>
             <InputGroup>
               <InputGroup.Text>
                 <i className="bi bi-search"></i>
@@ -321,11 +352,9 @@ const Achats: React.FC = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="">Tous les statuts</option>
-              <option value="pending">En attente</option>
-              <option value="ordered">Commandé</option>
-              <option value="received">Reçu</option>
-              <option value="cancelled">Annulé</option>
+              <option value="">Tous les états</option>
+              <option value="En cours">En cours</option>
+              <option value="Reçue">Reçue</option>
             </Form.Select>
           </Col>
           
@@ -340,35 +369,6 @@ const Achats: React.FC = () => {
               <i className="bi bi-arrow-clockwise me-1"></i>
               Réinitialiser
             </Button>
-          </Col>
-          
-          <Col md={2}>
-            <Button
-              variant="primary"
-              onClick={() => setShowAddModal(true)}
-            >
-              <i className="bi bi-plus me-1"></i>
-              Nouvel Achat
-            </Button>
-          </Col>
-
-          <Col md={3}>
-            <Button
-              variant="success"
-              onClick={() => setShowAddMaterialModal(true)}
-            >
-              <i className="bi bi-box-seam me-1"></i>
-              Nouveau Matériel
-            </Button>
-          </Col>
-        </Row>
-
-        {/* Résultats */}
-        <Row className="mb-3">
-          <Col>
-            <p className="results-count">
-              {filteredPurchases.length} achat{filteredPurchases.length > 1 ? 's' : ''} trouvé{filteredPurchases.length > 1 ? 's' : ''}
-            </p>
           </Col>
         </Row>
 
@@ -391,9 +391,9 @@ const Achats: React.FC = () => {
                          <th>Référence Achat / Matériel</th>
                          <th>Produits / Matériels</th>
                          <th>Total</th>
-                         <th>Statut</th>
                          <th>Date Commande</th>
                          <th>Date Livraison</th>
+                         <th>État</th>
                          <th>Actions</th>
                        </tr>
                      </thead>
@@ -405,8 +405,6 @@ const Achats: React.FC = () => {
                               <strong className="text-primary">{purchase.referenceAchat}</strong>
                               <br />
                               <Badge bg="info" className="mt-1">Matériel</Badge>
-                              <br />
-                              <small className="text-muted">{purchase.materials[0]?.nom || 'Matériel'}</small>
                             </div>
                           </td>
                            <td>
@@ -453,9 +451,9 @@ const Achats: React.FC = () => {
                                     <small className="text-muted d-block">
                                       x{material.quantite} - {formatPrice(material.prixUnitaire)}
                                     </small>
-                                    {material.referenceSublimaroc && (
+                                    {material.referenceFournisseur && (
                                       <small className="text-info d-block">
-                                        Ref: {material.referenceSublimaroc}
+                                        Ref: {material.referenceFournisseur}
                                       </small>
                                     )}
                                   </div>
@@ -469,20 +467,19 @@ const Achats: React.FC = () => {
                             </span>
                           </td>
                           <td>
-                            <Badge bg="success">Reçu</Badge>
-                          </td>
-                          <td>
                             <div className="date-info">
-                              {formatDate(purchase.dateAchat)}
+                              {formatDate(purchase.dateCommande)}
                             </div>
                           </td>
                           <td>
                             <div className="date-info">
-                              <div className="text-success">
-                                <i className="bi bi-check-circle me-1"></i>
-                                Livré
-                              </div>
+                              {formatDate(purchase.dateLivraison)}
                             </div>
+                          </td>
+                          <td>
+                            <Badge bg={purchase.etat === 'Reçue' ? 'success' : 'warning'}>
+                              {purchase.etat}
+                            </Badge>
                           </td>
                           <td>
                             <div className="action-buttons">
@@ -599,6 +596,7 @@ const Achats: React.FC = () => {
           onMaterialAdded={() => {
             console.log(isEditMode ? 'Matériel modifié avec succès' : 'Matériel ajouté avec succès');
             // Rafraîchir la liste des achats
+            console.log('🔄 Rafraîchissement des achats après modification...');
             refreshAchats();
             handleCloseMaterialModal();
           }}
@@ -659,7 +657,7 @@ const Achats: React.FC = () => {
                     {selectedAchat.materials.map((material, index) => (
                       <tr key={index}>
                         <td>{material.nom}</td>
-                        <td>{material.referenceSublimaroc || material.referenceFournisseur || 'N/A'}</td>
+                        <td>{material.referenceFournisseur || 'N/A'}</td>
                         <td>{material.quantite}</td>
                         <td>{formatPrice(material.prixUnitaire)}</td>
                         <td>{formatPrice(material.prixPaye)}</td>
