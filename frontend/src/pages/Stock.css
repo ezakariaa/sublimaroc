@@ -23,6 +23,23 @@
   box-shadow: 0 3px 10px rgba(0,0,0,0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   background: #fff;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.5rem !important;
+  height: 100%;
+}
+
+.stat-card .card-body {
+  padding-top: 2rem !important;
+  padding-bottom: 0.1rem !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+}
+
+/* Marges pour les colonnes des statistiques */
+.my-4 .col-md-3,
+.my-4 [class*="col-md-3"] {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
 }
 
 .stat-card:hover {
@@ -48,12 +65,14 @@
   font-weight: bold;
   color: #2c3e50;
   margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 .stat-label {
   color: #7f8c8d;
   font-weight: 500;
   margin: 0;
+  margin-top: 0.5rem;
   text-transform: uppercase;
   font-size: 0.9rem;
   letter-spacing: 0.5px;

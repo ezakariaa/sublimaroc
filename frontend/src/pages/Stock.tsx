@@ -571,7 +571,7 @@ const Stock: React.FC = () => {
         )}
 
         {/* Statistiques */}
-        <Row className="mb-4">
+        <Row className="my-4">
           <Col md={3}>
             <Card className="stat-card">
               <Card.Body className="text-center">

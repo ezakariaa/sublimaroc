@@ -224,6 +224,51 @@
   }
 }
 
+/* Tableau de prévisualisation des matériels dans la modal */
+.materials-preview-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.materials-preview-table th:nth-child(1),
+.materials-preview-table td:nth-child(1) {
+  width: 35% !important;
+}
+
+.materials-preview-table th:nth-child(2),
+.materials-preview-table td:nth-child(2) {
+  width: 25% !important;
+}
+
+.materials-preview-table th:nth-child(3),
+.materials-preview-table td:nth-child(3) {
+  width: 8% !important;
+  text-align: center;
+}
+
+.materials-preview-table th:nth-child(4),
+.materials-preview-table td:nth-child(4) {
+  width: 16% !important;
+  text-align: right;
+}
+
+.materials-preview-table th:nth-child(5),
+.materials-preview-table td:nth-child(5) {
+  width: 16% !important;
+  text-align: right;
+}
+
+/* Titres des sections dans la modal d'aperçu */
+.modal-section-title {
+  font-family: 'Montserrat', sans-serif !important;
+  font-size: 1.25rem !important;
+  text-decoration: underline;
+  font-weight: 700 !important;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+  margin-top: 0.5rem;
+}
+
 
 
 

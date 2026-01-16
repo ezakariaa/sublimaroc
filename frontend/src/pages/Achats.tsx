@@ -358,7 +358,7 @@ const Achats: React.FC = () => {
         </Row>
 
         {/* Actions et Filtres */}
-        <Row className="mb-4">
+        <Row className="mb-4 mt-5">
           <Col md={4}>
             <InputGroup>
               <InputGroup.Text>
@@ -669,30 +669,30 @@ const Achats: React.FC = () => {
               </Row>
               <Row className="mb-3">
                 <Col md={6}>
-                  <h6>Informations Fournisseur</h6>
+                  <h6 className="modal-section-title">Informations Fournisseur</h6>
                   <p><strong>Nom:</strong> {selectedAchat.fournisseur.nom}</p>
                   <p><strong>Téléphone:</strong> {selectedAchat.fournisseur.telephone || 'Non renseigné'}</p>
                   <p><strong>Email:</strong> {selectedAchat.fournisseur.email || 'Non renseigné'}</p>
                   <p><strong>Ville:</strong> {selectedAchat.fournisseur.ville || 'Non renseigné'}</p>
                 </Col>
                 <Col md={6}>
-                  <h6>Informations Achat</h6>
+                  <h6 className="modal-section-title">Informations Achat</h6>
                   <p><strong>ID:</strong> {selectedAchat.id}</p>
                   <p><strong>Date d'achat:</strong> {formatDate(selectedAchat.dateAchat)}</p>
                   <p><strong>Total:</strong> {formatPrice(selectedAchat.totalAchat)}</p>
                 </Col>
               </Row>
               
-              <h6>Matériels Achetés</h6>
+              <h6 className="modal-section-title">Matériels Achetés</h6>
               <div className="table-responsive">
-                <Table striped bordered hover size="sm">
+                <Table striped bordered hover size="sm" className="materials-preview-table">
                   <thead>
                     <tr>
-                      <th>Nom</th>
-                      <th>Référence</th>
-                      <th>Quantité</th>
-                      <th>Prix Unitaire</th>
-                      <th>Total</th>
+                      <th style={{ width: '35%' }}>Nom</th>
+                      <th style={{ width: '25%' }}>Référence</th>
+                      <th style={{ width: '8%' }}>Quantité</th>
+                      <th style={{ width: '16%' }}>Prix Unitaire</th>
+                      <th style={{ width: '16%' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -700,9 +700,9 @@ const Achats: React.FC = () => {
                       <tr key={index}>
                         <td>{material.nom}</td>
                         <td>{material.referenceFournisseur || 'N/A'}</td>
-                        <td>{material.quantite}</td>
-                        <td>{formatPrice(material.prixUnitaire)}</td>
-                        <td>{formatPrice(material.prixPaye)}</td>
+                        <td className="text-center">{material.quantite}</td>
+                        <td className="text-end">{formatPrice(material.prixUnitaire)}</td>
+                        <td className="text-end">{formatPrice(material.prixPaye)}</td>
                       </tr>
                     ))}
                   </tbody>

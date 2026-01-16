@@ -43,7 +43,7 @@ const Home: React.FC = () => {
                 <Carousel.Caption className="hero-caption">
                   <h1 className="hero-title">SubliMaroc</h1>
                   <p className="hero-subtitle">
-                    Votre partenaire de confiance pour la sublimation au Maroc
+                    Votre partenaire de confiance pour l'impression au Maroc
                   </p>
                   <Button variant="primary" size="lg" className="hero-btn">
                     <i className="bi bi-arrow-right me-2"></i>
@@ -63,7 +63,7 @@ const Home: React.FC = () => {
             <Col>
               <h2 className="section-title">Nos Services</h2>
               <p className="section-subtitle">
-                Des solutions complètes pour tous vos besoins de sublimation
+                Des solutions complètes pour tous vos besoins d'impression
               </p>
             </Col>
           </Row>
@@ -75,7 +75,7 @@ const Home: React.FC = () => {
                   <div className="service-icon">
                     <i className="bi bi-printer"></i>
                   </div>
-                  <Card.Title>Sublimation</Card.Title>
+                  <Card.Title>Impression</Card.Title>
                   <Card.Text>
                     Impression de haute qualité sur tous types de supports
                   </Card.Text>
@@ -105,7 +105,7 @@ const Home: React.FC = () => {
                   </div>
                   <Card.Title>Livraison</Card.Title>
                   <Card.Text>
-                    Livraison rapide dans tout le Maroc
+                    Livraison dans tout Casablanca
                   </Card.Text>
                 </Card.Body>
               </Card>
