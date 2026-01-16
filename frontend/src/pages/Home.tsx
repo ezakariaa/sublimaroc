@@ -15,7 +15,7 @@ const Home: React.FC = () => {
     const loadFeaturedProducts = async () => {
       try {
         const products = await ProductService.getAllProducts();
-        setFeaturedProducts(products.slice(0, 6)); // Afficher les 6 premiers produits
+        setFeaturedProducts(products.slice(0, 5)); // Afficher les 5 premiers produits
       } catch (error) {
         console.error('Erreur lors du chargement des produits:', error);
       } finally {
@@ -137,7 +137,7 @@ const Home: React.FC = () => {
           ) : (
             <Row>
               {featuredProducts.map((product) => (
-                <Col md={4} lg={2} key={product.id} className="mb-4">
+                <Col xs={6} sm={4} md={4} lg={2} xl={2} key={product.id} className="mb-4 product-col-lg">
                   <Card className="product-card h-100">
                     <div className="product-image-container">
                       <Card.Img 

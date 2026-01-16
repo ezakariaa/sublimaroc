@@ -3,7 +3,8 @@ export interface Product {
   nom: string;
   description: string;
   prix: number;
-  image: string;
+  image: string; // Image principale (pour compatibilité)
+  images: string[]; // Tableau d'images multiples
   categorie: string;
   type: string[];
   anse: string[];

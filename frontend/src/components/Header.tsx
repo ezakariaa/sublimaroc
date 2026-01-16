@@ -91,7 +91,11 @@ const Header: React.FC = () => {
                   </NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/achats">
                     <i className="bi bi-cart-plus me-2"></i>
-                    Achats
+                    Achats (Matériels)
+                  </NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/achats-articles">
+                    <i className="bi bi-bag me-2"></i>
+                    Achats (Articles)
                   </NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/sales">
                     <i className="bi bi-cart-check me-2"></i>

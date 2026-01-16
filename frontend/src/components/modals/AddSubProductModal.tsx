@@ -313,10 +313,25 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
       onHide();
       onSubProductAdded();
     } catch (error) {
-      console.error('Erreur lors de l\'ajout du sous-produit:', error);
-      onAlert('danger', 'Erreur lors de l\'ajout du sous-produit');
+      console.error('Erreur lors de la mise à jour du sous-produit:', error);
+      onAlert('danger', 'Erreur lors de la mise à jour du sous-produit');
     }
-  }, [newSubProduct, selectedProduct, onAlert, onHide, onSubProductAdded]);
+  }, [
+    newSubProduct, 
+    selectedProduct, 
+    onAlert, 
+    onHide, 
+    onSubProductAdded, 
+    initialSubProduct, 
+    isEditMode, 
+    selectedCharacteristics.type, 
+    selectedCharacteristics.anse, 
+    selectedCharacteristics.couleurs, 
+    selectedCharacteristics.dimensions, 
+    selectedCharacteristics.materiau, 
+    selectedCharacteristics.capacite, 
+    selectedCharacteristics.poids
+  ]);
 
   return (
     <Modal show={show} onHide={onHide} size="lg">

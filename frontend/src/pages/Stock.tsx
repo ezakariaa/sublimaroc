@@ -3,6 +3,7 @@ import { Container, Row, Col, Card, Table, Badge, Button, Alert, Modal } from 'r
 import { Product, SubProduct } from '../types';
 import { ProductService, SubProductService } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
+import ImageCarousel from '../components/ImageCarousel';
 import './Stock.css';
 
 // Lazy loading des modales pour optimiser les performances
@@ -11,7 +12,7 @@ const AddSubProductModal = React.lazy(() => import('../components/modals/AddSubP
 
 
 const Stock: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [subProducts, setSubProducts] = useState<SubProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,12 +27,23 @@ const Stock: React.FC = () => {
   const [subProductToEdit, setSubProductToEdit] = useState<SubProduct | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'danger', message: string } | null>(null);
   
+  // États pour le carousel d'images
+  const [showImageCarousel, setShowImageCarousel] = useState(false);
+  const [carouselImages, setCarouselImages] = useState<string[]>([]);
+  const [carouselProductName, setCarouselProductName] = useState('');
+  
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   useEffect(() => {
     const loadData = async () => {
+      // Ne pas charger les données si l'authentification est encore en cours
+      if (authLoading) {
+        console.log('⏳ Attente de l\'authentification...');
+        return;
+      }
+
       try {
         // Vider la liste des produits pour s'assurer qu'on affiche seulement Firebase
         console.log('🧹 Nettoyage complet de la liste des produits...');
@@ -44,19 +56,30 @@ const Stock: React.FC = () => {
         // Logs de diagnostic Firebase
         console.log('🚀 Initialisation Firebase...');
         console.log('📊 Configuration: projet sublimaroc');
+        console.log('👤 État authentification:', user ? `Connecté: ${user.email}` : 'Non connecté');
         
         // Test de connexion simple d'abord (sans authentification)
         console.log('🔍 Test de connexion simple...');
-        const isSimpleConnected = await ProductService.testSimpleConnection();
-        if (!isSimpleConnected) {
-          throw new Error('Impossible de créer les objets Firebase - vérifiez la configuration');
+        try {
+          const isSimpleConnected = await ProductService.testSimpleConnection();
+          if (!isSimpleConnected) {
+            console.warn('⚠️ Test de connexion simple échoué, mais continuation...');
+          }
+        } catch (testError) {
+          console.warn('⚠️ Erreur lors du test de connexion simple:', testError);
+          // Continuer quand même car les règles permettent l'accès
         }
 
-        // Test de connexion complet
+        // Test de connexion complet (optionnel, ne bloque pas le chargement)
         console.log('🔍 Test de connexion complet...');
-        const isConnected = await ProductService.testConnection();
-        if (!isConnected) {
-          throw new Error('Impossible de se connecter à Firebase - vérifiez les règles et l\'authentification');
+        try {
+          const isConnected = await ProductService.testConnection();
+          if (!isConnected) {
+            console.warn('⚠️ Test de connexion complet échoué, mais continuation...');
+          }
+        } catch (testError) {
+          console.warn('⚠️ Erreur lors du test de connexion complet:', testError);
+          // Continuer quand même car les règles permettent l'accès
         }
         
         console.log('Tentative de chargement des produits depuis Firebase...');
@@ -107,14 +130,6 @@ const Stock: React.FC = () => {
         setSubProducts(allSubProducts);
         console.log('✅ Sous-produits chargés:', allSubProducts.length);
         console.log('✅ Stock total calculé pour tous les produits');
-        
-        // Vérifier l'authentification pour les fonctionnalités avancées
-        if (!user) {
-          console.log('⚠️ Utilisateur non authentifié - certaines fonctionnalités limitées');
-          setAlert({ type: 'danger', message: 'Vous devez être connecté pour ajouter/modifier des produits' });
-        } else {
-          console.log('✅ Utilisateur authentifié:', user.email);
-        }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
         const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des données';
@@ -125,7 +140,37 @@ const Stock: React.FC = () => {
     };
 
     loadData();
-  }, [user]);
+  }, [user, authLoading]); // Recharger quand l'authentification change
+
+  // Surveiller les changements d'authentification et mettre à jour l'alerte
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        console.log('⚠️ Utilisateur non authentifié');
+        setAlert(prevAlert => {
+          // Ne pas écraser les alertes d'erreur Firebase
+          if (prevAlert && prevAlert.message.includes('Erreur Firebase')) {
+            return prevAlert;
+          }
+          return { type: 'danger', message: 'Vous devez être connecté pour ajouter/modifier des produits' };
+        });
+      } else {
+        console.log('✅ Utilisateur authentifié:', user.email);
+        // Effacer l'alerte d'authentification si l'utilisateur est connecté
+        setAlert(prevAlert => {
+          // Ne pas effacer les alertes d'erreur Firebase
+          if (prevAlert && prevAlert.message.includes('Erreur Firebase')) {
+            return prevAlert;
+          }
+          // Effacer l'alerte d'authentification
+          if (prevAlert && prevAlert.message.includes('Vous devez être connecté')) {
+            return null;
+          }
+          return prevAlert;
+        });
+      }
+    }
+  }, [user, authLoading]);
 
   const handleViewProduct = useCallback((product: Product) => {
     setProductToPreview(product);
@@ -152,6 +197,28 @@ const Stock: React.FC = () => {
     setSubProductToEdit(null);
   }, []);
 
+  // Fonction pour ouvrir le carousel d'images
+  const handleOpenImageCarousel = useCallback((product: Product) => {
+    const images = (product as any).images && Array.isArray((product as any).images) 
+      ? (product as any).images 
+      : product.image 
+        ? [product.image] 
+        : [];
+    
+    if (images.length > 0) {
+      setCarouselImages(images);
+      setCarouselProductName(product.nom);
+      setShowImageCarousel(true);
+    }
+  }, []);
+
+  // Fonction pour fermer le carousel d'images
+  const handleCloseImageCarousel = useCallback(() => {
+    setShowImageCarousel(false);
+    setCarouselImages([]);
+    setCarouselProductName('');
+  }, []);
+
   const handleProductUpdated = useCallback(async () => {
     try {
       // Rafraîchir la liste des produits
@@ -175,18 +242,47 @@ const Stock: React.FC = () => {
 
   const handleSubProductUpdated = useCallback(async () => {
     try {
-      // Rafraîchir la liste des sous-produits
+      console.log('🔄 Rafraîchissement après mise à jour de sous-produit...');
+      
+      // Attendre un peu pour s'assurer que Firebase a terminé la mise à jour
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       const productsData = await ProductService.getAllProducts();
+      
+      // Recharger les sous-produits et recalculer le stock total
       const allSubProducts: SubProduct[] = [];
-      for (const prod of productsData) {
-        try {
-          const productSubProducts = await SubProductService.getSubProductsByProductId(prod.id);
-          allSubProducts.push(...productSubProducts);
-        } catch (error) {
-          console.error(`Erreur lors du chargement des sous-produits pour ${prod.nom}:`, error);
-        }
-      }
-      setSubProducts(allSubProducts);
+      const productsWithTotalStock = await Promise.all(
+        productsData.map(async (product) => {
+          try {
+            const productSubProducts = await SubProductService.getSubProductsByProductId(product.id);
+            allSubProducts.push(...productSubProducts);
+            
+            // Calculer le stock total en additionnant les quantités des sous-produits
+            const totalStock = productSubProducts.reduce((sum, subProduct) => sum + (subProduct.stock || 0), 0);
+            
+            return {
+              ...product,
+              stock: totalStock // Remplacer le stock du produit par la somme des sous-produits
+            };
+          } catch (error) {
+            console.error(`Erreur lors du chargement des sous-produits pour ${product.nom}:`, error);
+            return product; // Retourner le produit original en cas d'erreur
+          }
+        })
+      );
+      
+      // Forcer le re-rendu en vidant d'abord les états
+      setProducts([]);
+      setSubProducts([]);
+      
+      // Puis les remplir avec les nouvelles données
+      setTimeout(() => {
+        setProducts(productsWithTotalStock);
+        setSubProducts(allSubProducts);
+        console.log('✅ Liste des produits mise à jour:', productsWithTotalStock.length, 'produits');
+        console.log('✅ Sous-produits rafraîchis:', allSubProducts.length);
+        console.log('✅ Stock total recalculé après mise à jour de sous-produit');
+      }, 100);
       
       // Afficher un message de succès
       setAlert({ type: 'success', message: 'Sous-produit mis à jour avec succès !' });
@@ -544,14 +640,14 @@ const Stock: React.FC = () => {
                     <table className="table table-hover align-middle">
                       <thead className="table-light">
                         <tr>
-                          <th>Nom du Produit</th>
-                          <th>Image du Produit</th>
-                          <th>Caractéristiques</th>
-                          <th>Quantité en Stock</th>
-                          <th>État du Stock</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
+                          <th style={{ width: '15%' }}>Nom du Produit</th>
+                          <th style={{ width: '10%' }}>Image du Produit</th>
+                          <th style={{ width: '35%' }}>Caractéristiques</th>
+                          <th style={{ width: '10%' }}>Quantité en Stock</th>
+                          <th style={{ width: '10%' }}>État du Stock</th>
+                          <th style={{ width: '20%' }}>Actions</th>
+                        </tr>
+                      </thead>
                     <tbody>
                         {paginatedProducts.map((product) => (
                           <tr key={product.id}>
@@ -562,124 +658,223 @@ const Stock: React.FC = () => {
                             </td>
 
                             {/* Image du Produit */}
-                            <td>
-                              {product.image && product.image !== '/placeholder-product.jpg' && product.image !== '/mug.webp' ? (
-                                <img
-                                  src={product.image}
-                                  alt={product.nom}
-                                  className="rounded border"
-                                  style={{ 
-                                    width: '60px', 
-                                    height: '60px', 
-                                    objectFit: 'cover',
-                                    backgroundColor: '#f8f9fa'
-                                  }}
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.src = '/mug.webp';
-                                  }}
-                                />
-                              ) : (
-                                <div 
-                                  className="rounded border d-flex align-items-center justify-content-center text-muted"
-                                  style={{ 
-                                    width: '60px', 
-                                    height: '60px', 
-                                    backgroundColor: '#f8f9fa',
-                                    fontSize: '0.6rem',
-                                    textAlign: 'center',
-                                    border: '2px dashed #dee2e6'
-                                  }}
-                                  title="Aucune image"
-                                >
-                                <div>
-                                    <i className="bi bi-image d-block mb-1" style={{ fontSize: '1rem' }}></i>
-                                    {product.nom.substring(0, 6)}
+                            <td className="text-center">
+                              <div 
+                                className="product-image-wrapper"
+                                style={{ 
+                                  position: 'relative',
+                                  display: 'inline-block',
+                                  cursor: 'pointer'
+                                }}
+                                onClick={() => handleOpenImageCarousel(product)}
+                                title="Cliquez pour voir toutes les images"
+                              >
+                                {product.image && product.image !== '/placeholder-product.jpg' && product.image !== '/mug.webp' ? (
+                                  <img
+                                    src={product.image}
+                                    alt={product.nom}
+                                    className="product-thumb"
+                                    style={{ 
+                                      width: '70px', 
+                                      height: '70px', 
+                                      objectFit: 'cover',
+                                      borderRadius: '8px',
+                                      border: '2px solid #dee2e6',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.src = '/mug.webp';
+                                    }}
+                                  />
+                                ) : (
+                                  <div 
+                                    className="product-thumb-placeholder"
+                                    style={{ 
+                                      width: '70px', 
+                                      height: '70px', 
+                                      backgroundColor: '#f8f9fa',
+                                      border: '2px dashed #dee2e6',
+                                      borderRadius: '8px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      fontSize: '0.8rem',
+                                      color: '#6c757d',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="Aucune image"
+                                  >
+                                    <i className="bi bi-image" style={{ fontSize: '1.2rem' }}></i>
                                   </div>
-                                </div>
-                              )}
+                                )}
+                                
+                                {/* Badge pour images multiples */}
+                                {(product as any).images && Array.isArray((product as any).images) && (product as any).images.length > 1 && (
+                                  <span 
+                                    className="badge bg-primary position-absolute"
+                                    style={{
+                                      top: '-8px',
+                                      right: '-8px',
+                                      fontSize: '0.6rem',
+                                      padding: '2px 6px',
+                                      borderRadius: '10px'
+                                    }}
+                                  >
+                                    {(product as any).images.length}
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Caractéristiques - Tags */}
                             <td>
-                              <div className="d-flex flex-wrap gap-1">
-                                {/* Tags Type */}
-                                {product.type && Array.isArray(product.type) && product.type.length > 0 && (
-                                  <>
-                                    {product.type.map((type, index) => (
-                                      <span key={`type-${index}`} className="badge bg-primary">
-                                    {type}
+                              <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '100%' }}>
+                                {(() => {
+                                  const tags = [];
+                                  
+                                  // Tag Catégorie
+                                  if (product.categorie) {
+                                    tags.push(
+                                      <span key="categorie" className="badge bg-purple" style={{ fontSize: '0.7rem', backgroundColor: '#6f42c1' }}>
+                                        <i className="bi bi-tag me-1"></i>
+                                        {product.categorie}
                                       </span>
-                                    ))}
-                                  </>
-                                )}
+                                    );
+                                  }
 
-                                {/* Tags Anse */}
-                                {product.anse && Array.isArray(product.anse) && product.anse.length > 0 && (
-                                  <>
-                                    {product.anse.map((anse, index) => (
-                                      <span key={`anse-${index}`} className="badge bg-info">
-                                        {anse}
-                                      </span>
-                                    ))}
-                                  </>
-                                )}
+                                  // Tags Type
+                                  if (Array.isArray(product.type)) {
+                                    product.type.forEach((type, index) => {
+                                      if (type) {
+                                        tags.push(
+                                    <span key={`type-${index}`} className="badge bg-primary" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-box me-1"></i>
+                                      {type}
+                                    </span>
+                                        );
+                                      }
+                                    });
+                                  }
 
-                                {/* Tags Dimensions */}
-                                {product.dimensions && Array.isArray(product.dimensions) && product.dimensions.length > 0 && (
-                                  <>
-                                    {product.dimensions.map((dim, index) => (
-                                      <span key={`dim-${index}`} className="badge bg-success">
-                                        {dim}
-                                      </span>
-                                    ))}
-                                  </>
-                                )}
+                                  // Tags Anse
+                                  if (Array.isArray(product.anse)) {
+                                    product.anse.forEach((anse, index) => {
+                                      if (anse) {
+                                        tags.push(
+                                    <span key={`anse-${index}`} className="badge bg-info" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-handle me-1"></i>
+                                      {anse}
+                                    </span>
+                                        );
+                                      }
+                                    });
+                                  }
 
-                                {/* Tags Couleurs */}
-                                {product.couleurs && Array.isArray(product.couleurs) && product.couleurs.length > 0 && (
-                                  <>
-                                    {product.couleurs.map((couleur, index) => (
-                                      <span key={`couleur-${index}`} className="badge bg-warning">
-                                        {couleur}
-                                      </span>
-                                    ))}
-                                  </>
-                                )}
+                                  // Tags Dimensions
+                                  if (Array.isArray(product.dimensions)) {
+                                    product.dimensions.forEach((dim, index) => {
+                                      if (dim) {
+                                        tags.push(
+                                    <span key={`dim-${index}`} className="badge bg-success" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-rulers me-1"></i>
+                                      {dim}
+                                    </span>
+                                        );
+                                      }
+                                    });
+                                  }
 
-                                {/* Tags Matériaux */}
-                                {product.materiau && Array.isArray(product.materiau) && product.materiau.length > 0 && (
-                                  <>
-                                    {product.materiau.map((materiau, index) => (
-                                      <span key={`materiau-${index}`} className="badge bg-dark">
-                                        {materiau}
-                                      </span>
-                                    ))}
-                                  </>
-                                )}
+                                  // Tags Couleurs
+                                  if (Array.isArray(product.couleurs)) {
+                                    product.couleurs.forEach((couleur, index) => {
+                                      if (couleur) {
+                                        tags.push(
+                                    <span key={`couleur-${index}`} className="badge bg-warning" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-palette me-1"></i>
+                                      {couleur}
+                                    </span>
+                                        );
+                                      }
+                                    });
+                                  }
 
-                                {/* Tags Capacité */}
-                                {product.capacite && Array.isArray(product.capacite) && product.capacite.length > 0 && (
-                                  <>
-                                    {product.capacite.map((cap, index) => (
-                                      <span key={`cap-${index}`} className="badge bg-secondary">
-                                        {cap}
-                                      </span>
-                                    ))}
-                                  </>
-                                )}
+                                  // Tags Matériaux
+                                  if (Array.isArray(product.materiau)) {
+                                    product.materiau.forEach((materiau, index) => {
+                                      if (materiau) {
+                                        tags.push(
+                                    <span key={`materiau-${index}`} className="badge bg-dark" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-gear me-1"></i>
+                                      {materiau}
+                                    </span>
+                                        );
+                                      }
+                                    });
+                                  }
 
-                                {/* Tags Poids */}
-                                {product.poids && Array.isArray(product.poids) && product.poids.length > 0 && (
-                                  <>
-                                    {product.poids.map((poids, index) => (
-                                      <span key={`poids-${index}`} className="badge bg-light text-dark">
-                                        {poids}
+                                  // Tags Capacité
+                                  if (Array.isArray(product.capacite)) {
+                                    product.capacite.forEach((cap, index) => {
+                                      if (cap) {
+                                        tags.push(
+                                    <span key={`cap-${index}`} className="badge bg-secondary" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-cup me-1"></i>
+                                      {cap}
+                                    </span>
+                                        );
+                                      }
+                                    });
+                                  }
+
+                                  // Tags Poids
+                                  if (Array.isArray(product.poids)) {
+                                    product.poids.forEach((poids, index) => {
+                                      if (poids) {
+                                        tags.push(
+                                    <span key={`poids-${index}`} className="badge bg-light text-dark" style={{ fontSize: '0.7rem' }}>
+                                            <i className="bi bi-speedometer2 me-1"></i>
+                                      {poids}
+                                    </span>
+                                        );
+                                      }
+                                    });
+                                  }
+
+                                  // Tag Fournisseur
+                                  if (product.fournisseur && product.fournisseur.nom) {
+                                    tags.push(
+                                      <span key="fournisseur" className="badge bg-indigo" style={{ fontSize: '0.7rem', backgroundColor: '#6610f2' }}>
+                                        <i className="bi bi-building me-1"></i>
+                                        {product.fournisseur.nom}
                                       </span>
-                                    ))}
-                                  </>
-                                )}
+                                    );
+                                  }
+
+                                  // Tag Ville du Fournisseur
+                                  if (product.fournisseur && product.fournisseur.ville) {
+                                    tags.push(
+                                      <span key="ville" className="badge bg-teal" style={{ fontSize: '0.7rem', backgroundColor: '#20c997' }}>
+                                        <i className="bi bi-geo-alt me-1"></i>
+                                        {product.fournisseur.ville}
+                                      </span>
+                                    );
+                                  }
+
+                                  // Tag Prix
+                                  if (product.prix && product.prix > 0) {
+                                    tags.push(
+                                      <span key="prix" className="badge bg-orange" style={{ fontSize: '0.7rem', backgroundColor: '#fd7e14' }}>
+                                        <i className="bi bi-currency-exchange me-1"></i>
+                                        {product.prix} MAD
+                                      </span>
+                                    );
+                                  }
+
+                                  return tags;
+                                })()}
                               </div>
                             </td>
 
@@ -701,11 +896,11 @@ const Stock: React.FC = () => {
 
                             {/* Actions */}
                             <td>
-                              <div className="d-flex gap-2">
+                              <div className="d-flex gap-1 justify-content-center">
                                 <Button
                                   variant="outline-primary"
                                   size="sm"
-                                  className="rounded-3"
+                                  className="rounded-3 action-btn"
                                   onClick={() => handleViewProduct(product)}
                                   title="Voir les détails"
                                 >
@@ -714,7 +909,7 @@ const Stock: React.FC = () => {
                                 <Button
                                   variant="outline-success"
                                   size="sm"
-                                  className="rounded-3"
+                                  className="rounded-3 action-btn"
                                   title="Modifier"
                                   onClick={() => handleEditProduct(product)}
                                 >
@@ -723,7 +918,7 @@ const Stock: React.FC = () => {
                                 <Button
                                   variant="outline-danger"
                                   size="sm"
-                                  className="rounded-3"
+                                  className="rounded-3 action-btn"
                                   title="Supprimer"
                                   onClick={() => handleDeleteProduct(product)}
                                 >
@@ -803,7 +998,7 @@ const Stock: React.FC = () => {
               <Card.Body className="p-3">
                 {subProducts.length > 0 ? (
                   <div className="table-responsive">
-                    <table className="table table-hover align-middle">
+                    <table className="table table-hover align-middle sub-products-table">
                       <thead className="table-light">
                         <tr>
                           <th>Nom du Sous-Produit</th>
@@ -848,10 +1043,13 @@ const Stock: React.FC = () => {
                                         alt={subProduct.nom}
                                         className="rounded border"
                                         style={{ 
-                                          width: '50px', 
-                                          height: '50px', 
+                                          width: '70px', 
+                                          height: '70px', 
                                           objectFit: 'cover',
-                                          backgroundColor: '#f8f9fa'
+                                          backgroundColor: '#f8f9fa',
+                                          border: '2px solid #dee2e6',
+                                          cursor: 'pointer',
+                                          transition: 'all 0.2s ease'
                                         }}
                                         loading="lazy"
                                         onError={(e) => {
@@ -881,17 +1079,18 @@ const Stock: React.FC = () => {
                                     <div 
                                       className="rounded border d-flex align-items-center justify-content-center text-muted"
                                       style={{ 
-                                        width: '60px', 
-                                        height: '60px', 
+                                        width: '70px', 
+                                        height: '70px', 
                                         backgroundColor: '#f8f9fa',
-                                        fontSize: '0.6rem',
+                                        fontSize: '0.7rem',
                                         textAlign: 'center',
-                                        border: '2px dashed #dee2e6'
+                                        border: '2px dashed #dee2e6',
+                                        cursor: 'pointer'
                                       }}
                                       title="Aucune image"
                                     >
                                       <div>
-                                        <i className="bi bi-image d-block mb-1" style={{ fontSize: '1rem' }}></i>
+                                        <i className="bi bi-image d-block mb-1" style={{ fontSize: '1.2rem' }}></i>
                                         {subProduct.nom.substring(0, 6)}
                                       </div>
                                     </div>
@@ -902,19 +1101,63 @@ const Stock: React.FC = () => {
 
                             {/* Caractéristiques */}
                             <td>
-                              <div className="d-flex flex-wrap gap-1">
-                                {subProduct.type && subProduct.type.map((type, index) => (
-                                  <span key={`type-${index}`} className="badge bg-primary">{type}</span>
-                                ))}
-                                {subProduct.couleurs && subProduct.couleurs.map((couleur, index) => (
-                                  <span key={`couleur-${index}`} className="badge bg-warning">{couleur}</span>
-                                ))}
-                                {subProduct.materiau && subProduct.materiau.map((materiau, index) => (
-                                  <span key={`materiau-${index}`} className="badge bg-dark">{materiau}</span>
-                                ))}
-                                {subProduct.dimensions && subProduct.dimensions.map((dim, index) => (
-                                  <span key={`dim-${index}`} className="badge bg-success">{dim}</span>
-                                ))}
+                              <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '100%' }}>
+                                {subProduct.type && Array.isArray(subProduct.type) && subProduct.type.length > 0 ? 
+                                  subProduct.type.map((type, index) => (
+                                    <span key={`type-${index}`} className="badge bg-primary" style={{ fontSize: '0.7rem' }}>
+                                      <i className="bi bi-box me-1"></i>
+                                      {type}
+                                    </span>
+                                  )) : null
+                                }
+                                {subProduct.couleurs && Array.isArray(subProduct.couleurs) && subProduct.couleurs.length > 0 ? 
+                                  subProduct.couleurs.map((couleur, index) => (
+                                    <span key={`couleur-${index}`} className="badge bg-warning" style={{ fontSize: '0.7rem' }}>
+                                      <i className="bi bi-palette me-1"></i>
+                                      {couleur}
+                                    </span>
+                                  )) : null
+                                }
+                                {subProduct.materiau && Array.isArray(subProduct.materiau) && subProduct.materiau.length > 0 ? 
+                                  subProduct.materiau.map((materiau, index) => (
+                                    <span key={`materiau-${index}`} className="badge bg-dark" style={{ fontSize: '0.7rem' }}>
+                                      <i className="bi bi-gear me-1"></i>
+                                      {materiau}
+                                    </span>
+                                  )) : null
+                                }
+                                {subProduct.dimensions && Array.isArray(subProduct.dimensions) && subProduct.dimensions.length > 0 ? 
+                                  subProduct.dimensions.map((dim, index) => (
+                                    <span key={`dim-${index}`} className="badge bg-success" style={{ fontSize: '0.7rem' }}>
+                                      <i className="bi bi-rulers me-1"></i>
+                                      {dim}
+                                    </span>
+                                  )) : null
+                                }
+                                {subProduct.capacite && Array.isArray(subProduct.capacite) && subProduct.capacite.length > 0 ? 
+                                  subProduct.capacite.map((cap, index) => (
+                                    <span key={`cap-${index}`} className="badge bg-secondary" style={{ fontSize: '0.7rem' }}>
+                                      <i className="bi bi-cup me-1"></i>
+                                      {cap}
+                                    </span>
+                                  )) : null
+                                }
+                                {subProduct.poids && Array.isArray(subProduct.poids) && subProduct.poids.length > 0 ? 
+                                  subProduct.poids.map((poids, index) => (
+                                    <span key={`poids-${index}`} className="badge bg-light text-dark" style={{ fontSize: '0.7rem' }}>
+                                      <i className="bi bi-speedometer2 me-1"></i>
+                                      {poids}
+                                    </span>
+                                  )) : null
+                                }
+                                {subProduct.anse && Array.isArray(subProduct.anse) && subProduct.anse.length > 0 ? 
+                                  subProduct.anse.map((anse, index) => (
+                                    <span key={`anse-${index}`} className="badge bg-info" style={{ fontSize: '0.7rem' }}>
+                                      <i className="bi bi-handle me-1"></i>
+                                      {anse}
+                                    </span>
+                                  )) : null
+                                }
                               </div>
                             </td>
 
@@ -1113,11 +1356,20 @@ const Stock: React.FC = () => {
                     <div className="mb-3">
                       <h6 className="text-secondary mb-2">Caractéristiques</h6>
                       <div className="d-flex flex-wrap gap-1">
+                        {/* Tag Catégorie */}
+                        {productToPreview.categorie && (
+                          <span className="badge" style={{ backgroundColor: '#6f42c1', color: 'white' }}>
+                            <i className="bi bi-tag me-1"></i>
+                            {productToPreview.categorie}
+                          </span>
+                        )}
+
                         {/* Tags Type */}
                         {productToPreview.type && Array.isArray(productToPreview.type) && productToPreview.type.length > 0 && (
                           <>
                             {productToPreview.type.map((type, index) => (
                               <span key={`type-${index}`} className="badge bg-primary">
+                                <i className="bi bi-box me-1"></i>
                                 {type}
                               </span>
                             ))}
@@ -1129,6 +1381,7 @@ const Stock: React.FC = () => {
                           <>
                             {productToPreview.anse.map((anse, index) => (
                               <span key={`anse-${index}`} className="badge bg-info">
+                                <i className="bi bi-handle me-1"></i>
                                 {anse}
                               </span>
                             ))}
@@ -1140,6 +1393,7 @@ const Stock: React.FC = () => {
                           <>
                             {productToPreview.dimensions.map((dim, index) => (
                               <span key={`dim-${index}`} className="badge bg-success">
+                                <i className="bi bi-rulers me-1"></i>
                                 {dim}
                               </span>
                             ))}
@@ -1151,6 +1405,7 @@ const Stock: React.FC = () => {
                           <>
                             {productToPreview.couleurs.map((couleur, index) => (
                               <span key={`couleur-${index}`} className="badge bg-warning">
+                                <i className="bi bi-palette me-1"></i>
                                 {couleur}
                               </span>
                             ))}
@@ -1162,6 +1417,7 @@ const Stock: React.FC = () => {
                           <>
                             {productToPreview.materiau.map((materiau, index) => (
                               <span key={`materiau-${index}`} className="badge bg-dark">
+                                <i className="bi bi-gear me-1"></i>
                                 {materiau}
                               </span>
                             ))}
@@ -1173,6 +1429,7 @@ const Stock: React.FC = () => {
                           <>
                             {productToPreview.capacite.map((cap, index) => (
                               <span key={`cap-${index}`} className="badge bg-secondary">
+                                <i className="bi bi-cup me-1"></i>
                                 {cap}
                               </span>
                             ))}
@@ -1184,10 +1441,35 @@ const Stock: React.FC = () => {
                           <>
                             {productToPreview.poids.map((poids, index) => (
                               <span key={`poids-${index}`} className="badge bg-light text-dark">
+                                <i className="bi bi-speedometer2 me-1"></i>
                                 {poids}
                               </span>
                             ))}
                           </>
+                        )}
+
+                        {/* Tag Fournisseur */}
+                        {productToPreview.fournisseur && productToPreview.fournisseur.nom && (
+                          <span className="badge" style={{ backgroundColor: '#6610f2', color: 'white' }}>
+                            <i className="bi bi-building me-1"></i>
+                            {productToPreview.fournisseur.nom}
+                          </span>
+                        )}
+
+                        {/* Tag Ville du Fournisseur */}
+                        {productToPreview.fournisseur && productToPreview.fournisseur.ville && (
+                          <span className="badge" style={{ backgroundColor: '#20c997', color: 'white' }}>
+                            <i className="bi bi-geo-alt me-1"></i>
+                            {productToPreview.fournisseur.ville}
+                          </span>
+                        )}
+
+                        {/* Tag Prix */}
+                        {productToPreview.prix && productToPreview.prix > 0 && (
+                          <span className="badge" style={{ backgroundColor: '#fd7e14', color: 'white' }}>
+                            <i className="bi bi-currency-exchange me-1"></i>
+                            {productToPreview.prix} MAD
+                          </span>
                         )}
                       </div>
                     </div>
@@ -1221,6 +1503,14 @@ const Stock: React.FC = () => {
             </Modal.Footer>
           </Modal>
         )}
+
+        {/* Carousel d'images */}
+        <ImageCarousel
+          images={carouselImages}
+          productName={carouselProductName}
+          isVisible={showImageCarousel}
+          onClose={handleCloseImageCarousel}
+        />
 
       </Container>
     </div>

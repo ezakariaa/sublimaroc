@@ -178,6 +178,14 @@
   margin-bottom: 1rem;
 }
 
+/* Custom product columns for 5 products per row on large screens */
+@media (min-width: 992px) {
+  .product-col-lg {
+    flex: 0 0 20%;
+    max-width: 20%;
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hero-title {

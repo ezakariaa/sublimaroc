@@ -65,42 +65,10 @@
   letter-spacing: 0.5px;
 }
 
-/* Tableau */
-.table-responsive {
+/* Tableau - Styles généraux uniquement (spécifiques dans AchatsTable.css) */
+.purchases-page .table-responsive {
   border-radius: 0 0 15px 15px;
   overflow: hidden;
-}
-
-.table {
-  margin-bottom: 0;
-}
-
-.table-header {
-  background: linear-gradient(135deg, #e67e22, #f39c12);
-  color: #fff;
-}
-
-.table-header th {
-  border: none;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
-  padding: 1rem 0.75rem;
-}
-
-.table tbody tr {
-  transition: background-color 0.3s ease;
-}
-
-.table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-.table tbody td {
-  vertical-align: middle;
-  padding: 1rem 0.75rem;
-  border-top: 1px solid #e9ecef;
 }
 
 /* Informations fournisseur */
@@ -115,56 +83,7 @@
   margin-bottom: 0.25rem;
 }
 
-/* Informations produits */
-.products-info {
-  max-width: 200px;
-}
-
-.product-item {
-  margin-bottom: 0.5rem;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid #f1f2f6;
-}
-
-.product-item:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-
-.product-name {
-  font-weight: 500;
-  color: #2c3e50;
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-.purchase-total {
-  font-weight: bold;
-  font-size: 1.1rem;
-  color: #e67e22;
-}
-
-/* Informations date */
-.date-info {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Actions */
-.action-buttons {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.action-buttons .btn {
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-}
-
-.action-buttons .btn:hover {
-  transform: translateY(-1px);
-}
+/* Styles spécifiques du tableau déplacés dans AchatsTable.css */
 
 /* Filtres */
 .form-control, .form-select {
@@ -214,6 +133,31 @@
   border-radius: 0 0 15px 15px;
 }
 
+/* Card contenant le tableau */
+.card {
+  border: none;
+  border-radius: 15px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.card-header {
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1rem 1.5rem;
+}
+
+.card-header h5 {
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.card-body {
+  padding: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .page-title {
@@ -242,7 +186,19 @@
   }
   
   .products-info {
-    max-width: 150px;
+    max-width: 100%;
+    min-width: 300px;
+  }
+  
+  .table th:nth-child(2),
+  .table td:nth-child(2) {
+    min-width: 300px;
+  }
+  
+  .table th:nth-child(3),
+  .table td:nth-child(3) {
+    min-width: 75px;
+    max-width: 95px;
   }
 }
 

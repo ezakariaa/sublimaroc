@@ -3,12 +3,11 @@ import { Container, Row, Col, Card, Table, Badge, Button, Form, InputGroup, Spin
 import { Product } from '../types';
 import { ProductService, AchatService } from '../services/firebaseService';
 import './Purchases.css';
-import './AchatsTable.css';
 
 // Lazy loading de la modal pour optimiser les performances
-const AddMaterialModal = React.lazy(() => import('../components/modals/AddMaterialModal'));
+const AddArticleModal = React.lazy(() => import('../components/modals/AddArticleModal'));
 
-interface MaterialAchat {
+interface ArticleAchat {
   nom: string;
   description: string;
   image: string;
@@ -29,7 +28,7 @@ interface Achat {
   id: string;
   referenceAchat: string;
   fournisseur: Fournisseur;
-  materials: MaterialAchat[];
+  articles: ArticleAchat[];
   dateAchat: Date;
   dateCommande: Date;
   dateLivraison: Date;
@@ -39,15 +38,14 @@ interface Achat {
   updatedAt?: any;
 }
 
-
-const Achats: React.FC = () => {
+const AchatsArticles: React.FC = () => {
   const [achats, setAchats] = useState<Achat[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
+  const [showAddArticleModal, setShowAddArticleModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedAchat, setSelectedAchat] = useState<Achat | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -69,16 +67,16 @@ const Achats: React.FC = () => {
         setProducts(productsData);
         console.log('✅ Produits chargés:', productsData.length);
         
-        // Charger les achats de matériel depuis Firebase
-        const achatsData = await AchatService.getAllAchats();
-        console.log('✅ Achats chargés depuis Firebase:', achatsData.length);
+        // Charger les achats d'articles depuis Firebase
+        const achatsData = await AchatService.getAllAchatsArticles();
+        console.log('✅ Achats d\'articles chargés depuis Firebase:', achatsData.length);
         
         // Convertir les données Firebase en format compatible
         const formattedAchats: Achat[] = achatsData.map(achat => ({
           id: achat.id,
-          referenceAchat: achat.referenceAchat || `SUB-ACH-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+          referenceAchat: achat.referenceAchat || `SUB-ART-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
           fournisseur: achat.fournisseur,
-          materials: achat.materials,
+          articles: achat.articles,
           dateAchat: achat.dateAchat?.toDate ? achat.dateAchat.toDate() : new Date(achat.dateAchat),
           dateCommande: achat.dateCommande?.toDate ? achat.dateCommande.toDate() : new Date(achat.dateCommande || new Date()),
           dateLivraison: achat.dateLivraison?.toDate ? achat.dateLivraison.toDate() : new Date(achat.dateLivraison || new Date()),
@@ -104,12 +102,10 @@ const Achats: React.FC = () => {
     loadData();
   }, []);
 
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-MA', {
-      style: 'decimal',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      style: 'currency',
+      currency: 'MAD'
     }).format(price);
   };
 
@@ -120,11 +116,11 @@ const Achats: React.FC = () => {
     return `${day}/${month}/${year}`;
   };
 
-  // Filtrer seulement les achats de matériel
+  // Filtrer seulement les achats d'articles
   const filteredPurchases = achats.filter(achat => {
     const matchesSearch = achat.referenceAchat.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          achat.fournisseur.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         achat.materials.some(m => m.nom.toLowerCase().includes(searchTerm.toLowerCase()));
+                         achat.articles.some(a => a.nom.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Appliquer le filtre de statut
     const matchesStatus = !statusFilter || achat.etat === statusFilter;
@@ -157,8 +153,8 @@ const Achats: React.FC = () => {
     setTimeout(() => setAlert(null), 3000);
   };
 
-  const handleCloseMaterialModal = () => {
-    setShowAddMaterialModal(false);
+  const handleCloseArticleModal = () => {
+    setShowAddArticleModal(false);
     setIsEditMode(false);
     setSelectedAchat(null);
   };
@@ -166,14 +162,14 @@ const Achats: React.FC = () => {
   const refreshAchats = async () => {
     try {
       console.log('🔄 Rafraîchissement des achats...');
-      const achatsData = await AchatService.getAllAchats();
+      const achatsData = await AchatService.getAllAchatsArticles();
       console.log('📥 Données brutes reçues de Firebase:', achatsData);
       
       const formattedAchats: Achat[] = achatsData.map(achat => ({
         id: achat.id,
-        referenceAchat: achat.referenceAchat || `SUB-ACH-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+        referenceAchat: achat.referenceAchat || `SUB-ART-${new Date().toLocaleDateString('fr-FR').replace(/\//g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         fournisseur: achat.fournisseur,
-        materials: achat.materials,
+        articles: achat.articles,
         dateAchat: achat.dateAchat?.toDate ? achat.dateAchat.toDate() : new Date(achat.dateAchat),
         dateCommande: achat.dateCommande?.toDate ? achat.dateCommande.toDate() : new Date(achat.dateCommande || new Date()),
         dateLivraison: achat.dateLivraison?.toDate ? achat.dateLivraison.toDate() : new Date(achat.dateLivraison || new Date()),
@@ -183,36 +179,9 @@ const Achats: React.FC = () => {
         updatedAt: achat.updatedAt
       }));
       
-      console.log('🔍 Achats formatés avec leurs états:', formattedAchats.map(a => ({ 
-        id: a.id, 
-        etat: a.etat,
-        materials: a.materials.map((m: any) => ({ 
-          nom: m.nom, 
-          image: m.image,
-          imageType: typeof m.image,
-          hasImage: !!m.image
-        }))
-      })));
-      // Forcer le re-render en créant un nouvel array
-      setAchats([...formattedAchats]);
+      console.log('🔍 Achats formatés avec leurs états:', formattedAchats.map(a => ({ id: a.id, etat: a.etat })));
+      setAchats(formattedAchats);
       console.log('✅ Achats rafraîchis:', formattedAchats.length);
-      
-      // Log détaillé pour déboguer les images
-      formattedAchats.forEach((achat, idx) => {
-        if (idx < 3) { // Log seulement les 3 premiers pour ne pas surcharger
-          console.log(`📦 Achat ${idx + 1} (${achat.referenceAchat}):`, {
-            materials: achat.materials.map((m: any) => ({
-              nom: m.nom,
-              image: m.image ? m.image.substring(0, 100) : '', // Log seulement le début pour éviter les logs trop longs avec base64
-              isBase64: m.image && m.image.startsWith('data:image'),
-              isFirebaseUrl: m.image && (m.image.startsWith('https://firebasestorage.googleapis.com') || m.image.startsWith('https://storage.googleapis.com')),
-              isBlobUrl: m.image && m.image.startsWith('blob:'),
-              isEmpty: !m.image || m.image === '',
-              imageLength: m.image ? m.image.length : 0
-            }))
-          });
-        }
-      });
     } catch (error) {
       console.error('❌ Erreur lors du rafraîchissement:', error);
     }
@@ -226,14 +195,14 @@ const Achats: React.FC = () => {
   const handleEditAchat = (purchase: any) => {
     setSelectedAchat(purchase);
     setIsEditMode(true);
-    setShowAddMaterialModal(true);
+    setShowAddArticleModal(true);
   };
 
   const handleDeleteAchat = async (purchase: any) => {
-    const materialNames = purchase.materials.map((m: any) => m.nom).join(', ');
+    const articleNames = purchase.articles.map((a: any) => a.nom).join(', ');
     const confirmed = window.confirm(
-      `Êtes-vous sûr de vouloir supprimer cet achat de matériel ?\n\n` +
-      `Matériel(s): ${materialNames}\n` +
+      `Êtes-vous sûr de vouloir supprimer cet achat d'articles ?\n\n` +
+      `Article(s): ${articleNames}\n` +
       `Fournisseur: ${purchase.fournisseur.nom}\n` +
       `Total: ${formatPrice(purchase.totalAchat)}\n\n` +
       `Cette action est irréversible et supprimera définitivement l'achat de Firebase.`
@@ -245,8 +214,8 @@ const Achats: React.FC = () => {
 
     try {
       console.log('🗑️ Suppression de l\'achat:', purchase.id);
-      await AchatService.deleteAchat(purchase.id);
-      setAlert({ type: 'success', message: `Achat de matériel "${materialNames}" supprimé avec succès` });
+      await AchatService.deleteAchatArticle(purchase.id);
+      setAlert({ type: 'success', message: `Achat d'articles "${articleNames}" supprimé avec succès` });
       refreshAchats();
       console.log('✅ Achat supprimé avec succès');
     } catch (error) {
@@ -286,21 +255,21 @@ const Achats: React.FC = () => {
         <Row className="mb-4">
           <Col md={8}>
             <h1 className="page-title">
-              <i className="bi bi-cart-dash me-2"></i>
-              Gestion des Achats (Matériels)
+              <i className="bi bi-bag me-2"></i>
+              Gestion des Achats (Articles)
             </h1>
             <p className="page-subtitle">
-              Gérez vos commandes et achats auprès des fournisseurs
+              Gérez vos commandes et achats d'articles auprès des fournisseurs
             </p>
           </Col>
           <Col md={4} className="d-flex justify-content-end align-items-center">
             <div className="d-flex gap-2">
               <Button
                 variant="success"
-                onClick={() => setShowAddMaterialModal(true)}
+                onClick={() => setShowAddArticleModal(true)}
               >
-                <i className="bi bi-box-seam me-1"></i>
-                Nouveau Matériel
+                <i className="bi bi-bag-plus me-1"></i>
+                Nouvel Article
               </Button>
             </div>
           </Col>
@@ -312,7 +281,7 @@ const Achats: React.FC = () => {
             <Card className="stat-card">
               <Card.Body className="text-center">
                 <div className="stat-icon">
-                  <i className="bi bi-cart-dash"></i>
+                  <i className="bi bi-bag"></i>
                 </div>
                 <h3 className="stat-number">{achats.length}</h3>
                 <p className="stat-label">Total Achats</p>
@@ -409,13 +378,13 @@ const Achats: React.FC = () => {
                 </h5>
               </Card.Header>
               
-              <Card.Body className="p-3">
-                <div className="table-responsive achats-table-container">
-                  <Table hover className="mb-0 align-middle">
+              <Card.Body className="p-0">
+                <div className="table-responsive">
+                  <Table hover className="mb-0">
                      <thead className="table-header">
                        <tr>
-                         <th>Référence Achat / Matériel</th>
-                         <th>Produits / Matériels</th>
+                         <th>Référence Achat / Article</th>
+                         <th>Articles</th>
                          <th>Total</th>
                          <th>Date Commande</th>
                          <th>Date Livraison</th>
@@ -430,65 +399,56 @@ const Achats: React.FC = () => {
                             <div>
                               <strong className="text-primary">{purchase.referenceAchat}</strong>
                               <br />
-                              <Badge bg="info" className="mt-1">Matériel</Badge>
+                              <Badge bg="info" className="mt-1">Article</Badge>
                             </div>
                           </td>
                            <td>
                              <div className="products-info">
-                              {purchase.materials.map((material, index) => (
-                                <div key={index} className="product-item">
-                                  {/* Image du matériel */}
-                                  {material.image && material.image !== '/placeholder-product.jpg' && material.image !== '/mug.webp' && !material.image.startsWith('blob:') ? (
-                                    <img 
-                                      src={
-                                        // Si l'image est en base64, l'utiliser directement
-                                        // Sinon, ajouter le paramètre de cache-busting pour les URLs Firebase
-                                        material.image.startsWith('data:image') 
-                                          ? material.image 
-                                          : `${material.image}${material.image.includes('?') ? '&' : '?'}_t=${purchase.updatedAt ? (purchase.updatedAt.toDate ? purchase.updatedAt.toDate().getTime() : new Date(purchase.updatedAt).getTime()) : purchase.createdAt?.toDate ? purchase.createdAt.toDate().getTime() : Date.now()}`
-                                      }
-                                      alt={material.nom}
-                                      title={material.nom}
-                                      loading="lazy"
-                                      key={`img-${purchase.id}-${index}-${material.image.substring(0, 50)}`}
-                                      onError={(e) => {
-                                        console.error(`❌ Erreur chargement image pour ${material.nom}:`, {
-                                          imageUrl: material.image?.substring(0, 100), // Log seulement le début pour éviter les logs trop longs avec base64
-                                          purchaseId: purchase.id,
-                                          materialIndex: index,
-                                          isBase64: material.image?.startsWith('data:image')
-                                        });
-                                        const target = e.target as HTMLImageElement;
-                                        target.src = '/mug.webp';
-                                      }}
-                                    />
-                                  ) : (
-                                    <div 
-                                      className="product-thumb-placeholder"
-                                      style={{ 
-                                        width: '60px', 
-                                        height: '60px'
-                                      }}
-                                      title={`${material.nom} - Aucune image`}
-                                    >
-                                      <i className="bi bi-image"></i>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Informations du matériel */}
-                                  <div>
-                                    <span className="product-name">{material.nom}</span>
-                                    {material.description && (
-                                      <small className="text-muted d-block" style={{ fontSize: '0.85rem', fontStyle: 'italic' }}>
-                                        {material.description}
-                                      </small>
+                              {purchase.articles.map((article, index) => (
+                                <div key={index} className="product-item" style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {/* Image de l'article */}
+                                  <div style={{ flexShrink: 0 }}>
+                                    {article.image ? (
+                                      <img 
+                                        src={article.image} 
+                                        alt={article.nom}
+                                        style={{ 
+                                          width: '60px', 
+                                          height: '60px', 
+                                          objectFit: 'cover',
+                                          borderRadius: '6px',
+                                          border: '1px solid #dee2e6'
+                                        }}
+                                        title={article.nom}
+                                      />
+                                    ) : (
+                                      <div 
+                                        style={{ 
+                                          width: '60px', 
+                                          height: '60px', 
+                                          backgroundColor: '#f8f9fa',
+                                          border: '1px solid #dee2e6',
+                                          borderRadius: '6px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center'
+                                        }}
+                                        title={`${article.nom} - Aucune image`}
+                                      >
+                                        <i className="bi bi-image text-muted" style={{ fontSize: '16px' }}></i>
+                                      </div>
                                     )}
+                                  </div>
+                                  
+                                  {/* Informations de l'article */}
+                                  <div style={{ flex: 1 }}>
+                                    <span className="product-name">{article.nom}</span>
                                     <small className="text-muted d-block">
-                                      x{material.quantite} - {formatPrice(material.prixUnitaire)}
+                                      x{article.quantite} - {formatPrice(article.prixUnitaire)}
                                     </small>
-                                    {material.referenceFournisseur && (
+                                    {article.referenceFournisseur && (
                                       <small className="text-info d-block">
-                                        Ref: {material.referenceFournisseur}
+                                        Ref: {article.referenceFournisseur}
                                       </small>
                                     )}
                                   </div>
@@ -569,78 +529,17 @@ const Achats: React.FC = () => {
         )}
       </Container>
 
-      {/* Modal d'ajout d'achat */}
-      <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>Nouvel Achat</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Fournisseur</Form.Label>
-                  <Form.Control
-                    type="text"
-                    value={newPurchase.supplier}
-                    onChange={(e) => setNewPurchase({...newPurchase, supplier: e.target.value})}
-                    placeholder="Nom du fournisseur"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Date de livraison prévue</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={newPurchase.expectedDate}
-                    onChange={(e) => setNewPurchase({...newPurchase, expectedDate: e.target.value})}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-            
-            <Form.Group className="mb-3">
-              <Form.Label>Produits à commander</Form.Label>
-              <Form.Select>
-                <option>Sélectionner un produit</option>
-                {products.map(product => (
-                  <option key={product.id} value={product.id}>
-                    {product.nom} - {product.prix} MAD
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowAddModal(false)}>
-            Annuler
-          </Button>
-          <Button variant="primary" onClick={handleAddPurchase}>
-            Créer l'achat
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Modal pour ajouter/éditer du matériel */}
+      {/* Modal pour ajouter/éditer des articles */}
       <Suspense fallback={<div>Chargement...</div>}>
-        <AddMaterialModal
-          show={showAddMaterialModal}
-          onHide={handleCloseMaterialModal}
-          onMaterialAdded={async () => {
-            console.log(isEditMode ? 'Matériel modifié avec succès' : 'Matériel ajouté avec succès');
-            // Attendre un peu pour s'assurer que Firebase a bien mis à jour les données
-            await new Promise(resolve => setTimeout(resolve, 500));
+        <AddArticleModal
+          show={showAddArticleModal}
+          onHide={handleCloseArticleModal}
+          onArticleAdded={async () => {
+            console.log(isEditMode ? 'Article modifié avec succès' : 'Article ajouté avec succès');
             // Rafraîchir la liste des achats
             console.log('🔄 Rafraîchissement des achats après modification...');
             await refreshAchats();
-            // Forcer un re-render supplémentaire après un court délai pour s'assurer que les images sont à jour
-            setTimeout(() => {
-              console.log('🔄 Second rafraîchissement pour forcer la mise à jour des images...');
-              refreshAchats();
-            }, 1000);
-            handleCloseMaterialModal();
+            handleCloseArticleModal();
           }}
           onAlert={handleAlert}
           initialAchat={selectedAchat}
@@ -648,12 +547,12 @@ const Achats: React.FC = () => {
         />
       </Suspense>
 
-      {/* Modal d'aperçu de l'achat de matériel */}
+      {/* Modal d'aperçu de l'achat d'articles */}
       <Modal show={showPreviewModal} onHide={() => setShowPreviewModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>
             <i className="bi bi-eye me-2"></i>
-            Aperçu de l'Achat de Matériel
+            Aperçu de l'Achat d'Articles
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -683,7 +582,7 @@ const Achats: React.FC = () => {
                 </Col>
               </Row>
               
-              <h6>Matériels Achetés</h6>
+              <h6>Articles Achetés</h6>
               <div className="table-responsive">
                 <Table striped bordered hover size="sm">
                   <thead>
@@ -696,13 +595,13 @@ const Achats: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedAchat.materials.map((material, index) => (
+                    {selectedAchat.articles.map((article, index) => (
                       <tr key={index}>
-                        <td>{material.nom}</td>
-                        <td>{material.referenceFournisseur || 'N/A'}</td>
-                        <td>{material.quantite}</td>
-                        <td>{formatPrice(material.prixUnitaire)}</td>
-                        <td>{formatPrice(material.prixPaye)}</td>
+                        <td>{article.nom}</td>
+                        <td>{article.referenceFournisseur || 'N/A'}</td>
+                        <td>{article.quantite}</td>
+                        <td>{formatPrice(article.prixUnitaire)}</td>
+                        <td>{formatPrice(article.prixPaye)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -722,4 +621,6 @@ const Achats: React.FC = () => {
   );
 };
 
-export default Achats;
+export default AchatsArticles;
+
+

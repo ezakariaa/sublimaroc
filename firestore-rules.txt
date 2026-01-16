@@ -1,0 +1,13 @@
+# Règles Firestore Database
+# À copier dans Firebase Console > Firestore Database > Règles
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permettre l'accès complet à toutes les collections pour le développement
+    // ⚠️ ATTENTION: Ces règles sont très permissives et ne doivent être utilisées qu'en développement
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

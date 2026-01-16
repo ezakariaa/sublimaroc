@@ -158,10 +158,17 @@ export class ProductService {
       // Test 4: Essayer d'accéder à la collection Produits
       console.log('📡 Test 4: Accès à la collection Produits...');
       const produitsCollection = collection(db, this.collection);
-      const produitsQuery = query(produitsCollection, limit(1));
+      console.log('📡 Collection path:', produitsCollection.path);
+      const produitsQuery = query(produitsCollection, limit(10));
       const produitsSnapshot = await getDocs(produitsQuery);
       console.log('✅ Collection Produits accessible');
       console.log('📊 Produits existants:', produitsSnapshot.docs.length);
+      if (produitsSnapshot.docs.length > 0) {
+        console.log('📦 Exemples de produits:', produitsSnapshot.docs.slice(0, 3).map(doc => ({
+          id: doc.id,
+          nom: doc.data().nom || 'Sans nom'
+        })));
+      }
       
       console.log('🎉 Tous les tests de connexion réussis !');
       return true;
@@ -178,17 +185,35 @@ export class ProductService {
   static async getAllProducts(): Promise<Product[]> {
     try {
       console.log('Tentative de récupération des produits depuis la collection:', this.collection);
+      console.log('🔍 Configuration Firebase:', {
+        projectId: db.app.options.projectId,
+        collection: this.collection
+      });
       
       // Essayer de lire la collection
-      const q = query(collection(db, this.collection));
-    const querySnapshot = await getDocs(q);
+      const produitsCollection = collection(db, this.collection);
+      console.log('📡 Collection référence créée:', produitsCollection.path);
+      
+      const q = query(produitsCollection);
+      console.log('📡 Requête créée, exécution...');
+      
+      const querySnapshot = await getDocs(q);
       
       console.log('✅ Collection lue avec succès. Nombre de documents:', querySnapshot.docs.length);
+      console.log('📋 IDs des documents trouvés:', querySnapshot.docs.map(doc => doc.id));
       
       if (querySnapshot.docs.length === 0) {
-        console.log('📝 Collection vide - prête pour les nouveaux produits');
+        console.log('📝 Collection vide - aucun produit trouvé');
+        console.log('💡 Vérifiez dans Firebase Console que la collection "Produits" existe et contient des documents');
+        console.log('💡 Collection path:', produitsCollection.path);
         return [];
       }
+      
+      console.log('📦 Premiers documents trouvés:', querySnapshot.docs.slice(0, 3).map(doc => ({
+        id: doc.id,
+        nom: doc.data().nom || 'Sans nom',
+        hasData: !!doc.data()
+      })));
       
       // Transformer les données
       const products = querySnapshot.docs.map(doc => {
@@ -199,6 +224,7 @@ export class ProductService {
           description: data.description || '',
           prix: data.prix || 0,
           image: data.image || '',
+          images: Array.isArray(data.images) ? data.images : [], // Ajouter le support des images multiples
           categorie: data.categorie || '',
           type: Array.isArray(data.type) ? data.type : [],
           anse: Array.isArray(data.anse) ? data.anse : [],
@@ -219,9 +245,29 @@ export class ProductService {
       
     } catch (error) {
       console.error('❌ Erreur lors de la récupération des produits:', error);
+      console.error('❌ Détails de l\'erreur:', {
+        error: error,
+        message: error instanceof Error ? error.message : String(error),
+        code: (error as any)?.code,
+        name: (error as any)?.name
+      });
+      
+      // Si c'est une erreur de permissions, afficher un message plus clair
+      const errorCode = (error as any)?.code;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorCode === 'permission-denied' || errorMessage.includes('Missing or insufficient permissions')) {
+        console.error('❌ ERREUR DE PERMISSIONS: Les règles Firestore ne permettent pas la lecture de la collection Produits');
+        console.error('❌ Code d\'erreur:', errorCode);
+        console.error('❌ Message d\'erreur:', errorMessage);
+        console.error('❌ Vérifiez les règles Firestore dans Firebase Console');
+        console.error('💡 Les règles actuelles devraient être: allow read, write: if true');
+        console.error('💡 Assurez-vous que les règles sont bien déployées dans Firebase Console');
+        throw new Error('Erreur de permissions: Vérifiez les règles Firestore pour la collection Produits');
+      }
       
       // Si c'est une erreur de collection inexistante, retourner un tableau vide
-      if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
+      if (errorCode === 'not-found' || errorMessage.includes('not found')) {
         console.log('📝 Collection n\'existe pas encore - retour d\'un tableau vide');
         return [];
       }
@@ -242,6 +288,7 @@ export class ProductService {
         description: data.description || '',
         prix: data.prix || 0,
         image: data.image || '',
+        images: Array.isArray(data.images) ? data.images : [], // Ajouter le support des images multiples
         categorie: data.categorie || '',
         type: Array.isArray(data.type) ? data.type : [],
         anse: Array.isArray(data.anse) ? data.anse : [],
@@ -290,6 +337,7 @@ export class ProductService {
         description: product.description || '',
         fournisseur: product.fournisseur || { nom: 'Inconnu', ville: '' },
         image: product.image || '/placeholder-product.jpg',
+        images: product.images || [], // Ajouter le support des images multiples
         categorie: product.categorie || '',
         type: product.type || [],
         anse: product.anse || [],
@@ -370,6 +418,7 @@ export class ProductService {
         description: productData.description || '',
         fournisseur: productData.fournisseur || { nom: 'Inconnu', ville: '' },
         image: productData.image || '/mug.webp',
+        images: productData.images || [], // Ajouter le support des images multiples
         categorie: productData.categorie || '',
         type: productData.type || [],
         anse: productData.anse || [],
@@ -816,12 +865,13 @@ export class AchatService {
       const timestamp = Date.now();
       const fileExtension = file.name.split('.').pop() || 'jpg';
       const fileName = `material_${materialIndex}_${timestamp}.${fileExtension}`;
+      const storagePath = `${this.storageFolder}/Materiel/${referenceAchat}/${fileName}`;
       
       console.log('📁 Nom de fichier généré:', fileName);
       
       // Référence vers le fichier dans Storage avec sous-dossier par référence d'achat
-      const storageRef = ref(storage, `${this.storageFolder}/Materiel/${referenceAchat}/${fileName}`);
-      console.log('📍 Référence Storage créée:', `${this.storageFolder}/Materiel/${referenceAchat}/${fileName}`);
+      const storageRef = ref(storage, storagePath);
+      console.log('📍 Référence Storage créée:', storagePath);
       
       // Upload du fichier
       console.log('⬆️ Début de l\'upload...');
@@ -835,15 +885,35 @@ export class AchatService {
       
       return downloadURL;
     } catch (error) {
+      const errorCode = (error as any)?.code;
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop() || 'jpg';
+      const fileName = `material_${materialIndex}_${timestamp}.${fileExtension}`;
+      const storagePath = `${this.storageFolder}/Materiel/${referenceAchat}/${fileName}`;
+      
       console.error('❌ Erreur détaillée lors de l\'upload de l\'image:', {
         error: error,
-        message: error instanceof Error ? error.message : 'Erreur inconnue',
-        code: (error as any)?.code,
+        message: errorMessage,
+        code: errorCode,
+        serverResponse: (error as any)?.serverResponse,
+        customData: (error as any)?.customData,
         fileName: file.name,
         fileSize: file.size,
-        fileType: file.type
+        fileType: file.type,
+        storagePath: storagePath
       });
-      throw error;
+      
+      // Messages d'erreur spécifiques selon le code d'erreur
+      if (errorCode === 'storage/unauthorized' || errorCode === 'storage/permission-denied') {
+        throw new Error('Erreur d\'autorisation: Vérifiez que vous êtes connecté et que les règles de sécurité Firebase Storage permettent l\'upload.');
+      } else if (errorCode === 'storage/quota-exceeded') {
+        throw new Error('Quota de stockage dépassé. Veuillez contacter l\'administrateur.');
+      } else if (errorCode === 'storage/unauthenticated') {
+        throw new Error('Vous devez être connecté pour uploader des images.');
+      } else {
+        throw new Error(`Erreur lors de l'upload de l'image: ${errorMessage}`);
+      }
     }
   }
 
@@ -938,91 +1008,11 @@ export class AchatService {
       await this.ensureCollectionExists();
       console.log('✅ Collection vérifiée, création du document...');
       
-      // Créer d'abord le document pour obtenir un ID
-      const tempData = {
-        ...achatData,
-        materials: achatData.materials.map((material: any) => ({
-          ...material,
-          image: '' // Temporairement vide
-        })),
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      };
-      
-      console.log('📝 Données temporaires préparées:', tempData);
+      // Les images sont déjà en base64 dans achatData.materials (converties dans AddMaterialModal)
+      // On peut directement sauvegarder dans Firestore
+      console.log('📝 Préparation des données avec images base64...');
       
       // Nettoyer les données pour éviter les erreurs Firestore
-      const cleanTempData = {
-        referenceAchat: tempData.referenceAchat,
-        fournisseur: {
-          nom: tempData.fournisseur.nom || '',
-          telephone: tempData.fournisseur.telephone || '',
-          email: tempData.fournisseur.email || '',
-          ville: tempData.fournisseur.ville || ''
-        },
-        materials: tempData.materials.map((material: any) => ({
-          nom: material.nom || '',
-          description: material.description || '',
-          referenceFournisseur: material.referenceFournisseur || '',
-          prixUnitaire: Number(material.prixUnitaire) || 0,
-          quantite: Number(material.quantite) || 0,
-          prixPaye: Number(material.prixPaye) || 0,
-          image: material.image || ''
-        })),
-        dateAchat: tempData.dateAchat,
-        totalAchat: Number(tempData.totalAchat) || 0,
-        createdAt: tempData.createdAt,
-        updatedAt: tempData.updatedAt
-      };
-      
-      console.log('🧹 Données nettoyées:', cleanTempData);
-      
-      let docRef: any;
-      try {
-        docRef = await addDoc(collection(db, this.collection), cleanTempData);
-        console.log('📄 Document temporaire créé avec ID:', docRef.id);
-      } catch (addDocError) {
-        console.error('❌ Erreur lors de la création du document temporaire:', addDocError);
-        throw addDocError;
-      }
-      
-      // Uploader les images et mettre à jour les URLs
-      console.log('🔄 Début de l\'upload des images...');
-      const materialsWithImages = await Promise.all(
-        achatData.materials.map(async (material: any, index: number) => {
-          console.log(`🔍 Traitement matériel ${index}:`, {
-            hasImageFile: !!material.imageFile,
-            isFile: material.imageFile instanceof File,
-            currentImage: material.image
-          });
-          
-          if (material.imageFile && material.imageFile instanceof File) {
-            try {
-              console.log(`📤 Upload image pour matériel ${index}...`);
-              const imageUrl = await this.uploadMaterialImage(material.imageFile, docRef.id, index, achatData.referenceAchat);
-              console.log(`✅ Upload réussi pour matériel ${index}, URL:`, imageUrl);
-              return {
-                ...material,
-                image: imageUrl
-              };
-            } catch (error) {
-              console.error(`❌ Erreur upload image matériel ${index}:`, error);
-              return {
-                ...material,
-                image: '' // Garder vide si l'upload échoue
-              };
-            }
-          }
-          console.log(`📋 Matériel ${index} - pas d'image à uploader`);
-          return material;
-        })
-      );
-      console.log('✅ Tous les matériels traités:', materialsWithImages.length);
-      
-      // Mettre à jour le document avec les URLs des images
-      console.log('💾 Mise à jour du document Firestore...');
-      
-      // Nettoyer les données finales en supprimant les objets File et les valeurs undefined
       const finalData = {
         referenceAchat: achatData.referenceAchat || '',
         fournisseur: {
@@ -1031,28 +1021,34 @@ export class AchatService {
           email: achatData.fournisseur?.email || '',
           ville: achatData.fournisseur?.ville || ''
         },
-        materials: materialsWithImages.map((material: any) => ({
+        materials: achatData.materials.map((material: any) => ({
           nom: material.nom || '',
           description: material.description || '',
           referenceFournisseur: material.referenceFournisseur || '',
           prixUnitaire: Number(material.prixUnitaire) || 0,
           quantite: Number(material.quantite) || 1,
           prixPaye: Number(material.prixPaye) || 0,
-          image: material.image || ''
-          // imageFile est supprimé car c'est un objet File non supporté par Firestore
-          // id est supprimé car il n'est pas nécessaire dans Firestore
+          image: material.image || '' // Image en base64 ou URL existante
         })),
         dateAchat: achatData.dateAchat || new Date(),
         dateCommande: (achatData.dateCommande && !isNaN(new Date(achatData.dateCommande).getTime())) ? achatData.dateCommande : new Date(),
         dateLivraison: (achatData.dateLivraison && !isNaN(new Date(achatData.dateLivraison).getTime())) ? achatData.dateLivraison : new Date(),
         etat: achatData.etat || 'En cours',
         totalAchat: Number(achatData.totalAchat) || 0,
-        createdAt: Timestamp.now(),
+        createdAt: achatData.createdAt || Timestamp.now(),
         updatedAt: Timestamp.now()
       };
       
-      console.log('📝 Données finales à sauvegarder:', finalData);
-      await updateDoc(docRef, finalData);
+      console.log('📝 Données finales à sauvegarder (avec images base64):', {
+        ...finalData,
+        materials: finalData.materials.map((m: any) => ({
+          nom: m.nom,
+          hasImage: !!m.image,
+          imageType: m.image ? (m.image.startsWith('data:image') ? 'base64' : 'url') : 'none'
+        }))
+      });
+      
+      const docRef = await addDoc(collection(db, this.collection), finalData);
       console.log('✅ Achat créé avec succès ! ID:', docRef.id);
       return docRef.id;
       
@@ -1071,12 +1067,35 @@ export class AchatService {
         query(collection(db, this.collection), orderBy('createdAt', 'desc'))
       );
       
-      const achats = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const achats = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // S'assurer que les materials sont bien présents avec leurs images
+          materials: (data.materials || []).map((material: any, index: number) => ({
+            ...material,
+            image: material.image || '',
+            // Log pour déboguer
+            _debug: {
+              hasImage: !!material.image,
+              imageUrl: material.image,
+              imageType: typeof material.image
+            }
+          }))
+        };
+      });
       
       console.log('✅ Achats récupérés:', achats.length);
+      // Log détaillé des images pour le premier achat
+      if (achats.length > 0) {
+        console.log('🖼️ Images du premier achat:', achats[0].materials?.map((m: any, idx: number) => ({
+          index: idx,
+          nom: m.nom,
+          image: m.image,
+          debug: m._debug
+        })));
+      }
       return achats;
       
     } catch (error) {
@@ -1115,76 +1134,42 @@ export class AchatService {
   static async updateAchat(id: string, updateData: any): Promise<void> {
     try {
       console.log('🚀 Mise à jour de l\'achat:', id);
+      console.log('📦 Données reçues (avec images base64):', {
+        materialsCount: updateData.materials?.length,
+        materials: updateData.materials?.map((m: any, idx: number) => ({
+          index: idx,
+          nom: m.nom,
+          hasImage: !!m.image,
+          imageType: m.image ? (m.image.startsWith('data:image') ? 'base64' : m.image.startsWith('blob:') ? 'blob' : 'url') : 'none'
+        }))
+      });
       
-      // Récupérer l'achat existant pour comparer les images
-      const existingAchat = await this.getAchatById(id);
-      if (!existingAchat) {
-        throw new Error('Achat non trouvé');
-      }
-      
-      // Traiter les images des matériels
-      console.log('🔄 Traitement des images des matériels...');
-      const materialsWithImages = await Promise.all(
-        updateData.materials.map(async (material: any, index: number) => {
-          console.log(`🔍 Traitement matériel ${index}:`, {
-            hasImageFile: !!material.imageFile,
-            isFile: material.imageFile instanceof File,
-            currentImage: material.image
-          });
-          
-          // Si c'est un nouveau fichier, l'uploader
-          if (material.imageFile && material.imageFile instanceof File) {
-            try {
-              console.log(`📤 Upload nouvelle image pour matériel ${index}`);
-              
-              // Uploader la nouvelle image
-              const imageUrl = await this.uploadMaterialImage(material.imageFile, id, index, updateData.referenceAchat);
-              console.log(`✅ Upload réussi pour matériel ${index}, URL:`, imageUrl);
-              
-              // Supprimer l'ancienne image si elle existe (après upload réussi)
-              const existingMaterial = existingAchat.materials[index];
-              if (existingMaterial && existingMaterial.image) {
-                console.log(`🗑️ Suppression de l'ancienne image pour matériel ${index}:`, existingMaterial.image);
-                // Supprimer immédiatement l'ancienne image
-                try {
-                  await this.deleteMaterialImage(existingMaterial.image);
-                  console.log(`✅ Ancienne image supprimée pour matériel ${index}`);
-                } catch (deleteError) {
-                  console.error(`❌ Erreur suppression ancienne image matériel ${index}:`, deleteError);
-                  // Ne pas faire échouer la mise à jour si la suppression échoue
-                }
-              }
-              
-              const result = {
-                ...material,
-                image: imageUrl
-              };
-              console.log(`✅ Matériel ${index} traité avec succès`);
-              return result;
-            } catch (error) {
-              console.error(`❌ Erreur upload image matériel ${index}:`, error);
-              // En cas d'erreur, garder l'image existante
-              const existingMaterial = existingAchat.materials[index];
-              const result = {
-                ...material,
-                image: existingMaterial?.image || ''
-              };
-              console.log(`⚠️ Matériel ${index} traité avec l'ancienne image`);
-              return result;
-            }
-          }
-          // Si pas de nouveau fichier, garder l'image existante
-          console.log(`📋 Matériel ${index} - pas de nouveau fichier, garde l'image existante`);
-          return material;
-        })
-      );
-      
-      console.log('✅ Tous les matériels traités:', materialsWithImages.length);
+      // Les images sont déjà en base64 dans updateData.materials (converties dans AddMaterialModal)
+      // On peut directement sauvegarder dans Firestore
+      console.log('📝 Préparation des données avec images base64...');
       
       console.log('💾 Mise à jour du document Firestore...');
       const docRef = doc(db, this.collection, id);
       
-      // Nettoyer les données en supprimant les objets File et les valeurs undefined
+      // Nettoyer les données - les images sont déjà en base64
+      const materialsToSave = updateData.materials.map((material: any) => ({
+        nom: material.nom || '',
+        description: material.description || '',
+        referenceFournisseur: material.referenceFournisseur || '',
+        prixUnitaire: Number(material.prixUnitaire) || 0,
+        quantite: Number(material.quantite) || 1,
+        prixPaye: Number(material.prixPaye) || 0,
+        image: material.image || '' // Image en base64 ou URL existante
+      }));
+      
+      console.log('💾 Images à sauvegarder dans Firestore:', materialsToSave.map((m: any, idx: number) => ({
+        index: idx,
+        nom: m.nom,
+        hasImage: !!m.image,
+        imageType: m.image ? (m.image.startsWith('data:image') ? 'base64' : 'url') : 'none',
+        imageLength: m.image ? m.image.length : 0
+      })));
+      
       const dataWithTimestamp = {
         referenceAchat: updateData.referenceAchat || '',
         fournisseur: {
@@ -1193,17 +1178,7 @@ export class AchatService {
           email: updateData.fournisseur?.email || '',
           ville: updateData.fournisseur?.ville || ''
         },
-        materials: materialsWithImages.map((material: any) => ({
-          nom: material.nom || '',
-          description: material.description || '',
-          referenceFournisseur: material.referenceFournisseur || '',
-          prixUnitaire: Number(material.prixUnitaire) || 0,
-          quantite: Number(material.quantite) || 1,
-          prixPaye: Number(material.prixPaye) || 0,
-          image: material.image || ''
-          // imageFile est supprimé car c'est un objet File non supporté par Firestore
-          // id est supprimé car il n'est pas nécessaire dans Firestore
-        })),
+        materials: materialsToSave,
         dateAchat: updateData.dateAchat || new Date(),
         dateCommande: (updateData.dateCommande && !isNaN(new Date(updateData.dateCommande).getTime())) ? updateData.dateCommande : new Date(),
         dateLivraison: (updateData.dateLivraison && !isNaN(new Date(updateData.dateLivraison).getTime())) ? updateData.dateLivraison : new Date(),
@@ -1279,8 +1254,180 @@ export class AchatService {
       throw error;
     }
   }
+
+  // Méthodes pour les achats d'articles (sous-collection dans Achats)
+  static async getAllAchatsArticles(): Promise<any[]> {
+    try {
+      console.log('🔍 Récupération de tous les achats d\'articles...');
+      
+      const querySnapshot = await getDocs(
+        query(
+          collection(db, this.collection, 'articles'),
+          orderBy('createdAt', 'desc')
+        )
+      );
+      
+      const achats = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log('✅ Achats d\'articles récupérés:', achats.length);
+      return achats;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des achats d\'articles:', error);
+      throw error;
+    }
+  }
+
+  // Créer un nouvel achat d'articles
+  static async createAchatArticle(achatData: any): Promise<string> {
+    try {
+      console.log('🚀 Création d\'un nouvel achat d\'articles...');
+      
+      // Upload des images des articles
+      const articlesWithImages = await Promise.all(
+        achatData.articles.map(async (article: any) => {
+          if (article.imageFile) {
+            const imageUrl = await this.uploadArticleImage(article.imageFile, article.nom);
+            return {
+              ...article,
+              image: imageUrl,
+              imageFile: undefined // Supprimer le fichier car il n'est pas supporté par Firestore
+            };
+          }
+          return article;
+        })
+      );
+      
+      const dataWithTimestamp = {
+        ...achatData,
+        articles: articlesWithImages,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+      
+      const docRef = await addDoc(collection(db, this.collection, 'articles'), dataWithTimestamp);
+      console.log('✅ Achat d\'articles créé avec succès ! ID:', docRef.id);
+      return docRef.id;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de l\'achat d\'articles:', error);
+      throw error;
+    }
+  }
+
+  // Mettre à jour un achat d'articles
+  static async updateAchatArticle(id: string, updateData: any): Promise<void> {
+    try {
+      console.log('🔄 Mise à jour de l\'achat d\'articles:', id);
+      
+      const docRef = doc(db, this.collection, 'articles', id);
+      
+      // Upload des nouvelles images si nécessaire
+      const articlesWithImages = await Promise.all(
+        updateData.articles.map(async (article: any) => {
+          if (article.imageFile) {
+            const imageUrl = await this.uploadArticleImage(article.imageFile, article.nom);
+            return {
+              ...article,
+              image: imageUrl,
+              imageFile: undefined
+            };
+          }
+          return article;
+        })
+      );
+      
+      const dataWithTimestamp = {
+        ...updateData,
+        articles: articlesWithImages,
+        updatedAt: Timestamp.now()
+      };
+      
+      await updateDoc(docRef, dataWithTimestamp);
+      console.log('✅ Achat d\'articles mis à jour avec succès !');
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de l\'achat d\'articles:', error);
+      throw error;
+    }
+  }
+
+  // Supprimer un achat d'articles
+  static async deleteAchatArticle(id: string): Promise<void> {
+    try {
+      console.log('🗑️ Suppression de l\'achat d\'articles:', id);
+      
+      // Récupérer l'achat pour supprimer les images
+      const achat = await this.getAchatArticleById(id);
+      if (achat && achat.articles) {
+        // Supprimer toutes les images des articles
+        await Promise.all(
+          achat.articles.map(async (article: any) => {
+            if (article.image) {
+              await this.deleteArticleImage(article.image);
+            }
+          })
+        );
+      }
+      
+      const docRef = doc(db, this.collection, 'articles', id);
+      await deleteDoc(docRef);
+      console.log('✅ Achat d\'articles supprimé avec succès !');
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de l\'achat d\'articles:', error);
+      throw error;
+    }
+  }
+
+  // Récupérer un achat d'articles par ID
+  static async getAchatArticleById(id: string): Promise<any> {
+    try {
+      const docRef = doc(db, this.collection, 'articles', id);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() };
+      } else {
+        throw new Error('Achat d\'articles non trouvé');
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération de l\'achat d\'articles:', error);
+      throw error;
+    }
+  }
+
+  // Upload d'image d'article
+  static async uploadArticleImage(file: File, articleName: string): Promise<string> {
+    try {
+      const fileName = `articles/${articleName}-${Date.now()}.${file.name.split('.').pop()}`;
+      const imageRef = ref(storage, fileName);
+      
+      await uploadBytes(imageRef, file);
+      const downloadURL = await getDownloadURL(imageRef);
+      
+      console.log('✅ Image d\'article uploadée:', downloadURL);
+      return downloadURL;
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'upload de l\'image d\'article:', error);
+      throw error;
+    }
+  }
+
+  // Supprimer une image d'article
+  static async deleteArticleImage(imageUrl: string): Promise<void> {
+    try {
+      if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
+        const imageRef = ref(storage, imageUrl);
+        await deleteObject(imageRef);
+        console.log('✅ Image d\'article supprimée:', imageUrl);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de l\'image d\'article:', error);
+      // Ne pas lancer l'erreur car l'image pourrait déjà être supprimée
+    }
+  }
 }
-
-
-
-

@@ -1,10 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, Form, Button, Row, Col, Card, Badge } from 'react-bootstrap';
-import { Material } from '../../types';
 import { Timestamp } from 'firebase/firestore';
 import { AchatService } from '../../services/firebaseService';
 
-interface MaterialItem {
+interface ArticleItem {
   id: string;
   nom: string;
   description: string;
@@ -23,7 +22,7 @@ interface Fournisseur {
   ville: string;
 }
 
-interface MaterialAchat {
+interface ArticleAchat {
   nom: string;
   description: string;
   image: string;
@@ -37,7 +36,7 @@ interface Achat {
   id: string;
   referenceAchat: string;
   fournisseur: Fournisseur;
-  materials: MaterialAchat[];
+  articles: ArticleAchat[];
   dateAchat: Date;
   dateCommande: Date;
   dateLivraison: Date;
@@ -47,19 +46,19 @@ interface Achat {
   updatedAt?: any;
 }
 
-interface AddMaterialModalProps {
+interface AddArticleModalProps {
   show: boolean;
   onHide: () => void;
-  onMaterialAdded: () => void;
+  onArticleAdded: () => void;
   onAlert: (type: 'success' | 'danger', message: string) => void;
   initialAchat?: Achat | null;
   isEditMode?: boolean;
 }
 
-const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
+const AddArticleModal: React.FC<AddArticleModalProps> = ({
   show,
   onHide,
-  onMaterialAdded,
+  onArticleAdded,
   onAlert,
   initialAchat,
   isEditMode = false
@@ -71,10 +70,10 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = String(now.getFullYear()).slice(-2);
     const randomNumbers = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-    return `SUB-ACH-${day}${month}${year}-${randomNumbers}`;
+    return `SUB-ART-${day}${month}${year}-${randomNumbers}`;
   }, []);
 
-  const [materials, setMaterials] = useState<MaterialItem[]>([
+  const [articles, setArticles] = useState<ArticleItem[]>([
     {
       id: '1',
       nom: '',
@@ -116,27 +115,20 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       setDateLivraison(isNaN(livraisonDate.getTime()) ? new Date() : livraisonDate);
       setEtat(initialAchat.etat || 'En cours');
       
-      // Initialiser les matériels
-      const formattedMaterials: MaterialItem[] = initialAchat.materials.map((material, index) => ({
+      // Initialiser les articles
+      const formattedArticles: ArticleItem[] = initialAchat.articles.map((article, index) => ({
         id: (index + 1).toString(),
-        nom: material.nom,
-        description: material.description,
-        image: material.image || '', // URL Firebase existante ou vide
-        imageFile: null, // Pas de fichier au départ en mode édition
-        referenceFournisseur: material.referenceFournisseur,
-        prixUnitaire: material.prixUnitaire,
-        quantite: material.quantite,
-        prixPaye: material.prixPaye
+        nom: article.nom,
+        description: article.description,
+        image: article.image,
+        imageFile: null,
+        referenceFournisseur: article.referenceFournisseur,
+        prixUnitaire: article.prixUnitaire,
+        quantite: article.quantite,
+        prixPaye: article.prixPaye
       }));
       
-      console.log('🔧 Matériels initialisés en mode édition:', formattedMaterials.map((m, idx) => ({
-        index: idx,
-        nom: m.nom,
-        image: m.image,
-        hasImageFile: !!m.imageFile
-      })));
-      
-      setMaterials(formattedMaterials);
+      setArticles(formattedArticles);
       
       // Initialiser le fournisseur
       setFournisseur({
@@ -149,12 +141,12 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       // Générer une nouvelle référence pour un nouvel achat
       setReferenceAchat(generateReferenceAchat());
     }
-  }, [isEditMode, initialAchat?.id, show, generateReferenceAchat]); // Utiliser initialAchat?.id au lieu de initialAchat
+  }, [isEditMode, initialAchat?.id, show, generateReferenceAchat]);
 
   // Réinitialiser les états quand la modale se ferme (seulement si pas en mode édition)
   useEffect(() => {
     if (!show && !isEditMode) {
-      setMaterials([
+      setArticles([
         {
           id: '1',
           nom: '',
@@ -185,30 +177,30 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     return prixUnitaire * quantite;
   }, []);
 
-  // Mettre à jour un matériel
-  const updateMaterial = useCallback((id: string, field: keyof MaterialItem, value: any) => {
-    setMaterials(prev => prev.map(material => {
-      if (material.id === id) {
-        const updatedMaterial = { ...material, [field]: value };
+  // Mettre à jour un article
+  const updateArticle = useCallback((id: string, field: keyof ArticleItem, value: any) => {
+    setArticles(prev => prev.map(article => {
+      if (article.id === id) {
+        const updatedArticle = { ...article, [field]: value };
         
         // Recalculer le prix payé si prix unitaire ou quantité change
         if (field === 'prixUnitaire' || field === 'quantite') {
-          updatedMaterial.prixPaye = calculatePrixPaye(
-            field === 'prixUnitaire' ? value : updatedMaterial.prixUnitaire,
-            field === 'quantite' ? value : updatedMaterial.quantite
+          updatedArticle.prixPaye = calculatePrixPaye(
+            field === 'prixUnitaire' ? value : updatedArticle.prixUnitaire,
+            field === 'quantite' ? value : updatedArticle.quantite
           );
         }
         
-        return updatedMaterial;
+        return updatedArticle;
       }
-      return material;
+      return article;
     }));
   }, [calculatePrixPaye]);
 
-  // Ajouter un nouveau matériel
-  const addMaterial = useCallback(() => {
-    const newId = (materials.length + 1).toString();
-    const newMaterial: MaterialItem = {
+  // Ajouter un nouvel article
+  const addArticle = useCallback(() => {
+    const newId = (articles.length + 1).toString();
+    const newArticle: ArticleItem = {
       id: newId,
       nom: '',
       description: '',
@@ -219,18 +211,18 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       quantite: 1,
       prixPaye: 0
     };
-    setMaterials(prev => [...prev, newMaterial]);
-  }, [materials.length]);
+    setArticles(prev => [...prev, newArticle]);
+  }, [articles.length]);
 
-  // Supprimer un matériel
-  const removeMaterial = useCallback((id: string) => {
-    if (materials.length > 1) {
-      setMaterials(prev => prev.filter(material => material.id !== id));
+  // Supprimer un article
+  const removeArticle = useCallback((id: string) => {
+    if (articles.length > 1) {
+      setArticles(prev => prev.filter(article => article.id !== id));
     }
-  }, [materials.length]);
+  }, [articles.length]);
 
   // Gestion de l'upload d'image
-  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>, materialId: string) => {
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>, articleId: string) => {
     const file = event.target.files?.[0];
     if (file) {
       // Vérifier le type de fichier
@@ -246,23 +238,13 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         return;
       }
 
-      console.log(`📁 Fichier sélectionné pour matériel ${materialId}:`, {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        isFile: file instanceof File
-      });
-
-      const blobUrl = URL.createObjectURL(file);
-      console.log(`🖼️ URL blob créée: ${blobUrl}`);
-      
-      updateMaterial(materialId, 'imageFile', file);
-      updateMaterial(materialId, 'image', blobUrl);
+      updateArticle(articleId, 'imageFile', file);
+      updateArticle(articleId, 'image', URL.createObjectURL(file));
     }
-  }, [onAlert, updateMaterial]);
+  }, [onAlert, updateArticle]);
 
   // Gestion du drag & drop d'image
-  const handleImageDrop = useCallback((event: React.DragEvent<HTMLDivElement>, materialId: string) => {
+  const handleImageDrop = useCallback((event: React.DragEvent<HTMLDivElement>, articleId: string) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file) {
@@ -279,20 +261,20 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         return;
       }
 
-      updateMaterial(materialId, 'imageFile', file);
-      updateMaterial(materialId, 'image', URL.createObjectURL(file));
+      updateArticle(articleId, 'imageFile', file);
+      updateArticle(articleId, 'image', URL.createObjectURL(file));
     }
-  }, [onAlert, updateMaterial]);
+  }, [onAlert, updateArticle]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
   }, []);
 
   // Supprimer une image
-  const removeImage = useCallback((materialId: string) => {
-    updateMaterial(materialId, 'imageFile', null);
-    updateMaterial(materialId, 'image', '');
-  }, [updateMaterial]);
+  const removeImage = useCallback((articleId: string) => {
+    updateArticle(articleId, 'imageFile', null);
+    updateArticle(articleId, 'image', '');
+  }, [updateArticle]);
 
   // Sauvegarder les achats
   const handleSavePurchases = useCallback(async () => {
@@ -303,100 +285,27 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         return;
       }
 
-      const validMaterials = materials.filter(material => material.nom.trim());
-      if (validMaterials.length === 0) {
-        onAlert('danger', 'Au moins un matériel avec un nom est requis');
+      const validArticles = articles.filter(article => article.nom.trim());
+      if (validArticles.length === 0) {
+        onAlert('danger', 'Au moins un article avec un nom est requis');
         return;
       }
 
-      // Vérifier que tous les matériels ont les champs requis
-      for (const material of validMaterials) {
-        if (!material.nom.trim()) {
-          onAlert('danger', 'Le nom du matériel est obligatoire pour tous les matériels');
+      // Vérifier que tous les articles ont les champs requis
+      for (const article of validArticles) {
+        if (!article.nom.trim()) {
+          onAlert('danger', 'Le nom de l\'article est obligatoire pour tous les articles');
           return;
         }
-        if (material.prixUnitaire <= 0) {
-          onAlert('danger', 'Le prix unitaire doit être supérieur à 0 pour tous les matériels');
+        if (article.prixUnitaire <= 0) {
+          onAlert('danger', 'Le prix unitaire doit être supérieur à 0 pour tous les articles');
           return;
         }
-        if (material.quantite <= 0) {
-          onAlert('danger', 'La quantité doit être supérieure à 0 pour tous les matériels');
+        if (article.quantite <= 0) {
+          onAlert('danger', 'La quantité doit être supérieure à 0 pour tous les articles');
           return;
         }
       }
-
-      // Convertir les images blob en base64 avant de sauvegarder (comme pour les produits)
-      const materialsWithBase64 = await Promise.all(
-        validMaterials.map(async (material) => {
-          let imageBase64 = material.image || '';
-          
-          // Si l'image est une URL blob, la convertir en base64
-          if (material.image && material.image.startsWith('blob:')) {
-            try {
-              console.log(`🔄 Conversion blob vers base64 pour matériel: ${material.nom}`);
-              const response = await fetch(material.image);
-              const blob = await response.blob();
-              
-              const base64Promise = new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  console.log('✅ Conversion base64 réussie');
-                  resolve(reader.result as string);
-                };
-                reader.onerror = () => {
-                  console.error('❌ Erreur de lecture du fichier');
-                  reject(new Error('Erreur de lecture du fichier'));
-                };
-                reader.readAsDataURL(blob);
-              });
-              
-              imageBase64 = await base64Promise;
-              console.log(`✅ Image convertie en base64 pour ${material.nom}`);
-            } catch (error) {
-              console.error('❌ Erreur lors de la conversion de l\'image:', error);
-              // En cas d'erreur, garder l'image vide
-              imageBase64 = '';
-            }
-          } else if (material.imageFile && material.imageFile instanceof File) {
-            // Si on a un fichier directement, le convertir en base64
-            try {
-              console.log(`🔄 Conversion fichier vers base64 pour matériel: ${material.nom}`);
-              const base64Promise = new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  console.log('✅ Conversion base64 réussie');
-                  resolve(reader.result as string);
-                };
-                reader.onerror = () => {
-                  console.error('❌ Erreur de lecture du fichier');
-                  reject(new Error('Erreur de lecture du fichier'));
-                };
-                reader.readAsDataURL(material.imageFile!);
-              });
-              
-              imageBase64 = await base64Promise;
-              console.log(`✅ Fichier converti en base64 pour ${material.nom}`);
-            } catch (error) {
-              console.error('❌ Erreur lors de la conversion du fichier:', error);
-              imageBase64 = '';
-            }
-          } else if (material.image && !material.image.startsWith('blob:') && !material.image.startsWith('data:image')) {
-            // Si c'est déjà une URL Firebase Storage ou autre URL, la garder telle quelle
-            // (pour la compatibilité avec les anciennes données)
-            imageBase64 = material.image;
-          }
-          
-          return {
-            nom: material.nom.trim(),
-            description: material.description.trim(),
-            image: imageBase64, // Stocker l'image en base64 ou URL existante
-            referenceFournisseur: material.referenceFournisseur.trim(),
-            prixUnitaire: material.prixUnitaire,
-            quantite: material.quantite,
-            prixPaye: material.prixPaye
-          };
-        })
-      );
 
       // Préparer les données pour Firebase
       const achatData = {
@@ -407,12 +316,21 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           email: fournisseur.email.trim(),
           ville: fournisseur.ville.trim()
         },
-        materials: materialsWithBase64,
+        articles: validArticles.map(article => ({
+          nom: article.nom.trim(),
+          description: article.description.trim(),
+          image: article.image, // URL temporaire pour l'aperçu
+          imageFile: article.imageFile, // Fichier à uploader
+          referenceFournisseur: article.referenceFournisseur.trim(),
+          prixUnitaire: article.prixUnitaire,
+          quantite: article.quantite,
+          prixPaye: article.prixPaye
+        })),
         dateAchat: new Date(),
         dateCommande: isNaN(dateCommande.getTime()) ? new Date() : dateCommande,
         dateLivraison: isNaN(dateLivraison.getTime()) ? new Date() : dateLivraison,
         etat: etat, // Utiliser la valeur actuelle de l'état
-        totalAchat: validMaterials.reduce((sum, material) => sum + material.prixPaye, 0),
+        totalAchat: validArticles.reduce((sum, article) => sum + article.prixPaye, 0),
         createdAt: Timestamp.now()
       };
 
@@ -421,32 +339,23 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       console.log('🔍 État dans achatData:', achatData.etat);
       console.log('🔍 Type de etat:', typeof etat);
       console.log('🔍 Valeur exacte de etat:', JSON.stringify(etat));
-      
-      // Log des images pour déboguer
-      console.log('🖼️ Images des matériels (base64):', achatData.materials.map((m: any, idx: number) => ({
-        index: idx,
-        nom: m.nom,
-        hasImage: !!m.image,
-        imageType: m.image ? (m.image.startsWith('data:image') ? 'base64' : m.image.startsWith('blob:') ? 'blob' : 'url') : 'none',
-        imageLength: m.image ? m.image.length : 0
-      })));
 
       if (isEditMode && initialAchat) {
         // Mode édition : mettre à jour l'achat existant
         console.log('🔄 Mise à jour de l\'achat:', initialAchat.id);
-        await AchatService.updateAchat(initialAchat.id, achatData);
+        await AchatService.updateAchatArticle(initialAchat.id, achatData);
         console.log('✅ Mise à jour terminée, affichage de l\'alerte...');
         onAlert('success', `Achat modifié avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
       } else {
         // Mode création : créer un nouvel achat
         console.log('🆕 Création d\'un nouvel achat');
-        await AchatService.createAchat(achatData);
+        await AchatService.createAchatArticle(achatData);
         console.log('✅ Création terminée, affichage de l\'alerte...');
         onAlert('success', `Achat enregistré avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
       }
       
-      console.log('🔄 Appel de onMaterialAdded...');
-      onMaterialAdded();
+      console.log('🔄 Appel de onArticleAdded...');
+      onArticleAdded();
       console.log('🔄 Appel de onHide...');
       onHide();
       console.log('🎉 Fonction handleSavePurchases terminée avec succès');
@@ -456,7 +365,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'enregistrement de l\'achat';
       onAlert('danger', errorMessage);
     }
-  }, [materials, fournisseur, onAlert, onMaterialAdded, onHide, referenceAchat, isEditMode, initialAchat, dateCommande, dateLivraison, etat]);
+  }, [articles, fournisseur, onAlert, onArticleAdded, onHide, referenceAchat, isEditMode, initialAchat, dateCommande, dateLivraison, etat]);
 
   return (
     <Modal 
@@ -467,7 +376,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         <Modal.Header closeButton>
           <Modal.Title>
             <i className={`bi ${isEditMode ? 'bi-pencil-square' : 'bi-plus-circle'} me-2`}></i>
-            {isEditMode ? 'Modifier l\'Achat de Matériel' : 'Nouveau Matériel Acheté'}
+            {isEditMode ? 'Modifier l\'Achat d\'Articles' : 'Nouvel Article Acheté'}
           </Modal.Title>
         </Modal.Header>
       <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto' }}>
@@ -489,25 +398,25 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             </div>
           )}
 
-          {/* Section 1: Informations Matériel */}
+          {/* Section 1: Informations Article */}
           <div className="mb-4">
             <h5 className="text-primary mb-3">
-              <i className="bi bi-box me-2"></i>
-              Section 1: Informations Matériel
+              <i className="bi bi-bag me-2"></i>
+              Section 1: Informations Article
             </h5>
             
-            {materials.map((material, index) => (
-              <Card key={material.id} className="mb-3">
+            {articles.map((article, index) => (
+              <Card key={article.id} className="mb-3">
                 <Card.Header className="d-flex justify-content-between align-items-center">
                   <h6 className="mb-0">
-                    <i className="bi bi-box-seam me-2"></i>
-                    Matériel {index + 1}
+                    <i className="bi bi-bag me-2"></i>
+                    Article {index + 1}
                   </h6>
-                  {materials.length > 1 && (
+                  {articles.length > 1 && (
                     <Button
                       variant="outline-danger"
                       size="sm"
-                      onClick={() => removeMaterial(material.id)}
+                      onClick={() => removeArticle(article.id)}
                     >
                       <i className="bi bi-trash"></i>
                     </Button>
@@ -517,12 +426,12 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                   <Row>
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Nom du matériel *</Form.Label>
+                        <Form.Label>Nom de l'article *</Form.Label>
                         <Form.Control
                           type="text"
-                          value={material.nom}
-                          onChange={(e) => updateMaterial(material.id, 'nom', e.target.value)}
-                          placeholder="Ex: Encre noire HP"
+                          value={article.nom}
+                          onChange={(e) => updateArticle(article.id, 'nom', e.target.value)}
+                          placeholder="Ex: T-shirt blanc"
                           required
                         />
                       </Form.Group>
@@ -532,19 +441,19 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                         <Form.Control
                           as="textarea"
                           rows={2}
-                          value={material.description}
-                          onChange={(e) => updateMaterial(material.id, 'description', e.target.value)}
-                          placeholder="Description du matériel..."
+                          value={article.description}
+                          onChange={(e) => updateArticle(article.id, 'description', e.target.value)}
+                          placeholder="Description de l'article..."
                         />
                       </Form.Group>
                     </Col>
                     
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Image du matériel</Form.Label>
+                        <Form.Label>Image de l'article</Form.Label>
                         <div
                           className="image-upload-zone"
-                          onDrop={(e) => handleImageDrop(e, material.id)}
+                          onDrop={(e) => handleImageDrop(e, article.id)}
                           onDragOver={handleDragOver}
                           style={{
                             border: '2px dashed #dee2e6',
@@ -559,10 +468,10 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                             justifyContent: 'center'
                           }}
                         >
-                          {material.image ? (
+                          {article.image ? (
                             <div className="text-center">
                               <img 
-                                src={material.image} 
+                                src={article.image} 
                                 alt="Aperçu" 
                                 style={{ 
                                   maxWidth: '120px', 
@@ -576,7 +485,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                                 <Button 
                                   variant="outline-danger" 
                                   size="sm"
-                                  onClick={() => removeImage(material.id)}
+                                  onClick={() => removeImage(article.id)}
                                 >
                                   <i className="bi bi-trash me-1"></i>
                                   Supprimer
@@ -591,12 +500,12 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                               <Form.Control
                                 type="file"
                                 accept="image/*"
-                                onChange={(e) => handleImageUpload(e as React.ChangeEvent<HTMLInputElement>, material.id)}
+                                onChange={(e) => handleImageUpload(e as React.ChangeEvent<HTMLInputElement>, article.id)}
                                 style={{ display: 'none' }}
-                                id={`image-upload-${material.id}`}
+                                id={`image-upload-${article.id}`}
                               />
                               <Form.Label 
-                                htmlFor={`image-upload-${material.id}`}
+                                htmlFor={`image-upload-${article.id}`}
                                 className="btn btn-outline-primary btn-sm"
                                 style={{ cursor: 'pointer' }}
                               >
@@ -617,8 +526,8 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                         <Form.Label>Référence Fournisseur</Form.Label>
                         <Form.Control
                           type="text"
-                          value={material.referenceFournisseur}
-                          onChange={(e) => updateMaterial(material.id, 'referenceFournisseur', e.target.value)}
+                          value={article.referenceFournisseur}
+                          onChange={(e) => updateArticle(article.id, 'referenceFournisseur', e.target.value)}
                           placeholder="REF-FOUR-001"
                         />
                       </Form.Group>
@@ -630,8 +539,8 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                           type="number"
                           min="0"
                           step="0.01"
-                          value={material.prixUnitaire}
-                          onChange={(e) => updateMaterial(material.id, 'prixUnitaire', parseFloat(e.target.value) || 0)}
+                          value={article.prixUnitaire}
+                          onChange={(e) => updateArticle(article.id, 'prixUnitaire', parseFloat(e.target.value) || 0)}
                           placeholder="0.00"
                           required
                         />
@@ -643,8 +552,8 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                         <Form.Control
                           type="number"
                           min="1"
-                          value={material.quantite}
-                          onChange={(e) => updateMaterial(material.id, 'quantite', parseInt(e.target.value) || 1)}
+                          value={article.quantite}
+                          onChange={(e) => updateArticle(article.id, 'quantite', parseInt(e.target.value) || 1)}
                           placeholder="1"
                           required
                         />
@@ -655,7 +564,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                         <Form.Label>Prix Payé (DH)</Form.Label>
                         <Form.Control
                           type="number"
-                          value={material.prixPaye}
+                          value={article.prixPaye}
                           readOnly
                           className="bg-light"
                         />
@@ -669,11 +578,11 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             <div className="text-center">
               <Button
                 variant="outline-primary"
-                onClick={addMaterial}
+                onClick={addArticle}
                 className="mb-3"
               >
                 <i className="bi bi-plus-circle me-2"></i>
-                Ajouter un autre matériel
+                Ajouter un autre article
               </Button>
             </div>
           </div>
@@ -811,13 +720,13 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
               <Card.Body>
                 <Row>
                   <Col md={6}>
-                    <p><strong>Nombre de matériels:</strong> {materials.filter(m => m.nom.trim()).length}</p>
+                    <p><strong>Nombre d'articles:</strong> {articles.filter(a => a.nom.trim()).length}</p>
                     <p><strong>Fournisseur:</strong> {fournisseur.nom || 'Non renseigné'}</p>
                   </Col>
                   <Col md={6}>
                     <p><strong>Total à payer:</strong> 
                       <Badge bg="success" className="ms-2">
-                        {materials.reduce((sum, material) => sum + material.prixPaye, 0).toFixed(2)} DH
+                        {articles.reduce((sum, article) => sum + article.prixPaye, 0).toFixed(2)} DH
                       </Badge>
                     </p>
                   </Col>
@@ -835,7 +744,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         <Button 
           variant="success" 
           onClick={handleSavePurchases}
-          disabled={!fournisseur.nom.trim() || materials.filter(m => m.nom.trim()).length === 0}
+          disabled={!fournisseur.nom.trim() || articles.filter(a => a.nom.trim()).length === 0}
         >
           <i className="bi bi-check-circle me-2"></i>
           {isEditMode ? 'Mettre à jour l\'Achat' : 'Enregistrer l\'Achat'}
@@ -845,4 +754,6 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   );
 };
 
-export default AddMaterialModal;
+export default AddArticleModal;
+
+

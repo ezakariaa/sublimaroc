@@ -25,8 +25,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
   const [newProduct, setNewProduct] = useState({
     nom: '',
     categorie: '',
-    image: '',
-    imageFile: null as File | null,
+    images: [] as string[],
+    imageFiles: [] as File[],
     description: '',
     fournisseur: {
       nom: '',
@@ -54,14 +54,28 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         dimensions: initialProduct.dimensions,
         materiau: initialProduct.materiau,
         capacite: initialProduct.capacite,
-        poids: initialProduct.poids
+        poids: initialProduct.poids,
+        image: initialProduct.image,
+        images: (initialProduct as any).images
       });
+      
+      // Gestion des images : priorité aux images multiples, sinon fallback sur l'image unique
+      let productImages: string[] = [];
+      if (Array.isArray((initialProduct as any).images) && (initialProduct as any).images.length > 0) {
+        productImages = (initialProduct as any).images;
+        console.log('🖼️ Images multiples trouvées:', productImages.length, productImages);
+      } else if (initialProduct.image && initialProduct.image !== '/placeholder-product.jpg' && initialProduct.image !== '/mug.webp') {
+        productImages = [initialProduct.image];
+        console.log('🖼️ Image unique trouvée:', productImages[0]);
+      } else {
+        console.log('🖼️ Aucune image trouvée');
+      }
       
       setNewProduct({
         nom: initialProduct.nom || '',
         categorie: initialProduct.categorie || '',
-        image: initialProduct.image || '',
-        imageFile: null,
+        images: productImages,
+        imageFiles: [],
         description: initialProduct.description || '',
         fournisseur: {
           nom: initialProduct.fournisseur?.nom || '',
@@ -100,8 +114,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       setNewProduct({
         nom: '',
         categorie: '',
-        image: '',
-        imageFile: null,
+        images: [],
+        imageFiles: [],
         description: '',
         fournisseur: {
           nom: '',
@@ -147,51 +161,80 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
   });
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Vérifier le type de fichier
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        onAlert('danger', 'Format de fichier non supporté. Utilisez JPG, JPEG, PNG ou WEBP.');
-        return;
+    const files = Array.from(event.target.files || []);
+    console.log('📁 Fichiers sélectionnés:', files.map(f => f.name));
+    
+    if (files.length > 0) {
+      const validFiles: File[] = [];
+      const validPreviews: string[] = [];
+      
+      files.forEach(file => {
+        // Vérifier le type de fichier
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          onAlert('danger', `Format de fichier non supporté pour ${file.name}. Utilisez JPG, JPEG, PNG ou WEBP.`);
+          return;
+        }
+        
+        // Vérifier la taille (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          onAlert('danger', `Le fichier ${file.name} est trop volumineux. Taille maximale: 5MB.`);
+          return;
+        }
+
+        validFiles.push(file);
+        validPreviews.push(URL.createObjectURL(file));
+      });
+
+      if (validFiles.length > 0) {
+        console.log('✅ Fichiers valides ajoutés:', validFiles.map(f => f.name));
+        setNewProduct(prev => ({
+          ...prev,
+          imageFiles: [...prev.imageFiles, ...validFiles],
+          images: [...prev.images, ...validPreviews]
+        }));
       }
       
-      // Vérifier la taille (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        onAlert('danger', 'Le fichier est trop volumineux. Taille maximale: 5MB.');
-        return;
-      }
-
-      setNewProduct(prev => ({
-        ...prev,
-        imageFile: file,
-        image: URL.createObjectURL(file) // Pour l'aperçu
-      }));
+      // Réinitialiser l'input pour permettre la sélection des mêmes fichiers
+      event.target.value = '';
     }
   }, [onAlert]);
 
   const handleImageDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const file = event.dataTransfer.files[0];
-    if (file) {
-      // Vérifier le type de fichier
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        onAlert('danger', 'Format de fichier non supporté. Utilisez JPG, JPEG, PNG ou WEBP.');
-        return;
-      }
+    const files = Array.from(event.dataTransfer.files);
+    console.log('📁 Fichiers glissés-déposés:', files.map(f => f.name));
+    
+    if (files.length > 0) {
+      const validFiles: File[] = [];
+      const validPreviews: string[] = [];
       
-      // Vérifier la taille (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        onAlert('danger', 'Le fichier est trop volumineux. Taille maximale: 5MB.');
-        return;
-      }
+      files.forEach(file => {
+        // Vérifier le type de fichier
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+          onAlert('danger', `Format de fichier non supporté pour ${file.name}. Utilisez JPG, JPEG, PNG ou WEBP.`);
+          return;
+        }
+        
+        // Vérifier la taille (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          onAlert('danger', `Le fichier ${file.name} est trop volumineux. Taille maximale: 5MB.`);
+          return;
+        }
 
-      setNewProduct(prev => ({
-        ...prev,
-        imageFile: file,
-        image: URL.createObjectURL(file) // Pour l'aperçu
-      }));
+        validFiles.push(file);
+        validPreviews.push(URL.createObjectURL(file));
+      });
+
+      if (validFiles.length > 0) {
+        console.log('✅ Fichiers valides ajoutés via drag&drop:', validFiles.map(f => f.name));
+        setNewProduct(prev => ({
+          ...prev,
+          imageFiles: [...prev.imageFiles, ...validFiles],
+          images: [...prev.images, ...validPreviews]
+        }));
+      }
     }
   }, [onAlert]);
 
@@ -199,11 +242,42 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     event.preventDefault();
   }, []);
 
-  const removeImage = useCallback(() => {
+  const removeImage = useCallback((index: number) => {
+    console.log('🗑️ Suppression de l\'image à l\'index:', index);
+    console.log('🗑️ État avant suppression:', {
+      imagesCount: newProduct.images.length,
+      imageFilesCount: newProduct.imageFiles.length,
+      images: newProduct.images,
+      imageFiles: newProduct.imageFiles.map(f => f.name)
+    });
+    
+    setNewProduct(prev => {
+      const newImages = prev.images.filter((_, i) => i !== index);
+      // Pour les imageFiles, on doit être plus prudent car il peut y avoir un décalage
+      // On garde seulement les fichiers qui correspondent aux images restantes
+      const newImageFiles = prev.imageFiles.filter((_, i) => i !== index);
+      
+      console.log('🗑️ Images après suppression:', {
+        imagesCount: newImages.length,
+        imageFilesCount: newImageFiles.length,
+        newImages: newImages,
+        newImageFiles: newImageFiles.map(f => f.name)
+      });
+      
+      return {
+        ...prev,
+        imageFiles: newImageFiles,
+        images: newImages
+      };
+    });
+  }, []);
+
+  const removeAllImages = useCallback(() => {
+    console.log('🗑️ Suppression de toutes les images');
     setNewProduct(prev => ({
       ...prev,
-      imageFile: null,
-      image: ''
+      imageFiles: [],
+      images: []
     }));
   }, []);
 
@@ -289,43 +363,83 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       console.log('✅ Validation réussie, traitement en cours...');
       
 
-      // Gestion intelligente de l'image
-      let imageUrl = '/mug.webp';
+      // Gestion intelligente des images
+      let imageUrls: string[] = [];
       
-      // Si une image a été sélectionnée
-      if (newProduct.image && newProduct.image !== '/placeholder-product.jpg' && newProduct.image !== '/mug.webp') {
-        if (newProduct.image.startsWith('blob:')) {
-          // Convertir l'image blob en base64 pour la sauvegarder
-          try {
-            const response = await fetch(newProduct.image);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onload = () => {
-              // L'image sera sauvegardée en base64
-              imageUrl = reader.result as string;
-            };
-            reader.readAsDataURL(blob);
-            
-            // Attendre que la conversion soit terminée
-            await new Promise((resolve) => {
-              reader.onloadend = resolve;
-            });
-          } catch (error) {
-            console.error('Erreur lors de la conversion de l\'image:', error);
-            imageUrl = '/mug.webp';
+      console.log('🖼️ Traitement des images:', {
+        imagesCount: newProduct.images.length,
+        imageFilesCount: newProduct.imageFiles.length,
+        images: newProduct.images,
+        imageFiles: newProduct.imageFiles.map(f => f.name)
+      });
+      
+      // Si des images ont été sélectionnées
+      if (newProduct.images && newProduct.images.length > 0) {
+        // Traiter chaque image dans l'ordre
+        for (let i = 0; i < newProduct.images.length; i++) {
+          const image = newProduct.images[i];
+          
+          console.log(`🖼️ Traitement de l'image ${i + 1}/${newProduct.images.length}:`, {
+            image: image,
+            isBlob: image?.startsWith('blob:'),
+            totalImages: newProduct.images.length,
+            totalFiles: newProduct.imageFiles.length
+          });
+          
+          if (image && image !== '/placeholder-product.jpg' && image !== '/mug.webp') {
+            if (image.startsWith('blob:')) {
+              // Convertir l'image blob en base64 pour la sauvegarder
+              try {
+                console.log('🔄 Conversion blob vers base64...');
+                const response = await fetch(image);
+                const blob = await response.blob();
+                
+                const base64Promise = new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    console.log('✅ Conversion base64 réussie');
+                    resolve(reader.result as string);
+                  };
+                  reader.onerror = () => {
+                    console.error('❌ Erreur de lecture du fichier');
+                    reject(new Error('Erreur de lecture du fichier'));
+                  };
+                  reader.readAsDataURL(blob);
+                });
+                
+                const base64Image = await base64Promise;
+                imageUrls.push(base64Image);
+                console.log(`✅ Image ${i + 1} base64 ajoutée aux URLs (total: ${imageUrls.length})`);
+              } catch (error) {
+                console.error('❌ Erreur lors de la conversion de l\'image:', error);
+                // En cas d'erreur, utiliser l'image par défaut
+                imageUrls.push('/mug.webp');
+              }
+            } else {
+              // Image déjà sauvegardée (URL ou base64)
+              console.log('📷 Image déjà sauvegardée, ajout direct');
+              imageUrls.push(image);
+            }
+          } else {
+            console.log('⚠️ Image ignorée (placeholder ou image par défaut)');
           }
-        } else {
-          imageUrl = newProduct.image;
         }
       }
       
-      console.log('Image URL utilisée:', imageUrl);
+      // Si aucune image valide, utiliser l'image par défaut
+      if (imageUrls.length === 0) {
+        console.log('🖼️ Aucune image valide, utilisation de l\'image par défaut');
+        imageUrls = ['/mug.webp'];
+      }
+      
+      console.log('🖼️ URLs finales des images:', imageUrls.length, imageUrls);
       
       // Préparer les données du produit avec les tags
       const productData = {
         nom: newProduct.nom.trim(),
         categorie: newProduct.categorie.trim(),
-        image: imageUrl,
+        image: imageUrls[0] || '/mug.webp', // Image principale (première image)
+        images: imageUrls,
         description: newProduct.description.trim(),
         fournisseur: {
           nom: '',
@@ -352,7 +466,13 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         dateModification: new Date()
       };
 
-      console.log('Données envoyées à Firebase:', productData);
+      console.log('📊 Données finales du produit:', {
+        nom: productData.nom,
+        image: productData.image,
+        imagesCount: productData.images.length,
+        images: productData.images,
+        mode: isEditMode ? 'édition' : 'création'
+      });
 
       if (isEditMode && initialProduct) {
         console.log('🚀 Début de la mise à jour du produit...');
@@ -403,8 +523,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       setNewProduct({
         nom: '',
         categorie: '',
-        image: '',
-        imageFile: null,
+        images: [],
+        imageFiles: [],
         description: '',
         fournisseur: { nom: '', ville: '' },
         type: '',
@@ -441,7 +561,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'ajout du produit';
       onAlert('danger', errorMessage);
     }
-  }, [newProduct, onAlert, onHide, onProductAdded]);
+  }, [newProduct, tags, isEditMode, initialProduct, onAlert, onHide, onProductAdded, newProduct.imageFiles, newProduct.images]);
 
   return (
     <>
@@ -482,17 +602,20 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
                     <Form.Label>Description du produit</Form.Label>
                     <Form.Control
                       as="textarea"
-                      rows={3}
+                      rows={5}
                       value={newProduct.description}
                       onChange={(e) => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
                       placeholder="Décrivez le produit..."
+                      style={{ minHeight: '180px'}}
                     />
                   </Form.Group>
                 </Col>
                 
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Image du produit</Form.Label>
+                    <Form.Label>Images du produit</Form.Label>
+                    
+                    {/* Zone d'upload */}
                     <div
                       className="image-upload-zone"
                       onDrop={handleImageDrop}
@@ -507,42 +630,18 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        marginBottom: '15px'
                       }}
                     >
-                      {newProduct.image ? (
-                        <div className="text-center">
-                          <img 
-                            src={newProduct.image} 
-                            alt="Aperçu" 
-                            style={{ 
-                              maxWidth: '100px', 
-                              maxHeight: '100px', 
-                              objectFit: 'cover',
-                              borderRadius: '4px',
-                              marginBottom: '10px'
-                            }}
-                          />
-                          <div>
-                            <Button 
-                              variant="outline-danger" 
-                              size="sm"
-                              onClick={removeImage}
-                            >
-                              <i className="bi bi-trash me-1"></i>
-                              Supprimer
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
                           <i className="bi bi-cloud-upload" style={{ fontSize: '2rem', color: '#6c757d' }}></i>
-                          <p className="mt-2 mb-1">Glissez-déposez une image ici</p>
+                      <p className="mt-2 mb-1">Glissez-déposez des images ici</p>
                           <p className="text-muted small">ou</p>
                           <Form.Control
                             type="file"
                             accept="image/*"
                             onChange={handleImageUpload}
+                        multiple
                             style={{ display: 'none' }}
                             id="image-upload"
                           />
@@ -551,12 +650,68 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
                             className="btn btn-outline-primary btn-sm"
                             style={{ cursor: 'pointer' }}
                           >
-                            Choisir un fichier
+                        Choisir des fichiers
                           </Form.Label>
-                          <p className="text-muted small mt-2">JPG, JPEG, PNG, WEBP (max 5MB)</p>
+                      <p className="text-muted small mt-2">JPG, JPEG, PNG, WEBP (max 5MB par image)</p>
                         </div>
-                      )}
+
+                    {/* Affichage des images sélectionnées */}
+                    {newProduct.images.length > 0 && (
+                      <div>
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h6 className="mb-0">Images sélectionnées ({newProduct.images.length})</h6>
+                          <Button 
+                            variant="outline-danger" 
+                            size="sm"
+                            onClick={removeAllImages}
+                          >
+                            <i className="bi bi-trash me-1"></i>
+                            Tout supprimer
+                          </Button>
                     </div>
+                        <div className="row g-2">
+                          {newProduct.images.map((image, index) => (
+                            <div key={index} className="col-md-4">
+                              <div className="position-relative">
+                                <img 
+                                  src={image} 
+                                  alt={`Aperçu ${index + 1}`} 
+                                  style={{ 
+                                    width: '100%', 
+                                    height: '100px', 
+                                    objectFit: 'cover',
+                                    borderRadius: '4px',
+                                    border: '1px solid #dee2e6'
+                                  }}
+                                />
+                                <Button 
+                                  variant="outline-danger" 
+                                  size="sm"
+                                  className="position-absolute"
+                                  style={{ 
+                                    top: '5px', 
+                                    right: '5px',
+                                    width: '24px',
+                                    height: '24px',
+                                    borderRadius: '50%',
+                                    padding: '0',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    removeImage(index);
+                                  }}
+                                >
+                                  <i className="bi bi-x" style={{ fontSize: '12px' }}></i>
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </Form.Group>
                 </Col>
               </Row>
