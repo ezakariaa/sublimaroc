@@ -41,7 +41,7 @@ const Home: React.FC = () => {
                   alt={image.alt}
                 />
                 <Carousel.Caption className="hero-caption">
-                  <h1 className="hero-title">SubliMaroc</h1>
+                  <h1 className="hero-title">Graph'Ink</h1>
                   <p className="hero-subtitle">
                     Votre partenaire de confiance pour l'impression au Maroc
                   </p>

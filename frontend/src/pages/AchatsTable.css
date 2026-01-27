@@ -4,21 +4,21 @@
 .achats-table-container .table {
   margin-bottom: 0;
   font-family: 'Inter', sans-serif;
-  table-layout: fixed !important;
+  table-layout: auto !important;
   width: 100% !important;
   background-color: #fff;
 }
 
 /* Styles pour l'en-tête du tableau */
 .achats-table-container thead {
-  background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+  background-color: #F8F9FA !important;
 }
 
 .achats-table-container thead th {
-  background: linear-gradient(135deg, #2c3e50, #34495e) !important;
-  color: #fff !important;
+  background-color: #F8F9FA !important;
+  color: #2c3e50 !important;
   font-weight: 600 !important;
-  text-transform: uppercase !important;
+  text-transform: none !important;
   font-size: 0.85rem !important;
   letter-spacing: 0.5px !important;
   padding: 1rem 0.75rem !important;
@@ -27,26 +27,28 @@
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
   line-height: 1.4 !important;
+  text-align: left !important;
 }
 
 .achats-table-container .table-header {
-  background: linear-gradient(135deg, #2c3e50, #34495e) !important;
-  color: #fff !important;
+  background-color: #F8F9FA !important;
+  color: #2c3e50 !important;
 }
 
 .achats-table-container .table-header th {
   border: none !important;
   font-weight: 600 !important;
-  text-transform: uppercase !important;
+  text-transform: none !important;
   font-size: 0.85rem !important;
   letter-spacing: 0.5px !important;
   padding: 1rem 0.75rem !important;
-  color: #fff !important;
-  background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+  color: #2c3e50 !important;
+  background-color: #F8F9FA !important;
   white-space: normal !important;
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
   line-height: 1.4 !important;
+  text-align: left !important;
 }
 
 /* Optimisation des largeurs des colonnes du tableau des achats */
@@ -63,7 +65,7 @@
 .achats-table-container .table td:nth-child(2) { 
   width: auto !important; 
   min-width: 600px !important; 
-  overflow: hidden;
+  overflow: visible !important;
 }
 
 .achats-table-container .table th:nth-child(3), /* Total */
@@ -116,16 +118,17 @@
 .achats-table-container .table th:nth-child(5), /* Date Livraison */
 .achats-table-container .table th:nth-child(6), /* État */
 .achats-table-container .table th:nth-child(7) { /* Actions */
-  text-align: center !important;
+  text-align: left !important;
   font-weight: 600 !important;
   font-family: 'Inter', sans-serif !important;
-  color: #fff !important;
+  color: #2c3e50 !important;
   padding: 1rem 0.75rem !important;
-  background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+  background-color: #F8F9FA !important;
   white-space: normal !important;
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
   line-height: 1.4 !important;
+  text-transform: none !important;
 }
 
 .achats-table-container .table td:nth-child(1), /* Référence Achat / Matériel */
@@ -207,16 +210,22 @@
   max-width: 100%;
   min-width: 580px;
   width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .achats-table-container .product-item {
   margin-bottom: 0.5rem;
   padding: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   min-width: 0;
+}
+
+.achats-table-container .product-item > div {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
 }
 
 .achats-table-container .product-item:last-child {
@@ -261,6 +270,10 @@
   color: #2c3e50;
   display: block;
   margin-bottom: 0.25rem;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  line-height: 1.4;
 }
 
 .achats-table-container .purchase-total {

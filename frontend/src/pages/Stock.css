@@ -7,13 +7,73 @@
   font-size: 2.5rem;
   font-weight: bold;
   color: #2c3e50;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.1rem !important;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+/* Style pour le lien "Ajouter un Produit" dans le titre */
+.stock-title-add-product {
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.stock-title-add-product:hover {
+  color: #0056b3 !important;
+  text-decoration: underline !important;
+}
+
+.stock-title-add-product:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Style pour le lien "Ajouter un Produit" dans l'en-tête "Produits Principaux" */
+.stock-header-add-product {
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.stock-header-add-product:hover {
+  color: #e0e0e0 !important;
+  text-decoration: underline !important;
+}
+
+.stock-header-add-product:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Style pour le lien "Ajouter un Sous-Produit" dans l'en-tête "Sous-Produits" */
+.stock-header-add-subproduct {
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.stock-header-add-subproduct:hover {
+  color: #e0e0e0 !important;
+  text-decoration: underline !important;
+}
+
+.stock-header-add-subproduct:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .page-subtitle {
   color: #7f8c8d;
   font-size: 1.1rem;
-  margin-bottom: 0;
+  margin-bottom: 0 !important;
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+/* Styles pour les boutons d'action dans le header */
+.stock-page .btn {
+  font-family: 'Montserrat', sans-serif !important;
+  border-radius: 25px !important;
+  font-weight: 500;
+  padding: 0.5rem 1.25rem;
 }
 
 /* Statistiques */
@@ -60,6 +120,22 @@
   color: #fff;
 }
 
+.stat-icon-warning {
+  background: linear-gradient(135deg, #ff9800, #f57c00) !important;
+}
+
+.stat-icon-danger {
+  background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+}
+
+.stat-card-warning {
+  border-left: 4px solid #ff9800;
+}
+
+.stat-card-danger {
+  border-left: 4px solid #f44336;
+}
+
 .stat-number {
   font-size: 2rem;
   font-weight: bold;
@@ -84,36 +160,99 @@
   overflow: hidden;
 }
 
-.table {
+/* Styles de tableau spécifiques à la page Stock */
+.stock-page .table {
   margin-bottom: 0;
 }
 
-.table-header {
+.stock-page .table-header {
   background: linear-gradient(135deg, #2c3e50, #34495e);
   color: #fff;
 }
 
-.table-header th {
+.stock-page .table-header th {
   border: none;
   font-weight: 600;
   text-transform: uppercase;
   font-size: 0.85rem;
   letter-spacing: 0.5px;
   padding: 1rem 0.75rem;
+  text-align: left !important;
 }
 
-.table tbody tr {
+/* Alignement à gauche pour tous les en-têtes de tableau - uniquement dans stock-page */
+.stock-page .table-light th,
+.stock-page .table th {
+  text-align: left !important;
+  font-weight: bold !important;
+}
+
+.stock-page .table tbody tr {
   transition: background-color 0.3s ease;
 }
 
-.table tbody tr:hover {
+.stock-page .table tbody tr:hover {
   background-color: #f8f9fa;
 }
 
-.table tbody td {
+.stock-page .table tbody td {
   vertical-align: middle;
   padding: 1rem 0.75rem;
   border-top: 1px solid #e9ecef;
+}
+
+/* Centrer les images dans leurs cellules - Tableau principal des produits uniquement */
+.stock-page .table:not(.sub-products-table) td.product-image-cell,
+.stock-page .table:not(.sub-products-table) td:nth-child(2) {
+  text-align: center !important;
+  padding: 1rem 0.75rem !important;
+  width: 8% !important;
+  vertical-align: middle !important;
+}
+
+/* Centrer le wrapper d'image */
+.stock-page .table:not(.sub-products-table) td.product-image-cell .product-image-wrapper,
+.stock-page .table:not(.sub-products-table) td:nth-child(2) .product-image-wrapper {
+  display: inline-block !important;
+  position: relative !important;
+  width: auto !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+/* Styles pour les images dans le tableau Stock */
+.stock-page .table:not(.sub-products-table) .stock-product-thumb {
+  display: block !important;
+  width: 70px !important;
+  height: 70px !important;
+  object-fit: cover !important;
+  border-radius: 8px !important;
+  border: 2px solid #dee2e6 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.stock-page .table:not(.sub-products-table) .stock-product-thumb-placeholder {
+  display: block !important;
+  width: 70px !important;
+  height: 70px !important;
+  background-color: #f8f9fa !important;
+  border: 2px dashed #dee2e6 !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.8rem !important;
+  color: #6c757d !important;
+  cursor: pointer !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.stock-page .table:not(.sub-products-table) .stock-product-thumb-placeholder i {
+  font-size: 1.2rem !important;
 }
 
 /* Informations produit */
@@ -202,17 +341,17 @@
 }
 
 /* Amélioration de la largeur des colonnes du tableau principal */
-.table th:nth-child(1) { width: 8% !important; min-width: 80px; } /* Nom du produit - très réduit */
-.table th:nth-child(2) { width: 8% !important; min-width: 90px; } /* Image - ajustée pour les 70px */
-.table th:nth-child(3) { width: 50% !important; } /* Caractéristiques - très agrandie */
+.table th:nth-child(1) { width: 18% !important; min-width: 200px; } /* Nom du produit - agrandi */
+.table th:nth-child(2) { width: 10% !important; min-width: 90px; } /* Image - ajustée pour les 70px */
+.table th:nth-child(3) { width: 38% !important; } /* Caractéristiques - réduite pour équilibrer */
 .table th:nth-child(4) { width: 12% !important; } /* Stock - légèrement agrandi */
 .table th:nth-child(5) { width: 12% !important; } /* État - légèrement agrandi */
 .table th:nth-child(6) { width: 10% !important; } /* Actions - ajusté */
 
 /* Forcer aussi les cellules du tableau */
-.table td:nth-child(1) { width: 8% !important; min-width: 80px; }
+.table td:nth-child(1) { width: 20% !important; min-width: 200px; }
 .table td:nth-child(2) { width: 8% !important; min-width: 90px; }
-.table td:nth-child(3) { width: 50% !important; }
+.table td:nth-child(3) { width: 38% !important; }
 .table td:nth-child(4) { width: 12% !important; }
 .table td:nth-child(5) { width: 12% !important; }
 .table td:nth-child(6) { width: 10% !important; }
@@ -225,7 +364,7 @@
 
 /* Amélioration de la largeur des colonnes du tableau des sous-produits */
 .sub-products-table th:nth-child(1), /* Nom du Sous-Produit */
-.sub-products-table td:nth-child(1) { width: 18% !important; }
+.sub-products-table td:nth-child(1) { width: 10% !important; max-width: 130px; }
 
 .sub-products-table th:nth-child(2), /* Catégorie Parent */
 .sub-products-table td:nth-child(2) { width: 8% !important; }
@@ -234,19 +373,22 @@
 .sub-products-table td:nth-child(3) { width: 6% !important; min-width: 80px; }
 
 .sub-products-table th:nth-child(4), /* Caractéristiques */
-.sub-products-table td:nth-child(4) { width: 31% !important; }
+.sub-products-table td:nth-child(4) { width: 30% !important; }
 
 .sub-products-table th:nth-child(5), /* Prix Unitaire */
-.sub-products-table td:nth-child(5) { width: 10% !important; }
+.sub-products-table td:nth-child(5) { width: 7% !important; }
 
 .sub-products-table th:nth-child(6), /* Quantité */
-.sub-products-table td:nth-child(6) { width: 8% !important; }
+.sub-products-table td:nth-child(6) { width: 6% !important; }
 
-.sub-products-table th:nth-child(7), /* État du Stock */
-.sub-products-table td:nth-child(7) { width: 12% !important; }
+.sub-products-table th:nth-child(7), /* Total */
+.sub-products-table td:nth-child(7) { width: 10% !important; }
 
-.sub-products-table th:nth-child(8), /* Actions */
-.sub-products-table td:nth-child(8) { width: 10% !important; min-width: 120px; }
+.sub-products-table th:nth-child(8), /* État du Stock */
+.sub-products-table td:nth-child(8) { width: 10% !important; }
+
+.sub-products-table th:nth-child(9), /* Actions */
+.sub-products-table td:nth-child(9) { width: 8% !important; min-width: 100px; }
 
 /* Forcer le tableau des sous-produits à respecter les largeurs */
 .sub-products-table {
@@ -254,9 +396,43 @@
   width: 100% !important;
 }
 
+/* Bordures verticales supprimées pour les cellules du tableau des sous-produits */
+.sub-products-table th,
+.sub-products-table td {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+.sub-products-table th:first-child,
+.sub-products-table td:first-child {
+  border-left: none !important;
+}
+
+.sub-products-table th:last-child,
+.sub-products-table td:last-child {
+  border-right: none !important;
+}
+
 /* Police Inter pour tous les tableaux */
 .table, .table th, .table td {
   font-family: 'Inter', sans-serif;
+}
+
+/* Styles pour les en-têtes de section (Produits Principaux, Sous-Produits) */
+.stock-page .card-header {
+  background-color: #424272 !important;
+  border-bottom: none;
+  padding: 1rem 1.5rem;
+}
+
+.stock-page .card-header h5 {
+  color: #ffffff !important;
+  font-weight: 600;
+  margin: 0;
+}
+
+.stock-page .card-header h5 i {
+  color: #ffffff !important;
 }
 
 /* Styles pour les boutons d'action */
@@ -275,31 +451,32 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
-/* Amélioration des colonnes spécifiques */
-.table th:nth-child(4), /* Quantité en Stock */
-.table th:nth-child(5), /* État du Stock */
-.table th:nth-child(6) { /* Actions */
-  text-align: center;
+/* Amélioration des colonnes spécifiques - uniquement dans stock-page */
+.stock-page .table:not(.sub-products-table) th:nth-child(4), /* Quantité en Stock */
+.stock-page .table:not(.sub-products-table) th:nth-child(5), /* État du Stock */
+.stock-page .table:not(.sub-products-table) th:nth-child(6) { /* Actions */
+  text-align: left !important;
   font-weight: 600;
   color: #2c3e50;
 }
 
-.table td:nth-child(4), /* Quantité en Stock */
-.table td:nth-child(5), /* État du Stock */
-.table td:nth-child(6) { /* Actions */
+/* Styles généraux pour les colonnes - uniquement dans stock-page */
+.stock-page .table:not(.sub-products-table) td:nth-child(4), /* Quantité en Stock */
+.stock-page .table:not(.sub-products-table) td:nth-child(5), /* État du Stock */
+.stock-page .table:not(.sub-products-table) td:nth-child(6) { /* Actions */
   text-align: center;
   vertical-align: middle;
 }
 
-/* Style pour la colonne Stock */
-.table td:nth-child(4) {
+/* Style pour la colonne Stock - uniquement dans stock-page */
+.stock-page .table:not(.sub-products-table) td:nth-child(4) {
   font-weight: bold;
   font-size: 1.1rem;
   color: #2c3e50;
 }
 
-/* Style pour la colonne État */
-.table td:nth-child(5) .badge {
+/* Style pour la colonne État - uniquement dans stock-page */
+.stock-page .table:not(.sub-products-table) td:nth-child(5) .badge {
   font-size: 0.8rem;
   padding: 0.5rem 0.75rem;
   font-weight: 600;
@@ -307,12 +484,12 @@
   letter-spacing: 0.5px;
 }
 
-/* Style pour la colonne Actions */
-.table td:nth-child(6) {
+/* Style pour la colonne Actions - uniquement dans stock-page */
+.stock-page .table:not(.sub-products-table) td:nth-child(6) {
   padding: 0.5rem;
 }
 
-.table td:nth-child(6) .d-flex {
+.stock-page .table:not(.sub-products-table) td:nth-child(6) .d-flex {
   justify-content: center;
   gap: 0.25rem;
 }
@@ -324,12 +501,13 @@
 .sub-products-table th:nth-child(4), /* Caractéristiques */
 .sub-products-table th:nth-child(5), /* Prix Unitaire */
 .sub-products-table th:nth-child(6), /* Quantité */
-.sub-products-table th:nth-child(7), /* État du Stock */
-.sub-products-table th:nth-child(8) { /* Actions */
-  text-align: center;
-  font-weight: 600;
+.sub-products-table th:nth-child(7), /* Total */
+.sub-products-table th:nth-child(8), /* État du Stock */
+.sub-products-table th:nth-child(9) { /* Actions */
+  text-align: left !important;
+  font-weight: bold !important;
   color: #2c3e50;
-  padding: 0.75rem 0.5rem;
+  padding: 0.5rem 0.5rem;
 }
 
 .sub-products-table td:nth-child(1), /* Nom du Sous-Produit */
@@ -338,8 +516,9 @@
 .sub-products-table td:nth-child(4), /* Caractéristiques */
 .sub-products-table td:nth-child(5), /* Prix Unitaire */
 .sub-products-table td:nth-child(6), /* Quantité */
-.sub-products-table td:nth-child(7), /* État du Stock */
-.sub-products-table td:nth-child(8) { /* Actions */
+.sub-products-table td:nth-child(7), /* Total */
+.sub-products-table td:nth-child(8), /* État du Stock */
+.sub-products-table td:nth-child(9) { /* Actions */
   vertical-align: middle;
   padding: 0.5rem;
 }
@@ -349,16 +528,94 @@
   text-align: left;
   font-weight: 600;
   color: #2c3e50;
+  max-width: 150px;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.4;
+}
+
+/* Style pour l'ID du sous-produit */
+.sub-products-table .sub-product-id {
+  color: #FF33FF !important;
+  font-weight: 500;
+}
+
+/* Style pour l'ID du produit */
+.stock-page .table:not(.sub-products-table) .product-id {
+  color: #FF33FF !important;
+  font-weight: 500;
+}
+
+/* Styles pour les boutons d'action dans le header */
+.stock-action-buttons .stock-btn-add-product,
+.stock-action-buttons .stock-btn-add-subproduct,
+.stock-action-buttons .stock-btn-test-telegram {
+  min-width: 180px;
+  padding: 0.5rem 1rem;
+  white-space: normal;
+  line-height: 1.3;
+  text-align: center;
+  justify-content: center;
+}
+
+.stock-action-buttons .stock-btn-add-product {
+  min-width: 160px;
+}
+
+.stock-action-buttons .stock-btn-add-subproduct {
+  min-width: 180px;
+}
+
+.stock-action-buttons .stock-btn-test-telegram {
+  min-width: 140px;
 }
 
 /* Style pour la colonne Catégorie Parent */
 .sub-products-table td:nth-child(2) {
-  text-align: center;
+  text-align: left;
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+  vertical-align: middle;
+  position: relative;
+  z-index: 1;
+}
+
+.sub-products-table td:nth-child(2) .badge {
+  display: inline-block;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Style pour la colonne Image */
 .sub-products-table td:nth-child(3) {
-  text-align: center;
+  text-align: center !important;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  vertical-align: middle;
+  position: relative;
+  z-index: 2;
+}
+
+.sub-products-table td:nth-child(3) > * {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+.sub-products-table td:nth-child(3) .product-image-wrapper {
+  display: inline-block !important;
+  margin: 0 auto !important;
+  position: relative;
+  width: auto !important;
+}
+
+.sub-products-table td:nth-child(3) .product-thumb,
+.sub-products-table td:nth-child(3) .product-thumb-placeholder {
+  display: block !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
 /* Style pour la colonne Caractéristiques */
@@ -370,7 +627,7 @@
 .sub-products-table td:nth-child(5) {
   text-align: center;
   font-weight: bold;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: #28a745;
 }
 
@@ -378,12 +635,20 @@
 .sub-products-table td:nth-child(6) {
   text-align: center;
   font-weight: bold;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   color: #2c3e50;
 }
 
-/* Style pour la colonne État du Stock */
+/* Style pour la colonne Total */
 .sub-products-table td:nth-child(7) {
+  text-align: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #28a745;
+}
+
+/* Style pour la colonne État du Stock */
+.sub-products-table td:nth-child(8) {
   text-align: center;
 }
 
@@ -696,4 +961,36 @@
     height: 50px;
     font-size: 1.2rem;
   }
+}
+
+/* Style pour minimiser la largeur de la colonne Catégorie Parent */
+.sub-products-table thead th:nth-child(2),
+.sub-products-table tbody td:nth-child(2) {
+  width: 90px;
+  max-width: 90px;
+  padding: 0.5rem 0.25rem;
+}
+
+.sub-products-table tbody td:nth-child(2) .badge {
+  font-size: 0.65rem;
+  padding: 0.15em 0.3em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Limiter la largeur de la colonne État du Stock */
+.sub-products-table thead th:nth-child(7),
+.sub-products-table tbody td:nth-child(7) {
+  width: 110px;
+  max-width: 110px;
+}
+
+/* Limiter la largeur de la colonne Actions */
+.sub-products-table thead th:nth-child(8),
+.sub-products-table tbody td:nth-child(8) {
+  width: 100px;
+  max-width: 100px;
 }

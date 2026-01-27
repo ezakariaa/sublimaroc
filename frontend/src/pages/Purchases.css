@@ -31,6 +31,44 @@
   background: #fff;
 }
 
+/* Espace entre les cartes de statistiques et les filtres */
+.purchases-page .purchases-stats-row {
+  margin-bottom: 0 !important;
+}
+
+.purchases-page .purchases-filters-row {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.purchases-page .purchases-stats-row + .purchases-filters-row {
+  margin-top: 0 !important;
+}
+
+/* Forcer l'espace même sans la classe purchases-page */
+.purchases-stats-row {
+  margin-bottom: 0 !important;
+}
+
+.purchases-filters-row {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.purchases-stats-row + .purchases-filters-row {
+  margin-top: 0 !important;
+}
+
+/* Div séparateur pour créer l'espace */
+.purchases-spacer {
+  height: 3rem !important;
+  width: 100% !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  clear: both !important;
+}
+
 .stat-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 20px rgba(0,0,0,0.15);
@@ -69,6 +107,18 @@
 .purchases-page .table-responsive {
   border-radius: 0 0 15px 15px;
   overflow: hidden;
+}
+
+/* Réduire la hauteur de la première ligne (en-têtes) du tableau */
+.purchases-page .table-header th,
+.purchases-page thead th,
+.purchases-page .table thead th,
+.purchases-page .table .table-header th {
+  padding: 0.5rem 0.75rem !important;
+  line-height: 1.2 !important;
+  vertical-align: middle !important;
+  height: auto !important;
+  min-height: auto !important;
 }
 
 /* Informations fournisseur */
@@ -142,16 +192,38 @@
 }
 
 .card-header {
-  background: #fff;
-  border-bottom: 1px solid #e9ecef;
+  background-color: #424272 !important;
+  border-bottom: none;
   padding: 1rem 1.5rem;
 }
 
 .card-header h5 {
-  color: #2c3e50;
+  color: #ffffff !important;
   font-weight: 600;
   font-size: 1.1rem;
   margin: 0;
+}
+
+.card-header h5 i {
+  color: #ffffff !important;
+}
+
+/* Style pour le bouton "Ajouter un Article" dans l'en-tête */
+.purchases-header-add-article {
+  color: #ffffff !important;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.purchases-header-add-article:hover {
+  color: #e0e0e0 !important;
+  text-decoration: underline !important;
+}
+
+.purchases-header-add-article:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .card-body {

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Button, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
+import { toast } from 'react-toastify';
 import { Product } from '../types';
 import { ProductService, AchatService } from '../services/firebaseService';
+import ConfirmModal from '../components/modals/ConfirmModal';
 import './Purchases.css';
 import './AchatsTable.css';
 
@@ -57,6 +59,9 @@ const Achats: React.FC = () => {
     expectedDate: ''
   });
   const [alert, setAlert] = useState<{ type: 'success' | 'danger', message: string } | null>(null);
+  const [showConfirmDeleteAchat, setShowConfirmDeleteAchat] = useState(false);
+  const [achatToDelete, setAchatToDelete] = useState<Achat | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Chargement des données
   useEffect(() => {
@@ -155,6 +160,11 @@ const Achats: React.FC = () => {
   const handleAlert = (type: 'success' | 'danger', message: string) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 3000);
+    if (type === 'success') {
+      toast.success(message);
+    } else {
+      toast.error(message);
+    }
   };
 
   const handleCloseMaterialModal = () => {
@@ -229,29 +239,31 @@ const Achats: React.FC = () => {
     setShowAddMaterialModal(true);
   };
 
-  const handleDeleteAchat = async (purchase: any) => {
-    const materialNames = purchase.materials.map((m: any) => m.nom).join(', ');
-    const confirmed = window.confirm(
-      `Êtes-vous sûr de vouloir supprimer cet achat de matériel ?\n\n` +
-      `Matériel(s): ${materialNames}\n` +
-      `Fournisseur: ${purchase.fournisseur.nom}\n` +
-      `Total: ${formatPrice(purchase.totalAchat)}\n\n` +
-      `Cette action est irréversible et supprimera définitivement l'achat de Firebase.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
+  const handleDeleteAchatClick = (purchase: Achat) => {
+    setAchatToDelete(purchase);
+    setShowConfirmDeleteAchat(true);
+  };
 
+  const handleConfirmDeleteAchat = async () => {
+    if (!achatToDelete) return;
+    
+    setIsDeleting(true);
     try {
-      console.log('🗑️ Suppression de l\'achat:', purchase.id);
-      await AchatService.deleteAchat(purchase.id);
-      setAlert({ type: 'success', message: `Achat de matériel "${materialNames}" supprimé avec succès` });
+      const materialNames = achatToDelete.materials.map((m: any) => m.nom).join(', ');
+      console.log('🗑️ Suppression de l\'achat:', achatToDelete.id);
+      await AchatService.deleteAchat(achatToDelete.id);
+      toast.success(`Achat de matériel "${materialNames}" supprimé avec succès`);
       refreshAchats();
       console.log('✅ Achat supprimé avec succès');
+      
+      // Fermer la modale
+      setShowConfirmDeleteAchat(false);
+      setAchatToDelete(null);
     } catch (error) {
       console.error('❌ Erreur lors de la suppression:', error);
-      setAlert({ type: 'danger', message: 'Erreur lors de la suppression de l\'achat de Firebase' });
+      toast.error('Erreur lors de la suppression de l\'achat de Firebase');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -261,7 +273,7 @@ const Achats: React.FC = () => {
         <Row className="justify-content-center">
           <Col className="text-center">
             <Spinner animation="border" variant="primary" />
-            <p className="mt-3">Chargement des achats...</p>
+            <p className="mt-3">Chargement des articles...</p>
           </Col>
         </Row>
       </Container>
@@ -287,10 +299,10 @@ const Achats: React.FC = () => {
           <Col md={8}>
             <h1 className="page-title">
               <i className="bi bi-cart-dash me-2"></i>
-              Gestion des Achats (Matériels)
+              Gestion des Articles
             </h1>
             <p className="page-subtitle">
-              Gérez vos commandes et achats auprès des fournisseurs
+              Gérez vos commandes et achats d'articles auprès des fournisseurs
             </p>
           </Col>
           <Col md={4} className="d-flex justify-content-end align-items-center">
@@ -307,7 +319,7 @@ const Achats: React.FC = () => {
         </Row>
 
         {/* Statistiques */}
-        <Row className="mb-4">
+        <Row className="mb-4 purchases-stats-row">
           <Col md={3}>
             <Card className="stat-card">
               <Card.Body className="text-center">
@@ -315,7 +327,7 @@ const Achats: React.FC = () => {
                   <i className="bi bi-cart-dash"></i>
                 </div>
                 <h3 className="stat-number">{achats.length}</h3>
-                <p className="stat-label">Total Achats</p>
+                <p className="stat-label">Total Articles</p>
               </Card.Body>
             </Card>
           </Col>
@@ -357,8 +369,11 @@ const Achats: React.FC = () => {
           </Col>
         </Row>
 
+        {/* Espace entre les cartes et les filtres */}
+        <div className="purchases-spacer" style={{ height: '3rem', width: '100%', display: 'block' }}></div>
+
         {/* Actions et Filtres */}
-        <Row className="mb-4 mt-5">
+        <Row className="mb-4 purchases-filters-row">
           <Col md={4}>
             <InputGroup>
               <InputGroup.Text>
@@ -405,7 +420,7 @@ const Achats: React.FC = () => {
               <Card.Header>
                 <h5 className="mb-0">
                   <i className="bi bi-list-ul me-2"></i>
-                  Liste des Achats
+                  Liste des Articles
                 </h5>
               </Card.Header>
               
@@ -429,8 +444,7 @@ const Achats: React.FC = () => {
                           <td>
                             <div>
                               <strong className="text-primary">{purchase.referenceAchat}</strong>
-                              <br />
-                              <Badge bg="info" className="mt-1">Matériel</Badge>
+                              <Badge bg="info" className="ms-2">Matériel</Badge>
                             </div>
                           </td>
                            <td>
@@ -478,11 +492,6 @@ const Achats: React.FC = () => {
                                   {/* Informations du matériel */}
                                   <div>
                                     <span className="product-name">{material.nom}</span>
-                                    {material.description && (
-                                      <small className="text-muted d-block" style={{ fontSize: '0.85rem', fontStyle: 'italic' }}>
-                                        {material.description}
-                                      </small>
-                                    )}
                                     <small className="text-muted d-block">
                                       x{material.quantite} - {formatPrice(material.prixUnitaire)}
                                     </small>
@@ -540,7 +549,7 @@ const Achats: React.FC = () => {
                                 variant="outline-danger" 
                                 size="sm"
                                 title="Supprimer"
-                                onClick={() => handleDeleteAchat(purchase)}
+                                onClick={() => handleDeleteAchatClick(purchase)}
                               >
                                 <i className="bi bi-trash"></i>
                               </Button>
@@ -560,7 +569,7 @@ const Achats: React.FC = () => {
           <Row>
             <Col className="text-center py-5">
               <i className="bi bi-search display-1 text-muted"></i>
-              <h3 className="mt-3 text-muted">Aucun achat trouvé</h3>
+              <h3 className="mt-3 text-muted">Aucun article trouvé</h3>
               <p className="text-muted">
                 Essayez de modifier vos critères de recherche
               </p>
@@ -718,6 +727,25 @@ const Achats: React.FC = () => {
         </Modal.Footer>
       </Modal>
 
+      {/* Modale de confirmation de suppression d'achat */}
+      <ConfirmModal
+        show={showConfirmDeleteAchat}
+        onHide={() => {
+          setShowConfirmDeleteAchat(false);
+          setAchatToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteAchat}
+        title="Confirmer la suppression"
+        message={achatToDelete ? `Êtes-vous sûr de vouloir supprimer cet achat de matériel ?\n\n` +
+          `Matériel(s): ${achatToDelete.materials.map((m: any) => m.nom).join(', ')}\n` +
+          `Fournisseur: ${achatToDelete.fournisseur.nom}\n` +
+          `Total: ${formatPrice(achatToDelete.totalAchat)}\n\n` +
+          `Cette action est irréversible et supprimera définitivement l'achat de Firebase.` : ''}
+        confirmText="Supprimer"
+        cancelText="Annuler"
+        variant="danger"
+        loading={isDeleting}
+      />
     </div>
   );
 };

@@ -13,6 +13,9 @@ export interface Product {
   materiau: string[];
   capacite: string[];
   poids: string[];
+  qualite: string[];
+  manches: string[];
+  col: string[];
   stock: number;
   fournisseur: {
     nom: string;
@@ -20,6 +23,25 @@ export interface Product {
   };
   dateCreation: Date;
   dateModification: Date;
+}
+
+export interface Variation {
+  id: string;
+  characteristics: {
+    type?: string;
+    anse?: string;
+    couleurs?: string;
+    dimensions?: string;
+    materiau?: string;
+    capacite?: string;
+    poids?: string;
+    qualite?: string;
+    manches?: string;
+    col?: string;
+  };
+  prixUnitaire?: number;
+  quantite?: number;
+  image?: string;
 }
 
 export interface SubProduct {
@@ -39,6 +61,10 @@ export interface SubProduct {
   materiau: string[];
   capacite: string[];
   poids: string[];
+  qualite: string[];
+  manches: string[];
+  col: string[];
+  variations?: Variation[]; // Variations du sous-produit
   dateCreation: Date;
   dateModification: Date;
 }

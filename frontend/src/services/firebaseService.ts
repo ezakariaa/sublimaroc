@@ -11,7 +11,8 @@ import {
   orderBy,
   where,
   limit, 
-  Timestamp 
+  Timestamp,
+  deleteField
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -27,53 +28,45 @@ import { Product, SubProduct } from '../types';
 export class ProductService {
   private static collection = 'Produits';
 
-  // Fonction pour corriger les documents : nom de document = nom du produit, champ id = SUB-XXX
+  // Fonction pour corriger les documents : nom de document = nom du produit, champ id = GRA-XXX
+  // Cette fonction est obsolète, utiliser migrateAllIdsFromSubToGra() à la place
   static async migrateProductIds(): Promise<void> {
-    try {
-      console.log('🔄 Début de la correction des documents...');
+    // Rediriger vers la nouvelle fonction de migration
+    await this.migrateAllIdsFromSubToGra();
+  }
       
-      // Récupérer tous les produits existants
+  // Fonction de migration pour mettre à jour les IDs de SUB- à GRA-
+  static async migrateAllIdsFromSubToGra(): Promise<void> {
+    try {
+      console.log('🔄 Début de la migration des IDs de SUB- à GRA-...');
       const productsRef = collection(db, this.collection);
       const querySnapshot = await getDocs(productsRef);
       
-      console.log(`📊 Nombre de produits à migrer: ${querySnapshot.docs.length}`);
+      let updatedProductsCount = 0;
       
       for (const docSnapshot of querySnapshot.docs) {
-        const currentDocumentName = docSnapshot.id; // Nom actuel du document
         const productData = docSnapshot.data();
         
-        // Nom du document basé sur le nom du produit
-        const correctDocumentName = productData.nom
-          .toLowerCase()
-          .trim()
-          .replace(/[^a-z0-9\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .replace(/-+/g, '-')
-          .replace(/^-+|-+$/g, '');
-        
-        // ID basé sur SUB-3 lettres du nom
-        const productName = productData.nom.toLowerCase().trim();
-        const threeLetters = productName.substring(0, 3).replace(/[^a-z]/g, '').toUpperCase();
-        const newId = `SUB-${threeLetters}`;
-        
-        console.log(`🔄 Document actuel: ${currentDocumentName}`);
-        console.log(`🔄 Nom correct du document: ${correctDocumentName}`);
-        console.log(`🔄 Nouvel ID: ${newId}`);
-        
-        // Toujours mettre à jour le champ ID (peu importe le nom du document)
-        console.log(`🔄 Mise à jour de l'ID: ${productData.id || 'non défini'} → ${newId}`);
-        
-        await updateDoc(docSnapshot.ref, {
-          id: newId,
-          dateModification: Timestamp.now()
-        });
-        
-        console.log(`✅ ID mis à jour dans le document ${currentDocumentName}: ${newId}`);
+        // Vérifier si l'ID commence par SUB-
+        if (productData.id && productData.id.startsWith('SUB-')) {
+          const newId = productData.id.replace(/^SUB-/, 'GRA-');
+          console.log(`🔄 Mise à jour de l'ID du produit: ${productData.id} → ${newId}`);
+          
+          // Mettre à jour le document avec le nouvel ID
+          await updateDoc(doc(db, this.collection, docSnapshot.id), {
+            id: newId
+          });
+          
+          updatedProductsCount++;
+          
+          // Mettre à jour aussi les sous-produits de ce produit
+          await SubProductService.migrateSubProductIds(productData.id, newId);
+        }
       }
       
-      console.log('🎉 Correction terminée avec succès !');
+      console.log(`✅ Migration terminée: ${updatedProductsCount} produit(s) mis à jour`);
     } catch (error) {
-      console.error('❌ Erreur lors de la correction:', error);
+      console.error('❌ Erreur lors de la migration des IDs:', error);
       throw error;
     }
   }
@@ -218,7 +211,8 @@ export class ProductService {
       // Transformer les données
       const products = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        return {
+        // Ne définir que les caractéristiques qui existent réellement dans le document Firebase
+        const product: any = {
           id: data.id || doc.id, // Utiliser le champ id du document, sinon fallback sur doc.id
           nom: data.nom || '',
           description: data.description || '',
@@ -226,19 +220,67 @@ export class ProductService {
           image: data.image || '',
           images: Array.isArray(data.images) ? data.images : [], // Ajouter le support des images multiples
           categorie: data.categorie || '',
-          type: Array.isArray(data.type) ? data.type : [],
-          anse: Array.isArray(data.anse) ? data.anse : [],
-          dimensions: Array.isArray(data.dimensions) ? data.dimensions : [],
-          couleurs: Array.isArray(data.couleurs) ? data.couleurs : [],
-          materiau: Array.isArray(data.materiau) ? data.materiau : [],
-          capacite: Array.isArray(data.capacite) ? data.capacite : [],
-          poids: Array.isArray(data.poids) ? data.poids : [],
           stock: data.stock || 0,
           fournisseur: data.fournisseur || { nom: '', ville: '' },
           dateCreation: data.dateCreation?.toDate() || new Date(),
           dateModification: data.dateModification?.toDate() || new Date(),
-        } as Product;
+        };
+        
+        // Ajouter uniquement les caractéristiques qui existent dans le document Firebase
+        // Ne pas définir les caractéristiques qui n'existent pas (undefined au lieu de [])
+        if (data.hasOwnProperty('type') && Array.isArray(data.type)) {
+          product.type = data.type;
+        }
+        if (data.hasOwnProperty('anse') && Array.isArray(data.anse)) {
+          product.anse = data.anse;
+        }
+        if (data.hasOwnProperty('dimensions') && Array.isArray(data.dimensions)) {
+          product.dimensions = data.dimensions;
+        }
+        if (data.hasOwnProperty('couleurs') && Array.isArray(data.couleurs)) {
+          product.couleurs = data.couleurs;
+        }
+        if (data.hasOwnProperty('materiau') && Array.isArray(data.materiau)) {
+          product.materiau = data.materiau;
+        }
+        if (data.hasOwnProperty('capacite') && Array.isArray(data.capacite)) {
+          product.capacite = data.capacite;
+        }
+        if (data.hasOwnProperty('poids') && Array.isArray(data.poids)) {
+          product.poids = data.poids;
+        }
+        if (data.hasOwnProperty('qualite') && Array.isArray(data.qualite)) {
+          product.qualite = data.qualite;
+        }
+        if (data.hasOwnProperty('manches') && Array.isArray(data.manches)) {
+          product.manches = data.manches;
+        }
+        if (data.hasOwnProperty('col') && Array.isArray(data.col)) {
+          product.col = data.col;
+        }
+        
+        // Ajouter toutes les autres caractéristiques personnalisées qui existent dans le document
+        Object.keys(data).forEach(key => {
+          const standardFields = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification', 'type', 'anse', 'dimensions', 'couleurs', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+          if (!standardFields.includes(key) && Array.isArray(data[key])) {
+            product[key] = data[key];
+          }
+        });
+        
+        return product as Product;
       });
+      
+      // Log pour vérifier les caractéristiques récupérées
+      console.log('📥 Produits récupérés avec caractéristiques:', products.map(p => ({
+        id: p.id,
+        nom: p.nom,
+        qualite: p.qualite,
+        manches: p.manches,
+        col: p.col,
+        qualiteLength: p.qualite?.length || 0,
+        manchesLength: p.manches?.length || 0,
+        colLength: p.col?.length || 0
+      })));
       
       // Trier par date de création (plus récent en premier)
       return products.sort((a, b) => b.dateCreation.getTime() - a.dateCreation.getTime());
@@ -282,7 +324,7 @@ export class ProductService {
     
     if (docSnap.exists()) {
       const data = docSnap.data();
-      return {
+      const product = {
         id: data.id || docSnap.id, // Utiliser le champ id du document, sinon fallback sur docSnap.id
         nom: data.nom || '',
         description: data.description || '',
@@ -297,11 +339,30 @@ export class ProductService {
         materiau: Array.isArray(data.materiau) ? data.materiau : [],
         capacite: Array.isArray(data.capacite) ? data.capacite : [],
         poids: Array.isArray(data.poids) ? data.poids : [],
+        qualite: Array.isArray(data.qualite) ? data.qualite : [],
+        manches: Array.isArray(data.manches) ? data.manches : [],
+        col: Array.isArray(data.col) ? data.col : [],
         stock: data.stock || 0,
         fournisseur: data.fournisseur || { nom: '', ville: '' },
         dateCreation: data.dateCreation?.toDate() || new Date(),
         dateModification: data.dateModification?.toDate() || new Date(),
       } as Product;
+      
+      console.log('📥 Produit récupéré par ID avec caractéristiques:', {
+        id: product.id,
+        nom: product.nom,
+        qualite: product.qualite,
+        manches: product.manches,
+        col: product.col,
+        qualiteLength: product.qualite?.length || 0,
+        manchesLength: product.manches?.length || 0,
+        colLength: product.col?.length || 0,
+        rawDataQualite: data.qualite,
+        rawDataManches: data.manches,
+        rawDataCol: data.col
+      });
+      
+      return product;
     }
     return null;
   }
@@ -312,10 +373,10 @@ export class ProductService {
       
     const now = Timestamp.now();
       
-      // Générer l'ID du produit : SUB-3 lettres du nom en majuscules
+      // Générer l'ID du produit : GRA-3 lettres du nom en majuscules
       const productName = product.nom.toLowerCase().trim();
       const threeLetters = productName.substring(0, 3).replace(/[^a-z]/g, '').toUpperCase();
-      const productId = `SUB-${threeLetters}`;
+      const productId = `GRA-${threeLetters}`;
       
       // Utiliser le nom original du produit comme nom de document Firebase
       const documentId = product.nom
@@ -332,7 +393,7 @@ export class ProductService {
       
       // Préparer les données complètes
       const productData = {
-        id: productId, // ID au format SUB-XXX
+        id: productId, // ID au format GRA-XXX
         nom: product.nom || 'Produit sans nom',
         description: product.description || '',
         fournisseur: product.fournisseur || { nom: 'Inconnu', ville: '' },
@@ -346,6 +407,9 @@ export class ProductService {
         materiau: product.materiau || [],
         capacite: product.capacite || [],
         poids: product.poids || [],
+        qualite: product.qualite || [],
+        manches: product.manches || [],
+        col: product.col || [],
         prix: product.prix || 0,
         stock: product.stock || 0,
       dateCreation: now,
@@ -353,6 +417,14 @@ export class ProductService {
       };
       
       console.log('📦 Données complètes:', productData);
+      console.log('🏷️ Caractéristiques à sauvegarder:', {
+        qualite: productData.qualite,
+        manches: productData.manches,
+        col: productData.col,
+        qualiteLength: productData.qualite?.length || 0,
+        manchesLength: productData.manches?.length || 0,
+        colLength: productData.col?.length || 0
+      });
       
     // Utiliser la même méthode que Societes.tsx avec timeout
     console.log('➕ Utilisation de setDoc avec merge...');
@@ -412,29 +484,6 @@ export class ProductService {
       console.log('📝 ID du produit:', oldId);
       console.log('📝 Nom du produit:', productData.nom);
 
-      // Préparer les données de mise à jour (sans changer l'ID)
-      const updateData = {
-        nom: productData.nom || 'Produit sans nom',
-        description: productData.description || '',
-        fournisseur: productData.fournisseur || { nom: 'Inconnu', ville: '' },
-        image: productData.image || '/mug.webp',
-        images: productData.images || [], // Ajouter le support des images multiples
-        categorie: productData.categorie || '',
-        type: productData.type || [],
-        anse: productData.anse || [],
-        couleurs: productData.couleurs || [],
-        dimensions: productData.dimensions || [],
-        materiau: productData.materiau || [],
-        capacite: productData.capacite || [],
-        poids: productData.poids || [],
-        prix: productData.prix || 0,
-        stock: productData.stock || 0,
-        dateCreation: productData.dateCreation instanceof Date ? 
-          Timestamp.fromDate(productData.dateCreation) : 
-          (productData.dateCreation || Timestamp.now()), // Conserver la date de création originale
-        dateModification: Timestamp.now(),
-      };
-
       // Trouver le document par son champ ID (pas par l'ID du document)
       console.log('🔍 Recherche du document avec l\'ID:', oldId);
       
@@ -444,11 +493,13 @@ export class ProductService {
       console.log('📊 Nombre de documents dans la collection:', querySnapshot.docs.length);
       
       let documentId = null;
+      let existingProductData: any = null;
       for (const docSnapshot of querySnapshot.docs) {
         const data = docSnapshot.data();
         console.log('🔍 Document:', docSnapshot.id, 'ID:', data.id);
         if (data.id === oldId) {
           documentId = docSnapshot.id; // Nom du document Firebase
+          existingProductData = data; // Conserver les données existantes
           console.log('📄 Document trouvé:', documentId);
           break;
         }
@@ -459,6 +510,84 @@ export class ProductService {
         console.error('📊 Documents disponibles:', querySnapshot.docs.map(doc => ({ id: doc.id, dataId: doc.data().id })));
         throw new Error(`Produit avec l'ID ${oldId} non trouvé`);
       }
+
+      // Liste des champs standards (non caractéristiques)
+      const standardFields = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification'];
+      
+      // Liste des caractéristiques de base connues
+      const baseCharacteristics = ['type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+      
+      // Préparer les données de mise à jour
+      const updateData: any = {
+        nom: productData.nom !== undefined ? productData.nom : (existingProductData.nom || 'Produit sans nom'),
+        description: productData.description !== undefined ? productData.description : (existingProductData.description || ''),
+        fournisseur: productData.fournisseur !== undefined ? productData.fournisseur : (existingProductData.fournisseur || { nom: 'Inconnu', ville: '' }),
+        image: productData.image !== undefined ? productData.image : (existingProductData.image || '/mug.webp'),
+        images: productData.images !== undefined ? productData.images : (existingProductData.images || []),
+        categorie: productData.categorie !== undefined ? productData.categorie : (existingProductData.categorie || ''),
+        prix: productData.prix !== undefined ? productData.prix : (existingProductData.prix || 0),
+        stock: productData.stock !== undefined ? productData.stock : (existingProductData.stock || 0),
+        dateModification: Timestamp.now(),
+      };
+
+      // Gérer la date de création (ne jamais la modifier)
+      if (productData.dateCreation !== undefined) {
+        updateData.dateCreation = productData.dateCreation instanceof Date ? 
+          Timestamp.fromDate(productData.dateCreation) : 
+          (productData.dateCreation || existingProductData.dateCreation || Timestamp.now());
+      } else if (existingProductData.dateCreation) {
+        updateData.dateCreation = existingProductData.dateCreation;
+      }
+
+      // Gérer les caractéristiques : ne mettre à jour que celles qui sont explicitement fournies dans productData
+      // Pour les caractéristiques de base, utiliser les valeurs de productData si présentes, sinon conserver celles existantes
+      baseCharacteristics.forEach(charKey => {
+        if (productData[charKey] !== undefined) {
+          // Si la caractéristique est fournie dans productData, l'utiliser
+          updateData[charKey] = Array.isArray(productData[charKey]) ? productData[charKey] : [];
+        } else if (existingProductData[charKey] !== undefined) {
+          // Sinon, conserver la valeur existante
+          updateData[charKey] = existingProductData[charKey];
+        }
+        // Si ni productData ni existingProductData n'ont cette caractéristique, ne pas l'inclure
+      });
+
+      // Gérer les caractéristiques personnalisées : conserver toutes celles qui existent dans le produit actuel
+      // sauf si elles sont explicitement supprimées dans productData (présentes mais vides/null)
+      Object.keys(existingProductData).forEach(key => {
+        if (!standardFields.includes(key) && !baseCharacteristics.includes(key)) {
+          const value = existingProductData[key];
+          // Si c'est un tableau (caractéristique personnalisée)
+          if (Array.isArray(value)) {
+            // Si la caractéristique est fournie dans productData, utiliser cette valeur
+            if (productData[key] !== undefined) {
+              updateData[key] = Array.isArray(productData[key]) ? productData[key] : [];
+            } else {
+              // Sinon, conserver la valeur existante
+              updateData[key] = value;
+            }
+          }
+        }
+      });
+
+      // Ajouter les nouvelles caractéristiques personnalisées de productData qui n'existent pas encore
+      Object.keys(productData).forEach(key => {
+        if (!standardFields.includes(key) && !baseCharacteristics.includes(key)) {
+          const value = productData[key];
+          if (Array.isArray(value) && !updateData.hasOwnProperty(key)) {
+            updateData[key] = value;
+          }
+        }
+      });
+
+      console.log('💾 Données de mise à jour avec caractéristiques:', {
+        qualite: updateData.qualite,
+        manches: updateData.manches,
+        col: updateData.col,
+        qualiteLength: updateData.qualite?.length || 0,
+        manchesLength: updateData.manches?.length || 0,
+        colLength: updateData.col?.length || 0
+      });
 
       // Mettre à jour le document existant
       console.log('🔄 Mise à jour du document...');
@@ -491,6 +620,7 @@ export class ProductService {
     const docRef = doc(db, this.collection, id);
     await deleteDoc(docRef);
   }
+
 }
 
 // Service pour les sous-produits
@@ -533,26 +663,103 @@ export class SubProductService {
       
       console.log('📄 Nom du document Firebase trouvé:', productDocumentName);
       
-      // Référence vers le document subProducts dans le produit parent
-      const subProductsDocRef = doc(db, this.mainCollection, productDocumentName, this.subProductsDocument, 'data');
-      const subProductsDoc = await getDoc(subProductsDocRef);
+      // Référence vers la sous-collection subProducts dans le produit parent
+      // Chaque sous-produit est maintenant un document séparé
+      const subProductsCollectionRef = collection(db, this.mainCollection, productDocumentName, this.subProductsDocument);
+      const subProductsSnapshot = await getDocs(subProductsCollectionRef);
       
-      if (!subProductsDoc.exists()) {
-        console.log('📊 Aucun document subProducts trouvé');
-        return [];
-      }
+      console.log('📊 Nombre de sous-produits trouvés:', subProductsSnapshot.docs.length);
       
-      const subProductsData = subProductsDoc.data();
-      const subProductsArray = subProductsData.subProducts || [];
-      
-      console.log('📊 Nombre de sous-produits trouvés:', subProductsArray.length);
-      
-      return subProductsArray.map((subProduct: any, index: number) => ({
-        id: subProduct.id || `subproduct-${index}`,
-        ...subProduct,
-        dateCreation: subProduct.dateCreation?.toDate() || new Date(),
-        dateModification: subProduct.dateModification?.toDate() || new Date(),
-      })) as SubProduct[];
+      return subProductsSnapshot.docs.map((docSnapshot, index: number) => {
+        const subProduct = docSnapshot.data();
+        
+        // Convertir les dates (peuvent être des Timestamp ou des nombres)
+        let dateCreation: Date;
+        if (subProduct.dateCreation) {
+          if (typeof subProduct.dateCreation === 'number') {
+            dateCreation = new Date(subProduct.dateCreation);
+          } else if (typeof subProduct.dateCreation.toDate === 'function') {
+            dateCreation = subProduct.dateCreation.toDate();
+          } else {
+            dateCreation = new Date();
+          }
+        } else {
+          dateCreation = new Date();
+        }
+        
+        let dateModification: Date;
+        if (subProduct.dateModification) {
+          if (typeof subProduct.dateModification === 'number') {
+            dateModification = new Date(subProduct.dateModification);
+          } else if (typeof subProduct.dateModification.toDate === 'function') {
+            dateModification = subProduct.dateModification.toDate();
+          } else {
+            dateModification = new Date();
+          }
+        } else {
+          dateModification = new Date();
+        }
+        
+        // Normaliser les caractéristiques pour s'assurer qu'elles sont des tableaux
+        const normalizeArray = (value: any): string[] => {
+          if (!value) return [];
+          if (Array.isArray(value)) {
+            return value.filter(v => v != null && v !== '').map(v => String(v).trim()).filter(v => v.length > 0);
+          }
+          if (typeof value === 'string' && value.trim()) {
+            return [value.trim()];
+          }
+          return [];
+        };
+
+        const mappedSubProduct: SubProduct = {
+          id: docSnapshot.id || subProduct.id || `subproduct-${index}`,
+          productId: String(subProduct.productId || productId),
+          nom: subProduct.nom || 'Sous-produit sans nom', // S'assurer que nom existe toujours
+          description: String(subProduct.description || ''),
+          prix: Number(subProduct.prix || 0),
+          stock: Number(subProduct.stock || 0),
+          dateCreation,
+          dateModification,
+          // S'assurer que les images sont bien présentes
+          images: Array.isArray(subProduct.images) ? subProduct.images : (subProduct.image ? [subProduct.image] : []),
+          image: subProduct.image || (Array.isArray(subProduct.images) && subProduct.images.length > 0 ? subProduct.images[0] : '/mug.webp'),
+          // Normaliser les caractéristiques
+          type: normalizeArray(subProduct.type),
+          anse: normalizeArray(subProduct.anse),
+          couleurs: normalizeArray(subProduct.couleurs),
+          dimensions: normalizeArray(subProduct.dimensions),
+          materiau: normalizeArray(subProduct.materiau),
+          capacite: normalizeArray(subProduct.capacite),
+          poids: normalizeArray(subProduct.poids),
+          qualite: normalizeArray(subProduct.qualite),
+          manches: normalizeArray(subProduct.manches),
+          col: normalizeArray(subProduct.col),
+          variations: Array.isArray((subProduct as any).variations) ? (subProduct as any).variations : []
+        };
+        
+        // Log pour déboguer les caractéristiques et variations
+        console.log(`📋 Sous-produit ${mappedSubProduct.id} caractéristiques:`, {
+          type: mappedSubProduct.type,
+          anse: mappedSubProduct.anse,
+          couleurs: mappedSubProduct.couleurs,
+          dimensions: mappedSubProduct.dimensions,
+          materiau: mappedSubProduct.materiau,
+          capacite: mappedSubProduct.capacite,
+          poids: mappedSubProduct.poids,
+          variationsCount: mappedSubProduct.variations?.length || 0,
+          variations: mappedSubProduct.variations
+        });
+        
+        // Log pour déboguer
+        if (mappedSubProduct.images && mappedSubProduct.images.length > 0) {
+          console.log(`🖼️ Sous-produit ${mappedSubProduct.id} a ${mappedSubProduct.images.length} image(s)`);
+        } else {
+          console.log(`⚠️ Sous-produit ${mappedSubProduct.id} n'a pas d'images`);
+        }
+        
+        return mappedSubProduct;
+      }) as SubProduct[];
     } catch (error) {
       console.error('❌ Erreur lors de la récupération des sous-produits:', error);
       return [];
@@ -588,7 +795,7 @@ export class SubProductService {
       
       console.log('📄 Nom du document Firebase du produit parent:', parentProductDocumentName);
 
-      // Générer un ID basé sur la catégorie parent : SUB-3 lettres de la catégorie + numéro incrémental
+      // Générer un ID basé sur la catégorie parent : GRA-3 lettres de la catégorie + numéro incrémental
       const categoryName = parentProductData.nom.toLowerCase().trim();
       const threeLetters = categoryName.substring(0, 3).replace(/[^a-z]/g, '').toUpperCase();
       
@@ -598,62 +805,130 @@ export class SubProductService {
       // Trouver le prochain numéro incrémental
       let nextNumber = 1;
       const existingIds = currentSubProducts.map(sp => sp.id);
-      while (existingIds.includes(`SUB-${threeLetters}-${nextNumber}`)) {
+      while (existingIds.includes(`GRA-${threeLetters}-${nextNumber}`)) {
         nextNumber++;
       }
       
-      const subProductId = `SUB-${threeLetters}-${nextNumber}`;
+      const subProductId = `GRA-${threeLetters}-${nextNumber}`;
 
       console.log('🔧 ID du sous-produit généré:', subProductId);
 
-      // Référence vers le document subProducts dans le produit parent
-      const subProductsDocRef = doc(db, this.mainCollection, parentProductDocumentName, this.subProductsDocument, 'data');
+      // Référence vers la sous-collection subProducts dans le produit parent
+      // Chaque sous-produit sera un document séparé au lieu d'un élément dans un tableau
+      const subProductsCollectionRef = collection(db, this.mainCollection, parentProductDocumentName, this.subProductsDocument);
+      const subProductDocRef = doc(subProductsCollectionRef, subProductId);
 
-      // Récupérer les sous-produits existants
-      const subProductsDoc = await getDoc(subProductsDocRef);
-      const existingSubProducts = subProductsDoc.exists() ? (subProductsDoc.data().subProducts || []) : [];
+      console.log('📄 Chemin complet du document:', `${this.mainCollection}/${parentProductDocumentName}/${this.subProductsDocument}/${subProductId}`);
 
       // Préparer les données complètes du nouveau sous-produit
+      // S'assurer que toutes les données sont sérialisables pour Firestore
+      // IMPORTANT: Firestore a une limite de 1MB par document
+      // Les images base64 peuvent être très longues, donc on limite leur taille
+      let imagesArray = Array.isArray(subProduct.images) 
+        ? subProduct.images.filter((img: any) => typeof img === 'string')
+        : (subProduct.image && typeof subProduct.image === 'string' ? [subProduct.image] : ['/mug.webp']);
+      
+      // Limiter la taille de chaque image base64 à 1MB (augmenté pour permettre des images de meilleure qualité)
+      imagesArray = imagesArray.map((img: string) => {
+        if (img.length > 1000000) { // ~1MB par image (augmenté de 300KB à 1MB)
+          console.warn('⚠️ Image base64 trop longue (' + Math.round(img.length / 1024) + 'KB), utilisation de l\'image par défaut');
+          return '/mug.webp';
+        }
+        return img;
+      }).filter((img: string) => img !== '/mug.webp' || imagesArray.length === 0); // Garder au moins une image
+      
+      // Vérifier la taille totale du tableau d'images
+      const totalImagesSize = imagesArray.reduce((total: number, img: string) => total + img.length, 0);
+      if (totalImagesSize > 1800000) { // ~1.8MB pour laisser de la marge (augmenté de 800KB)
+        console.warn('⚠️ Taille totale des images trop grande (' + Math.round(totalImagesSize / 1024) + 'KB), limitation à 2 images maximum');
+        // Limiter à 2 images maximum pour éviter de dépasser la limite
+        imagesArray = imagesArray.slice(0, 2);
+      }
+      
+      // S'assurer qu'on a au moins une image
+      if (imagesArray.length === 0 || imagesArray.every((img: string) => img === '/mug.webp')) {
+        imagesArray = ['/mug.webp'];
+      }
+      
+      // Préparer les données du nouveau sous-produit
+      // Chaque sous-produit est maintenant un document séparé, donc on peut utiliser Timestamp directement
       const newSubProductData = {
         id: subProductId,
-        nom: subProduct.nom || 'Sous-produit sans nom',
-        description: subProduct.description || '',
-        prix: subProduct.prix || 0,
-        stock: subProduct.stock || 0,
-        image: subProduct.image || '/mug.webp',
-        productId: subProduct.productId,
-        // Caractéristiques du sous-produit
-        type: subProduct.type || [],
-        anse: subProduct.anse || [],
-        couleurs: subProduct.couleurs || [],
-        dimensions: subProduct.dimensions || [],
-        materiau: subProduct.materiau || [],
-        capacite: subProduct.capacite || [],
-        poids: subProduct.poids || [],
-        dateCreation: Timestamp.now(),
-        dateModification: Timestamp.now()
+        nom: String(subProduct.nom || 'Sous-produit sans nom'),
+        description: String(subProduct.description || ''),
+        prix: Number(subProduct.prix || 0),
+        stock: Number(subProduct.stock || 0),
+        image: String(subProduct.image || '/mug.webp'),
+        images: imagesArray, // Tableau de strings uniquement
+        productId: String(subProduct.productId),
+        // Caractéristiques du sous-produit - s'assurer que ce sont des tableaux de strings
+        type: Array.isArray(subProduct.type) ? subProduct.type.map(String) : [],
+        anse: Array.isArray(subProduct.anse) ? subProduct.anse.map(String) : [],
+        couleurs: Array.isArray(subProduct.couleurs) ? subProduct.couleurs.map(String) : [],
+        dimensions: Array.isArray(subProduct.dimensions) ? subProduct.dimensions.map(String) : [],
+        materiau: Array.isArray(subProduct.materiau) ? subProduct.materiau.map(String) : [],
+        capacite: Array.isArray(subProduct.capacite) ? subProduct.capacite.map(String) : [],
+        poids: Array.isArray(subProduct.poids) ? subProduct.poids.map(String) : [],
+        qualite: Array.isArray((subProduct as any).qualite) ? (subProduct as any).qualite.map(String) : [],
+        manches: Array.isArray((subProduct as any).manches) ? (subProduct as any).manches.map(String) : [],
+        col: Array.isArray((subProduct as any).col) ? (subProduct as any).col.map(String) : [],
+        variations: Array.isArray((subProduct as any).variations) ? (subProduct as any).variations : [],
+        dateCreation: Timestamp.now(), // Timestamp Firebase directement (pas de problème car c'est un document, pas un tableau)
+        dateModification: Timestamp.now() // Timestamp Firebase directement
       };
+      
+      // Vérifier que toutes les données sont correctes
+      console.log('🔍 Vérification des données...');
+      console.log('📦 Structure des données:', {
+        id: typeof newSubProductData.id,
+        nom: typeof newSubProductData.nom,
+        images: Array.isArray(newSubProductData.images) ? `Array(${newSubProductData.images.length})` : typeof newSubProductData.images,
+        dateCreation: newSubProductData.dateCreation?.constructor?.name || typeof newSubProductData.dateCreation,
+        dateModification: newSubProductData.dateModification?.constructor?.name || typeof newSubProductData.dateModification
+      });
+      
+      // Vérifier chaque élément du tableau d'images
+      if (Array.isArray(newSubProductData.images)) {
+        newSubProductData.images.forEach((img, idx) => {
+          if (typeof img !== 'string') {
+            console.error(`❌ Image ${idx} n'est pas une string:`, typeof img, img);
+          }
+        });
+      }
+      
+      // Les Timestamp Firebase sont sérialisables directement dans un document Firestore
+      // Pas besoin de tester JSON.stringify car Firestore gère les Timestamp nativement
+      console.log('✅ Données préparées pour Firestore');
 
-      console.log('📦 Données du nouveau sous-produit:', newSubProductData);
+      console.log('📦 Données du nouveau sous-produit:', {
+        id: newSubProductData.id,
+        nom: newSubProductData.nom,
+        nombreImages: newSubProductData.images.length
+      });
 
-      // Ajouter le nouveau sous-produit à la liste existante
-      const updatedSubProducts = [...existingSubProducts, newSubProductData];
-
-      // Sauvegarder le document subProducts mis à jour
-      await setDoc(subProductsDocRef, {
-        subProducts: updatedSubProducts,
-        lastUpdated: Timestamp.now()
-      }, { merge: true });
-
+      // Sauvegarder le sous-produit comme un document séparé dans la sous-collection
+      // C'est la meilleure pratique Firestore et évite tous les problèmes de sérialisation dans un tableau
+      console.log('💾 Sauvegarde du sous-produit comme document séparé...');
+      
+      try {
+        await setDoc(subProductDocRef, newSubProductData);
       console.log('✅ Sous-produit créé avec succès !');
       console.log('📄 Document créé:', subProductId);
       console.log('📁 Chemin complet dans Firebase:');
-      console.log(`   ${this.mainCollection}/${subProduct.productId}/${this.subProductsDocument}/data`);
-      console.log('📊 Total sous-produits:', updatedSubProducts.length);
+        console.log(`   ${this.mainCollection}/${parentProductDocumentName}/${this.subProductsDocument}/${subProductId}`);
+      } catch (setDocError: any) {
+        console.error('❌ Erreur lors de la création du sous-produit:', setDocError);
+        console.error('❌ Code d\'erreur:', setDocError?.code);
+        console.error('❌ Message d\'erreur:', setDocError?.message);
+        throw setDocError;
+      }
 
       return subProductId;
     } catch (error) {
       console.error('❌ Erreur lors de la création du sous-produit:', error);
+      console.error('❌ Type d\'erreur:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('❌ Message d\'erreur:', error instanceof Error ? error.message : String(error));
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'N/A');
       throw error;
     }
   }
@@ -676,31 +951,354 @@ export class SubProductService {
       throw new Error('Produit parent non trouvé avec l\'ID: ' + productId);
     }
     
-    const subProductsDocRef = doc(db, this.mainCollection, parentProductDocumentName, this.subProductsDocument, 'data');
+    // Référence vers la sous-collection subProducts dans le produit parent
+    // Chaque sous-produit est maintenant un document séparé
+    const subProductsCollectionRef = collection(db, this.mainCollection, parentProductDocumentName, this.subProductsDocument);
     
-    // Récupérer les sous-produits existants
-    const subProductsDoc = await getDoc(subProductsDocRef);
-    if (!subProductsDoc.exists()) {
-      throw new Error('Document subProducts non trouvé');
+    // Récupérer tous les sous-produits pour trouver celui avec le bon ID
+    // (car l'ID du document Firestore peut être différent de l'ID logique)
+    const subProductsSnapshot = await getDocs(subProductsCollectionRef);
+    
+    let subProductDocRef = null;
+    let subProductDoc = null;
+    
+    // Chercher le sous-produit par son ID logique (champ id) OU par l'ID du document Firestore
+    // (car lors de la migration, seul le champ id est mis à jour, pas l'ID du document)
+    for (const docSnapshot of subProductsSnapshot.docs) {
+      const data = docSnapshot.data();
+      const docId = docSnapshot.id; // ID du document Firestore
+      const logicalId = data.id; // ID logique dans le champ id
+      
+      // Vérifier si l'ID du document Firestore correspond (peut être SUB- ou GRA-)
+      if (docId === subProductId || 
+          (subProductId.startsWith('GRA-') && docId === subProductId.replace(/^GRA-/, 'SUB-')) ||
+          (subProductId.startsWith('SUB-') && docId === subProductId.replace(/^SUB-/, 'GRA-'))) {
+        subProductDocRef = doc(subProductsCollectionRef, docId);
+        subProductDoc = docSnapshot;
+        console.log(`✅ Sous-produit trouvé par ID du document Firestore: ${docId} (ID logique: ${logicalId})`);
+        break;
+      }
+      
+      // Vérifier si l'ID logique correspond (peut être SUB- ou GRA-)
+      if (logicalId === subProductId || 
+          (subProductId.startsWith('GRA-') && logicalId === subProductId.replace(/^GRA-/, 'SUB-')) ||
+          (subProductId.startsWith('SUB-') && logicalId === subProductId.replace(/^SUB-/, 'GRA-'))) {
+        subProductDocRef = doc(subProductsCollectionRef, docId);
+        subProductDoc = docSnapshot;
+        console.log(`✅ Sous-produit trouvé par ID logique: ${logicalId} (ID document Firestore: ${docId})`);
+        break;
+      }
     }
     
-    const existingSubProducts = subProductsDoc.data().subProducts || [];
+    // Si pas trouvé, essayer avec l'ID du document directement (pour compatibilité)
+    if (!subProductDoc) {
+      const directDocRef = doc(subProductsCollectionRef, subProductId);
+      const directDoc = await getDoc(directDocRef);
+      if (directDoc.exists()) {
+        subProductDocRef = directDocRef;
+        subProductDoc = directDoc;
+        console.log(`✅ Sous-produit trouvé directement avec l'ID du document ${subProductId}`);
+      }
+    }
     
-    // Mettre à jour le sous-produit spécifique
-    const updatedSubProducts = existingSubProducts.map((sp: any) => 
-      sp.id === subProductId 
-        ? { ...sp, ...subProduct, dateModification: Timestamp.now() }
-        : sp
-    );
+    if (!subProductDoc || !subProductDoc.exists() || !subProductDocRef) {
+      console.error(`❌ Sous-produit non trouvé. ID recherché: ${subProductId}`);
+      console.error(`📋 Sous-produits disponibles dans ${parentProductDocumentName}:`, 
+        subProductsSnapshot.docs.map(d => ({ docId: d.id, logicalId: d.data().id })));
+      throw new Error(`Sous-produit avec l'ID ${subProductId} non trouvé`);
+    }
     
-    // Sauvegarder les sous-produits mis à jour
-    await setDoc(subProductsDocRef, {
-      subProducts: updatedSubProducts,
-      lastUpdated: Timestamp.now()
-    }, { merge: true });
+    // À ce point, TypeScript sait que subProductDocRef n'est pas null
+    const finalSubProductDocRef = subProductDocRef;
+    
+    const existingSubProduct = subProductDoc.data();
+    
+    console.log('✅ Sous-produit trouvé, mise à jour en cours...');
+    
+    // Préparer les données mises à jour
+    // Préserver la date de création originale
+    let dateCreation: Timestamp;
+    if (existingSubProduct.dateCreation) {
+      if (existingSubProduct.dateCreation instanceof Timestamp) {
+        dateCreation = existingSubProduct.dateCreation;
+      } else if (typeof existingSubProduct.dateCreation.toDate === 'function') {
+        dateCreation = existingSubProduct.dateCreation;
+      } else if (typeof existingSubProduct.dateCreation === 'number') {
+        dateCreation = Timestamp.fromMillis(existingSubProduct.dateCreation);
+      } else {
+        dateCreation = Timestamp.now();
+      }
+    } else {
+      dateCreation = Timestamp.now();
+    }
+    
+    // Préparer les images - TOUJOURS utiliser les images fournies dans subProduct.images si elles sont définies
+    let finalImages: string[] = [];
+    
+    console.log('🖼️ Préparation des images pour la mise à jour:', {
+      hasSubProductImages: subProduct.images !== undefined,
+      subProductImagesType: Array.isArray(subProduct.images) ? `Array(${subProduct.images.length})` : typeof subProduct.images,
+      subProductImages: subProduct.images,
+      existingImagesType: Array.isArray(existingSubProduct.images) ? `Array(${existingSubProduct.images.length})` : typeof existingSubProduct.images,
+      existingImages: existingSubProduct.images
+    });
+    
+    // Si subProduct.images est défini (même si c'est un tableau vide), l'utiliser
+    // Cela permet de vider les images si nécessaire
+    if (subProduct.images !== undefined) {
+      if (Array.isArray(subProduct.images)) {
+        // Filtrer les images valides (exclure '/mug.webp' et les chemins relatifs)
+        finalImages = subProduct.images.filter((img: any) => 
+          typeof img === 'string' && img !== '' && img !== '/mug.webp' && !img.startsWith('/')
+        ).map(String);
+        console.log('✅ Utilisation des images fournies dans subProduct.images:', finalImages.length);
+      } else {
+        console.warn('⚠️ subProduct.images n\'est pas un tableau, utilisation des images existantes');
+        finalImages = existingSubProduct.images && Array.isArray(existingSubProduct.images)
+          ? existingSubProduct.images.filter((img: any) => typeof img === 'string' && img !== '/mug.webp' && !img.startsWith('/')).map(String)
+          : [];
+      }
+    } else {
+      // Si subProduct.images n'est pas défini, conserver les images existantes
+      console.log('ℹ️ subProduct.images non défini, conservation des images existantes');
+      finalImages = existingSubProduct.images && Array.isArray(existingSubProduct.images)
+        ? existingSubProduct.images.filter((img: any) => typeof img === 'string' && img !== '/mug.webp' && !img.startsWith('/')).map(String)
+        : [];
+    }
+    
+    // Si aucune image valide dans le tableau mais qu'une image principale est fournie, l'ajouter
+    if (finalImages.length === 0 && subProduct.image && subProduct.image !== '/mug.webp' && subProduct.image.trim() !== '' && !subProduct.image.startsWith('/')) {
+      console.log('ℹ️ Aucune image dans le tableau, utilisation de l\'image principale fournie');
+      finalImages = [subProduct.image];
+    }
+    
+    // Limiter la taille des images base64 à 1MB par image (augmenté pour permettre des images de meilleure qualité)
+    // Mais ne pas remplacer par '/mug.webp' si c'est la seule image, on la garde même si elle est grande
+    const originalFinalImagesLength = finalImages.length;
+    finalImages = finalImages.map((img: string) => {
+      if (img.length > 1000000) { // ~1MB par image (augmenté de 300KB à 1MB)
+        console.warn('⚠️ Image base64 trop longue (' + Math.round(img.length / 1024) + 'KB)');
+        // Ne pas remplacer si c'est la seule image, on la garde quand même
+        if (originalFinalImagesLength === 1) {
+          console.log('ℹ️ Image unique conservée malgré sa taille');
+          return img;
+        }
+        return '/mug.webp';
+      }
+      return img;
+    }).filter((img: string) => img !== '/mug.webp' || finalImages.length === 0); // Garder au moins une image
+    
+    // Vérifier la taille totale du tableau d'images
+    const totalImagesSize = finalImages.reduce((total: number, img: string) => total + img.length, 0);
+    if (totalImagesSize > 1800000) { // ~1.8MB pour laisser de la marge (augmenté de 800KB)
+      console.warn('⚠️ Taille totale des images trop grande (' + Math.round(totalImagesSize / 1024) + 'KB), limitation à 2 images maximum');
+      finalImages = finalImages.slice(0, 2);
+    }
+    
+    // S'assurer qu'on a au moins une image SEULEMENT si l'utilisateur n'a pas explicitement fourni un tableau vide
+    // Si subProduct.images est défini et est un tableau vide après filtrage, cela signifie que l'utilisateur a supprimé toutes les images
+    const userProvidedEmptyArray = subProduct.images !== undefined && Array.isArray(subProduct.images) && 
+      subProduct.images.filter((img: any) => typeof img === 'string' && img !== '' && img !== '/mug.webp' && !img.startsWith('/')).length === 0;
+    
+    if (finalImages.length === 0 && !userProvidedEmptyArray) {
+      // L'utilisateur n'a pas explicitement vidé le tableau, utiliser l'image par défaut
+      console.log('ℹ️ Aucune image valide, utilisation de l\'image par défaut');
+      finalImages = ['/mug.webp'];
+    } else if (finalImages.length === 0 && userProvidedEmptyArray) {
+      // L'utilisateur a explicitement supprimé toutes les images, utiliser l'image par défaut quand même
+      // (car Firestore nécessite au moins une image)
+      console.log('✅ Tableau d\'images vide par intention de l\'utilisateur (toutes les images ont été supprimées)');
+      finalImages = ['/mug.webp'];
+    }
+    
+    console.log('🖼️ Images finales après traitement:', {
+      nombreImages: finalImages.length,
+      tailleTotale: Math.round(totalImagesSize / 1024) + 'KB',
+      premiereImage: finalImages[0]?.substring(0, 50) + '...'
+    });
+    
+    // Déterminer l'image principale
+    // Si subProduct.image est fourni et valide (même s'il est grand), l'utiliser
+    // Sinon, utiliser la première image de finalImages
+    let mainImage: string;
+    if (subProduct.image !== undefined && subProduct.image !== '/mug.webp' && subProduct.image.trim() !== '' && !subProduct.image.startsWith('/')) {
+      // Utiliser l'image principale fournie, même si elle est grande
+      mainImage = String(subProduct.image);
+      console.log('🖼️ Utilisation de l\'image principale fournie:', mainImage.substring(0, 50) + '...');
+    } else if (finalImages.length > 0 && finalImages[0] !== '/mug.webp') {
+      // Utiliser la première image valide de finalImages
+      mainImage = String(finalImages[0]);
+      console.log('🖼️ Utilisation de la première image de finalImages:', mainImage.substring(0, 50) + '...');
+    } else {
+      // Fallback vers l'image par défaut
+      mainImage = '/mug.webp';
+      console.log('⚠️ Aucune image valide trouvée, utilisation de l\'image par défaut');
+    }
+    
+    // Préparer les données mises à jour
+    const updatedData: any = {
+      id: String(existingSubProduct.id || subProductId),
+      productId: String(existingSubProduct.productId || productId),
+      nom: String(subProduct.nom !== undefined ? subProduct.nom : existingSubProduct.nom || ''),
+      description: String(subProduct.description !== undefined ? subProduct.description : existingSubProduct.description || ''),
+      prix: Number(subProduct.prix !== undefined ? subProduct.prix : existingSubProduct.prix || 0),
+      stock: Number(subProduct.stock !== undefined ? subProduct.stock : existingSubProduct.stock || 0),
+      image: mainImage,
+      images: finalImages,
+      dateCreation: dateCreation,
+      dateModification: Timestamp.now(),
+      type: Array.isArray(subProduct.type) ? subProduct.type.map(String) : (Array.isArray(existingSubProduct.type) ? existingSubProduct.type.map(String) : []),
+      anse: Array.isArray(subProduct.anse) ? subProduct.anse.map(String) : (Array.isArray(existingSubProduct.anse) ? existingSubProduct.anse.map(String) : []),
+      couleurs: Array.isArray(subProduct.couleurs) ? subProduct.couleurs.map(String) : (Array.isArray(existingSubProduct.couleurs) ? existingSubProduct.couleurs.map(String) : []),
+      dimensions: Array.isArray(subProduct.dimensions) ? subProduct.dimensions.map(String) : (Array.isArray(existingSubProduct.dimensions) ? existingSubProduct.dimensions.map(String) : []),
+      materiau: Array.isArray(subProduct.materiau) ? subProduct.materiau.map(String) : (Array.isArray(existingSubProduct.materiau) ? existingSubProduct.materiau.map(String) : []),
+      capacite: Array.isArray(subProduct.capacite) ? subProduct.capacite.map(String) : (Array.isArray(existingSubProduct.capacite) ? existingSubProduct.capacite.map(String) : []),
+      poids: Array.isArray(subProduct.poids) ? subProduct.poids.map(String) : (Array.isArray(existingSubProduct.poids) ? existingSubProduct.poids.map(String) : []),
+      qualite: Array.isArray((subProduct as any).qualite) ? (subProduct as any).qualite.map(String) : (Array.isArray((existingSubProduct as any).qualite) ? (existingSubProduct as any).qualite.map(String) : []),
+      manches: Array.isArray((subProduct as any).manches) ? (subProduct as any).manches.map(String) : (Array.isArray((existingSubProduct as any).manches) ? (existingSubProduct as any).manches.map(String) : []),
+      col: Array.isArray((subProduct as any).col) ? (subProduct as any).col.map(String) : (Array.isArray((existingSubProduct as any).col) ? (existingSubProduct as any).col.map(String) : []),
+      variations: (() => {
+        // Si variations est explicitement fourni (même si c'est un tableau vide), l'utiliser
+        if ((subProduct as any).variations !== undefined) {
+          const providedVariations = (subProduct as any).variations;
+          console.log('📦 Variations fournies dans subProduct:', {
+            isArray: Array.isArray(providedVariations),
+            count: Array.isArray(providedVariations) ? providedVariations.length : 'N/A',
+            type: typeof providedVariations,
+            variations: providedVariations
+          });
+          return Array.isArray(providedVariations) ? providedVariations : [];
+        } else {
+          // Sinon, conserver les variations existantes
+          const existingVariations = (existingSubProduct as any).variations;
+          console.log('📦 Aucune variation fournie, conservation des variations existantes:', {
+            isArray: Array.isArray(existingVariations),
+            count: Array.isArray(existingVariations) ? existingVariations.length : 'N/A',
+            type: typeof existingVariations
+          });
+          return Array.isArray(existingVariations) ? existingVariations : [];
+        }
+      })()
+    };
+    
+    // Vérifier la taille totale des données avant la sauvegarde
+    // Calculer la taille sans les images d'abord
+    const dataWithoutImages = { ...updatedData };
+    delete dataWithoutImages.images;
+    delete dataWithoutImages.image;
+    const baseDataSize = JSON.stringify(dataWithoutImages).length;
+    const imagesSize = updatedData.images ? updatedData.images.reduce((total: number, img: string) => total + img.length, 0) : 0;
+    const imageSize = updatedData.image ? updatedData.image.length : 0;
+    const totalDataSize = baseDataSize + imagesSize + imageSize;
+    
+    console.log('📊 Taille des données à sauvegarder:', {
+      baseData: Math.round(baseDataSize / 1024) + 'KB',
+      imagesArray: Math.round(imagesSize / 1024) + 'KB',
+      imageField: Math.round(imageSize / 1024) + 'KB',
+      total: Math.round(totalDataSize / 1024) + 'KB'
+    });
+    
+    // Firestore limite à ~1MB par document (en fait 1,048,576 bytes)
+    const FIRESTORE_MAX_SIZE = 1000000; // ~1MB pour laisser une marge
+    const MAX_IMAGE_SIZE = 500000; // ~500KB par image pour laisser de la place pour les autres données
+    
+    if (totalDataSize > FIRESTORE_MAX_SIZE) {
+      console.warn('⚠️ Taille totale des données dépasse la limite Firestore:', Math.round(totalDataSize / 1024) + 'KB');
+      
+      // Réduire la taille des images si nécessaire
+      // Stratégie : Garder seulement l'image principale si elle est fournie et qu'elle est raisonnable
+      // Sinon, garder seulement la première image du tableau
+      
+      if (updatedData.images && Array.isArray(updatedData.images)) {
+        // Filtrer les images invalides
+        updatedData.images = updatedData.images.filter((img: string) => img && img !== '/mug.webp' && !img.startsWith('/'));
+        
+        // Si l'image principale est fournie et qu'elle est raisonnable (< 500KB), l'utiliser seule
+        if (updatedData.image && updatedData.image !== '/mug.webp' && !updatedData.image.startsWith('/') && updatedData.image.length <= MAX_IMAGE_SIZE) {
+          console.warn('⚠️ Réduction à 1 image (image principale) pour respecter la limite Firestore');
+          updatedData.images = [updatedData.image];
+        } else if (updatedData.images.length > 0) {
+          // Sinon, utiliser seulement la première image du tableau si elle est raisonnable
+          const firstImage = updatedData.images[0];
+          if (firstImage.length <= MAX_IMAGE_SIZE) {
+            console.warn('⚠️ Réduction à 1 image (première du tableau) pour respecter la limite Firestore');
+            updatedData.images = [firstImage];
+            updatedData.image = firstImage;
+          } else {
+            // Si même la première image est trop grande, utiliser l'image par défaut
+            console.warn('⚠️ Toutes les images sont trop grandes (' + Math.round(firstImage.length / 1024) + 'KB), utilisation de l\'image par défaut');
+            updatedData.image = '/mug.webp';
+            updatedData.images = ['/mug.webp'];
+          }
+        } else {
+          // Aucune image valide, utiliser l'image par défaut
+          console.warn('⚠️ Aucune image valide trouvée, utilisation de l\'image par défaut');
+          updatedData.image = '/mug.webp';
+          updatedData.images = ['/mug.webp'];
+        }
+        
+        // Vérifier à nouveau la taille finale
+        const finalImagesSize = updatedData.images.reduce((total: number, img: string) => total + img.length, 0);
+        const finalImageSize = updatedData.image ? updatedData.image.length : 0;
+        const finalTotalSize = baseDataSize + finalImagesSize + finalImageSize;
+        
+        console.log('📊 Taille finale après réduction:', {
+          imagesArray: Math.round(finalImagesSize / 1024) + 'KB',
+          imageField: Math.round(finalImageSize / 1024) + 'KB',
+          total: Math.round(finalTotalSize / 1024) + 'KB',
+          nombreImages: updatedData.images.length
+        });
+        
+        if (finalTotalSize > FIRESTORE_MAX_SIZE) {
+          console.error('❌ Impossible de réduire suffisamment la taille des données');
+          throw new Error(`Taille des données trop importante (${Math.round(finalTotalSize / 1024)}KB). Veuillez utiliser des images plus petites.`);
+        }
+      }
+    }
+    
+    // Sauvegarder le document mis à jour
+    console.log('💾 Mise à jour du sous-produit...');
+    console.log('📄 Chemin du document:', finalSubProductDocRef.path);
+    console.log('📋 ID du sous-produit:', subProductId);
+    console.log('📋 ID du produit parent:', productId);
+    console.log('📋 Nom du document parent:', parentProductDocumentName);
+    console.log('📦 Variations dans updatedData:', {
+      hasVariations: updatedData.variations !== undefined,
+      variationsType: Array.isArray(updatedData.variations) ? 'array' : typeof updatedData.variations,
+      variationsCount: Array.isArray(updatedData.variations) ? updatedData.variations.length : 'N/A',
+      variations: updatedData.variations
+    });
+    
+    try {
+      // Vérifier que le document existe avant de le mettre à jour
+      const docCheck = await getDoc(finalSubProductDocRef);
+      if (!docCheck.exists()) {
+        console.error('❌ Le document n\'existe pas:', finalSubProductDocRef.path);
+        throw new Error(`Sous-produit avec l'ID ${subProductId} non trouvé dans le document ${parentProductDocumentName}`);
+      }
+      
+      // Utiliser updateDoc au lieu de setDoc pour éviter d'écraser des données
+      // setDoc avec merge: false peut causer des problèmes si le document a été modifié
+      await updateDoc(finalSubProductDocRef, updatedData);
+      console.log('✅ Sous-produit mis à jour avec succès !');
+      console.log('✅ Variations sauvegardées:', {
+        count: Array.isArray(updatedData.variations) ? updatedData.variations.length : 0,
+        variations: updatedData.variations
+      });
+    } catch (updateError: any) {
+      console.error('❌ Erreur lors de la mise à jour du sous-produit:', updateError);
+      console.error('📄 Chemin du document:', finalSubProductDocRef.path);
+      console.error('📋 Détails de l\'erreur:', {
+        code: updateError?.code,
+        message: updateError?.message,
+        stack: updateError?.stack
+      });
+      throw new Error(`Erreur lors de la mise à jour du sous-produit: ${updateError?.message || 'Erreur inconnue'}`);
+    }
   }
 
   static async deleteSubProduct(productId: string, subProductId: string): Promise<void> {
+    try {
     // Trouver le produit parent par son ID pour obtenir le nom du document Firebase
     const productsRef = collection(db, this.mainCollection);
     const querySnapshot = await getDocs(productsRef);
@@ -718,24 +1316,95 @@ export class SubProductService {
       throw new Error('Produit parent non trouvé avec l\'ID: ' + productId);
     }
     
-    const subProductsDocRef = doc(db, this.mainCollection, parentProductDocumentName, this.subProductsDocument, 'data');
-    
-    // Récupérer les sous-produits existants
-    const subProductsDoc = await getDoc(subProductsDocRef);
-    if (!subProductsDoc.exists()) {
-      throw new Error('Document subProducts non trouvé');
+      // Référence vers la sous-collection subProducts dans le produit parent
+      const subProductsCollectionRef = collection(db, this.mainCollection, parentProductDocumentName, this.subProductsDocument);
+      const subProductDocRef = doc(subProductsCollectionRef, subProductId);
+      
+      console.log('🗑️ Suppression du sous-produit:', {
+        productId,
+        subProductId,
+        parentDocumentName: parentProductDocumentName,
+        documentPath: subProductDocRef.path
+      });
+      
+      // Vérifier que le document existe avant de le supprimer
+      const docCheck = await getDoc(subProductDocRef);
+      if (!docCheck.exists()) {
+        console.warn('⚠️ Le document n\'existe pas:', subProductDocRef.path);
+        throw new Error(`Sous-produit avec l'ID ${subProductId} non trouvé dans le document ${parentProductDocumentName}`);
+      }
+      
+      // Supprimer le document
+      await deleteDoc(subProductDocRef);
+      console.log('✅ Sous-produit supprimé avec succès');
+    } catch (error: any) {
+      console.error('❌ Erreur lors de la suppression du sous-produit:', error);
+      console.error('📋 Détails de l\'erreur:', {
+        code: error?.code,
+        message: error?.message,
+        stack: error?.stack
+      });
+      throw new Error(`Erreur lors de la suppression du sous-produit: ${error?.message || 'Erreur inconnue'}`);
     }
-    
-    const existingSubProducts = subProductsDoc.data().subProducts || [];
-    
-    // Supprimer le sous-produit spécifique
-    const updatedSubProducts = existingSubProducts.filter((sp: any) => sp.id !== subProductId);
-    
-    // Sauvegarder les sous-produits mis à jour
-    await setDoc(subProductsDocRef, {
-      subProducts: updatedSubProducts,
-      lastUpdated: Timestamp.now()
-    }, { merge: true });
+  }
+
+  // Fonction de migration pour mettre à jour les IDs de sous-produits de SUB- à GRA-
+  static async migrateSubProductIds(oldProductId: string, newProductId: string): Promise<void> {
+    try {
+      console.log(`🔄 Migration des sous-produits pour le produit: ${oldProductId} → ${newProductId}`);
+      
+      // Trouver le produit parent par son nouvel ID pour obtenir le nom du document Firebase
+      const productsRef = collection(db, this.mainCollection);
+      const querySnapshot = await getDocs(productsRef);
+      
+      let parentProductDocumentName = null;
+      for (const docSnapshot of querySnapshot.docs) {
+        const data = docSnapshot.data();
+        if (data.id === newProductId) {
+          parentProductDocumentName = docSnapshot.id;
+          break;
+        }
+      }
+      
+      if (!parentProductDocumentName) {
+        console.warn(`⚠️ Produit parent non trouvé avec l'ID: ${newProductId}`);
+        return;
+      }
+      
+      // Récupérer tous les sous-produits de ce produit
+      const subProductsCollectionRef = collection(db, this.mainCollection, parentProductDocumentName, this.subProductsDocument);
+      const subProductsSnapshot = await getDocs(subProductsCollectionRef);
+      
+      let updatedCount = 0;
+      
+      for (const subProductDoc of subProductsSnapshot.docs) {
+        const subProductData = subProductDoc.data();
+        
+        // Vérifier si l'ID commence par SUB-
+        if (subProductData.id && subProductData.id.startsWith('SUB-')) {
+          const newSubProductId = subProductData.id.replace(/^SUB-/, 'GRA-');
+          console.log(`🔄 Mise à jour de l'ID du sous-produit: ${subProductData.id} → ${newSubProductId}`);
+          
+          // Mettre à jour le document avec le nouvel ID
+          await updateDoc(doc(subProductsCollectionRef, subProductDoc.id), {
+            id: newSubProductId,
+            productId: newProductId // Mettre à jour aussi le productId
+          });
+          
+          updatedCount++;
+        } else if (subProductData.productId === oldProductId) {
+          // Mettre à jour le productId même si l'ID du sous-produit n'a pas besoin d'être changé
+          await updateDoc(doc(subProductsCollectionRef, subProductDoc.id), {
+            productId: newProductId
+          });
+        }
+      }
+      
+      console.log(`✅ Migration des sous-produits terminée: ${updatedCount} sous-produit(s) mis à jour`);
+    } catch (error) {
+      console.error('❌ Erreur lors de la migration des IDs de sous-produits:', error);
+      throw error;
+    }
   }
 }
 
@@ -1428,6 +2097,248 @@ export class AchatService {
     } catch (error) {
       console.error('❌ Erreur lors de la suppression de l\'image d\'article:', error);
       // Ne pas lancer l'erreur car l'image pourrait déjà être supprimée
+    }
+  }
+}
+
+// Service pour les articles
+export class ArticleService {
+  private static collection = 'Articles';
+
+  // Créer un nouvel article
+  static async createArticle(articleData: {
+    referenceArticle: string;
+    nom: string;
+    categorieArticle: string; // ID du sous-produit
+    image?: string; // Base64 string
+    petiteDescription?: string;
+    description?: string;
+    prixUnitaire: number;
+    quantite: number;
+    prixAPayer: number;
+    selectedTags?: {
+      type?: string[];
+      anse?: string[];
+      couleurs?: string[];
+      dimensions?: string[];
+      materiau?: string[];
+      capacite?: string[];
+      poids?: string[];
+    };
+    variations?: Array<{
+      id: string;
+      characteristics: {
+        type?: string;
+        anse?: string;
+        couleurs?: string;
+        dimensions?: string;
+        materiau?: string;
+        capacite?: string;
+        poids?: string;
+      };
+      prixUnitaire?: number;
+      quantite?: number;
+      image?: string;
+    }>;
+  }): Promise<string> {
+    try {
+      console.log('🚀 Création d\'un nouvel article dans Firestore...');
+      console.log('📋 Données de l\'article:', {
+        referenceArticle: articleData.referenceArticle,
+        nom: articleData.nom,
+        categorieArticle: articleData.categorieArticle,
+        prixUnitaire: articleData.prixUnitaire,
+        quantite: articleData.quantite,
+        prixAPayer: articleData.prixAPayer,
+        hasImage: !!articleData.image,
+        imageLength: articleData.image?.length || 0
+      });
+
+      // Préparer les données pour Firestore
+      const articleDoc: any = {
+        id: articleData.referenceArticle,
+        referenceArticle: articleData.referenceArticle,
+        nom: articleData.nom.trim(),
+        categorieArticle: articleData.categorieArticle,
+        image: articleData.image || '',
+        petiteDescription: articleData.petiteDescription?.trim() || '',
+        description: articleData.description?.trim() || '',
+        prixUnitaire: articleData.prixUnitaire,
+        quantite: articleData.quantite,
+        prixAPayer: articleData.prixAPayer,
+        dateCreation: Timestamp.now(),
+        dateModification: Timestamp.now()
+      };
+
+      // Ajouter les tags sélectionnés si disponibles
+      if (articleData.selectedTags) {
+        articleDoc.selectedTags = articleData.selectedTags;
+      }
+
+      // Ajouter les variations si disponibles
+      if (articleData.variations && articleData.variations.length > 0) {
+        articleDoc.variations = articleData.variations;
+      }
+
+      // Vérifier la taille du document (limite Firestore: 1MB)
+      const dataSize = JSON.stringify(articleDoc).length;
+      console.log('📊 Taille des données:', dataSize, 'bytes');
+
+      if (dataSize > 1000000) { // 1MB
+        console.warn('⚠️ Taille des données très importante:', dataSize, 'bytes');
+        // Réduire la taille de l'image si nécessaire
+        if (articleDoc.image && articleDoc.image.length > 500000) {
+          console.log('⚠️ Image trop grande, réduction de la taille...');
+          // Tronquer l'image base64 à 500KB
+          articleDoc.image = articleDoc.image.substring(0, 500000);
+        }
+      }
+
+      // Ajouter le document à Firestore
+      const articlesRef = collection(db, this.collection);
+      const docRef = await addDoc(articlesRef, articleDoc);
+      
+      console.log('✅ Article créé avec succès ! ID:', docRef.id);
+      console.log('📄 Référence article:', articleData.referenceArticle);
+      
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de l\'article:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la création de l\'article';
+      throw new Error(errorMessage);
+    }
+  }
+
+  // Récupérer tous les articles
+  static async getAllArticles(): Promise<any[]> {
+    try {
+      console.log('🔍 Récupération de tous les articles...');
+      const articlesRef = collection(db, this.collection);
+      const querySnapshot = await getDocs(query(articlesRef, orderBy('dateCreation', 'desc')));
+      
+      const articles = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          dateCreation: data.dateCreation?.toDate ? data.dateCreation.toDate() : new Date(data.dateCreation),
+          dateModification: data.dateModification?.toDate ? data.dateModification.toDate() : new Date(data.dateModification)
+        };
+      });
+      
+      console.log('✅ Articles récupérés:', articles.length);
+      return articles;
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des articles:', error);
+      throw error;
+    }
+  }
+
+  // Récupérer un article par son ID
+  static async getArticleById(articleId: string): Promise<any | null> {
+    try {
+      const articlesRef = collection(db, this.collection);
+      const q = query(articlesRef, where('id', '==', articleId));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        return null;
+      }
+      
+      const doc = querySnapshot.docs[0];
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        dateCreation: data.dateCreation?.toDate ? data.dateCreation.toDate() : new Date(data.dateCreation),
+        dateModification: data.dateModification?.toDate ? data.dateModification.toDate() : new Date(data.dateModification)
+      };
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération de l\'article:', error);
+      throw error;
+    }
+  }
+
+  // Mettre à jour un article
+  static async updateArticle(articleId: string, articleData: Partial<{
+    nom: string;
+    categorieArticle: string;
+    image: string;
+    petiteDescription: string;
+    description: string;
+    prixUnitaire: number;
+    quantite: number;
+    prixAPayer: number;
+    selectedTags?: {
+      type?: string[];
+      anse?: string[];
+      couleurs?: string[];
+      dimensions?: string[];
+      materiau?: string[];
+      capacite?: string[];
+      poids?: string[];
+    };
+    variations?: Array<{
+      id: string;
+      characteristics: {
+        type?: string;
+        anse?: string;
+        couleurs?: string;
+        dimensions?: string;
+        materiau?: string;
+        capacite?: string;
+        poids?: string;
+      };
+      prixUnitaire?: number;
+      quantite?: number;
+      image?: string;
+    }>;
+  }>): Promise<void> {
+    try {
+      console.log('🔄 Mise à jour de l\'article:', articleId);
+      
+      const articlesRef = collection(db, this.collection);
+      // Chercher par referenceArticle (qui est l'ID utilisé)
+      const q = query(articlesRef, where('referenceArticle', '==', articleId));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        throw new Error(`Article avec l'ID ${articleId} non trouvé`);
+      }
+      
+      const docRef = querySnapshot.docs[0].ref;
+      const updateData = {
+        ...articleData,
+        dateModification: Timestamp.now()
+      };
+      
+      await updateDoc(docRef, updateData);
+      console.log('✅ Article mis à jour avec succès !');
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour de l\'article:', error);
+      throw error;
+    }
+  }
+
+  // Supprimer un article
+  static async deleteArticle(articleId: string): Promise<void> {
+    try {
+      console.log('🗑️ Suppression de l\'article:', articleId);
+      
+      const articlesRef = collection(db, this.collection);
+      const q = query(articlesRef, where('id', '==', articleId));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        throw new Error(`Article avec l'ID ${articleId} non trouvé`);
+      }
+      
+      const docRef = querySnapshot.docs[0].ref;
+      await deleteDoc(docRef);
+      console.log('✅ Article supprimé avec succès !');
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression de l\'article:', error);
+      throw error;
     }
   }
 }

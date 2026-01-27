@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Form, InputGroup, Spinner } from 'react-bootstrap';
 import { Product } from '../types';
-import { ProductService } from '../services/firebaseService';
+import { ProductService, SubProductService } from '../services/firebaseService';
 import './Products.css';
 
 const Products: React.FC = () => {
@@ -16,8 +16,29 @@ const Products: React.FC = () => {
     const loadProducts = async () => {
       try {
         const productsData = await ProductService.getAllProducts();
-        setProducts(productsData);
-        setFilteredProducts(productsData);
+        
+        // Calculer le stock total en additionnant les stocks des sous-produits (comme dans Stock.tsx)
+        const productsWithTotalStock = await Promise.all(
+          productsData.map(async (product) => {
+            try {
+              const productSubProducts = await SubProductService.getSubProductsByProductId(product.id);
+              
+              // Calculer le stock total en additionnant les quantités des sous-produits
+              const totalStock = productSubProducts.reduce((sum, subProduct) => sum + (subProduct.stock || 0), 0);
+              
+              return {
+                ...product,
+                stock: totalStock // Remplacer le stock du produit par la somme des sous-produits
+              };
+            } catch (error) {
+              console.error(`Erreur lors du chargement des sous-produits pour ${product.nom}:`, error);
+              return product; // Retourner le produit original en cas d'erreur
+            }
+          })
+        );
+        
+        setProducts(productsWithTotalStock);
+        setFilteredProducts(productsWithTotalStock);
       } catch (error) {
         console.error('Erreur lors du chargement des produits:', error);
       } finally {
@@ -183,10 +204,12 @@ const Products: React.FC = () => {
                     className="product-image"
                   />
                   <div className="product-badges">
-                    {product.stock > 0 ? (
-                      <Badge bg="success">En stock</Badge>
+                    {product.stock === 0 ? (
+                      <Badge bg="danger">Stock Épuisé</Badge>
+                    ) : product.stock < 10 ? (
+                      <Badge bg="warning">Stock faible</Badge>
                     ) : (
-                      <Badge bg="danger">Rupture</Badge>
+                      <Badge bg="success">Disponible</Badge>
                     )}
                   </div>
                 </div>

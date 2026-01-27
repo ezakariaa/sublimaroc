@@ -55,9 +55,9 @@ const ProductDetail: React.FC = () => {
   };
 
   const getStockStatus = (stock: number) => {
-    if (stock === 0) return { variant: 'danger', text: 'Rupture de stock' };
+    if (stock === 0) return { variant: 'danger', text: 'Stock Épuisé' };
     if (stock < 10) return { variant: 'warning', text: 'Stock faible' };
-    return { variant: 'success', text: 'En stock' };
+    return { variant: 'success', text: 'Disponible' };
   };
 
   if (loading) {

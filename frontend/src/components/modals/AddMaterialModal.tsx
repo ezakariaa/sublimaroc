@@ -470,13 +470,13 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             {isEditMode ? 'Modifier l\'Achat de Matériel' : 'Nouveau Matériel Acheté'}
           </Modal.Title>
         </Modal.Header>
-      <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+      <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto', padding: '1.5rem' }}>
         <Form>
           {/* Référence d'Achat */}
           {referenceAchat && (
             <div className="mb-4">
-              <Card className="bg-primary text-white">
-                <Card.Body className="py-3">
+              <Card className="bg-primary text-white" style={{ marginBottom: '1rem' }}>
+                <Card.Body className="py-3" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
                   <div className="d-flex align-items-center">
                     <i className="bi bi-tag-fill me-2" style={{ fontSize: '1.2rem' }}></i>
                     <div>
@@ -498,9 +498,9 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             
             {materials.map((material, index) => (
               <Card key={material.id} className="mb-3">
-                <Card.Header className="d-flex justify-content-between align-items-center">
-                  <h6 className="mb-0">
-                    <i className="bi bi-box-seam me-2"></i>
+                <Card.Header className="d-flex justify-content-between align-items-center" style={{ backgroundColor: '#424272', color: '#ffffff' }}>
+                  <h6 className="mb-0" style={{ color: '#ffffff' }}>
+                    <i className="bi bi-box-seam me-2" style={{ color: '#ffffff' }}></i>
                     Matériel {index + 1}
                   </h6>
                   {materials.length > 1 && (
@@ -513,7 +513,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                     </Button>
                   )}
                 </Card.Header>
-                <Card.Body>
+                <Card.Body style={{ padding: '1.25rem' }}>
                   <Row>
                     <Col md={6}>
                       <Form.Group className="mb-3">
@@ -807,8 +807,8 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
               <i className="bi bi-calculator me-2"></i>
               Résumé de l'Achat
             </h5>
-            <Card className="bg-light">
-              <Card.Body>
+            <Card className="bg-light" style={{ marginTop: '1rem' }}>
+              <Card.Body style={{ padding: '1.25rem' }}>
                 <Row>
                   <Col md={6}>
                     <p><strong>Nombre de matériels:</strong> {materials.filter(m => m.nom.trim()).length}</p>

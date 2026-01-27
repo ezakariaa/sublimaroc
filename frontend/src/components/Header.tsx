@@ -34,7 +34,7 @@ const Header: React.FC = () => {
                 <div className="circle yellow"></div>
               </div>
               <div className="brand-text">
-                <div className="brand-main">SUBLIMATION</div>
+                <div className="brand-main">GRAPH'INK</div>
                 <div className="brand-sub">MAROC</div>
               </div>
             </div>
@@ -91,11 +91,11 @@ const Header: React.FC = () => {
                   </NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/achats">
                     <i className="bi bi-cart-plus me-2"></i>
-                    Achats (Matériels)
+                    Matériels & Articles
                   </NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/achats-articles">
+                  <NavDropdown.Item as={Link} to="/articles">
                     <i className="bi bi-bag me-2"></i>
-                    Achats (Articles)
+                    Articles
                   </NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/sales">
                     <i className="bi bi-cart-check me-2"></i>

@@ -3,6 +3,15 @@
   background: #f8f9fa;
 }
 
+.products-page .container {
+  width: calc(100% - 6rem) !important;
+  max-width: none !important;
+  margin-left: 3rem !important;
+  margin-right: 3rem !important;
+  padding-left: 15px !important;
+  padding-right: 15px !important;
+}
+
 .page-title {
   font-size: 2.5rem;
   font-weight: bold;
@@ -31,6 +40,13 @@
   background: #fff;
 }
 
+.product-card .card-body {
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+  padding-top: 1.25rem !important;
+  padding-bottom: 1.25rem !important;
+}
+
 .product-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 25px rgba(0,0,0,0.15);
@@ -57,6 +73,16 @@
   position: absolute;
   top: 10px;
   right: 10px;
+  z-index: 10;
+}
+
+.product-badges .badge {
+  font-size: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .product-title {
@@ -140,6 +166,13 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .products-page .container {
+    width: calc(100% - 4rem) !important;
+    max-width: none !important;
+    margin-left: 2rem !important;
+    margin-right: 2rem !important;
+  }
+  
   .page-title {
     font-size: 2rem;
   }
@@ -161,8 +194,10 @@
 
 @media (max-width: 576px) {
   .products-page .container {
-    padding-left: 15px;
-    padding-right: 15px;
+    width: calc(100% - 3rem) !important;
+    max-width: none !important;
+    margin-left: 1.5rem !important;
+    margin-right: 1.5rem !important;
   }
   
   .product-card {

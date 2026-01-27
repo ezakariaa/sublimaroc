@@ -185,7 +185,7 @@ const Sales: React.FC = () => {
         </Row>
 
         {/* Filtres */}
-        <Row className="mb-4">
+        <Row className="mb-4 mt-5">
           <Col md={4}>
             <InputGroup>
               <InputGroup.Text>
@@ -250,84 +250,92 @@ const Sales: React.FC = () => {
         <Row>
           <Col>
             <Card>
-              <Card.Header>
+              <Card.Header className="d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">
                   <i className="bi bi-list-ul me-2"></i>
                   Liste des Commandes
                 </h5>
+                <Button
+                  variant="link"
+                  className="text-white text-decoration-none fw-bold sales-header-add-sale"
+                  style={{ fontSize: '0.95rem', padding: '0.25rem 0.75rem' }}
+                >
+                  <i className="bi bi-plus-circle me-2"></i>
+                  Ajouter une vente
+                </Button>
               </Card.Header>
               
-              <Card.Body className="p-0">
+              <Card.Body className="p-3">
                 <div className="table-responsive">
-                  <Table hover className="mb-0">
-                    <thead className="table-header">
-                      <tr>
-                        <th>ID Commande</th>
-                        <th>Client</th>
-                        <th>Produits</th>
-                        <th>Total</th>
-                        <th>Statut</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredOrders.map((order) => (
-                        <tr key={order.id}>
-                          <td>
-                            <strong>#{order.id}</strong>
-                          </td>
-                          <td>
-                            <div className="customer-info">
-                              <div className="customer-name">Client {order.userId}</div>
-                              <small className="text-muted">ID: {order.userId}</small>
-                            </div>
-                          </td>
-                          <td>
-                            <div className="products-info">
-                              {order.products.map((product, index) => (
-                                <div key={index} className="product-item">
-                                  <span className="product-name">Produit {product.productId}</span>
-                                  <small className="text-muted">
-                                    x{product.quantity} - {formatPrice(product.price)}
-                                  </small>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                          <td>
-                            <span className="order-total">{formatPrice(order.total)}</span>
-                          </td>
-                          <td>
-                            {getStatusBadge(order.status)}
-                          </td>
-                          <td>
-                            <div className="date-info">
-                              <div>{formatDate(order.dateCreation)}</div>
-                              {order.dateModification.getTime() !== order.dateCreation.getTime() && (
+                  <table className="table table-hover align-middle">
+                    <thead className="table-light">
+                    <tr>
+                      <th>ID Commande</th>
+                      <th>Client</th>
+                      <th>Produits</th>
+                      <th>Total</th>
+                      <th>Statut</th>
+                      <th>Date</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id}>
+                        <td>
+                          <strong>#{order.id}</strong>
+                        </td>
+                        <td>
+                          <div className="customer-info">
+                            <div className="customer-name">Client {order.userId}</div>
+                            <small className="text-muted">ID: {order.userId}</small>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="products-info">
+                            {order.products.map((product, index) => (
+                              <div key={index} className="product-item">
+                                <span className="product-name">Produit {product.productId}</span>
                                 <small className="text-muted">
-                                  Modifié: {formatDate(order.dateModification)}
+                                  x{product.quantity} - {formatPrice(product.price)}
                                 </small>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="action-buttons">
-                              <Button variant="outline-primary" size="sm" className="me-1">
-                                <i className="bi bi-eye"></i>
-                              </Button>
-                              <Button variant="outline-success" size="sm" className="me-1">
-                                <i className="bi bi-check"></i>
-                              </Button>
-                              <Button variant="outline-danger" size="sm">
-                                <i className="bi bi-x"></i>
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="order-total">{formatPrice(order.total)}</span>
+                        </td>
+                        <td>
+                          {getStatusBadge(order.status)}
+                        </td>
+                        <td>
+                          <div className="date-info">
+                            <div>{formatDate(order.dateCreation)}</div>
+                            {order.dateModification.getTime() !== order.dateCreation.getTime() && (
+                              <small className="text-muted">
+                                Modifié: {formatDate(order.dateModification)}
+                              </small>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="action-buttons">
+                            <Button variant="outline-primary" size="sm" className="me-1">
+                              <i className="bi bi-eye"></i>
+                            </Button>
+                            <Button variant="outline-success" size="sm" className="me-1">
+                              <i className="bi bi-check"></i>
+                            </Button>
+                            <Button variant="outline-danger" size="sm">
+                              <i className="bi bi-x"></i>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  </table>
                 </div>
               </Card.Body>
             </Card>

@@ -1,0 +1,52 @@
+.product-characteristics-page table {
+  table-layout: fixed;
+  width: 100% !important;
+}
+
+.product-characteristics-page table thead th:nth-child(1),
+.product-characteristics-page table tbody td:nth-child(1) {
+  width: 20% !important;
+  min-width: 20% !important;
+  max-width: 20% !important;
+}
+
+.product-characteristics-page table thead th:nth-child(2),
+.product-characteristics-page table tbody td:nth-child(2) {
+  width: 70% !important;
+  min-width: 70% !important;
+  max-width: 70% !important;
+}
+
+.product-characteristics-page table thead th:nth-child(3),
+.product-characteristics-page table tbody td:nth-child(3) {
+  width: 10% !important;
+  min-width: 10% !important;
+  max-width: 10% !important;
+  text-align: center;
+}
+
+.product-characteristics-page table tbody td:nth-child(3) .d-flex {
+  align-items: stretch;
+}
+
+.product-characteristics-page table tbody td:nth-child(3) .btn {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+}
+
+/* Style pour le lien "Ajouter une caractéristique" dans l'en-tête de chaque produit */
+.product-characteristics-page .stock-header-add-product {
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.product-characteristics-page .stock-header-add-product:hover {
+  color: #e0e0e0 !important;
+  text-decoration: underline !important;
+}
+
+.product-characteristics-page .stock-header-add-product:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
