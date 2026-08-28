@@ -1,11 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Modal, Form, Button, Row, Col } from 'react-bootstrap';
 import { Product } from '../../types';
-import { ProductService } from '../../services/firebaseService';
+import { ProductService } from '../../services/apiService';
 import AddTagModal from './AddTagModal';
-import { Timestamp } from 'firebase/firestore';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { LabelService, uploadBlobUrl } from '../../services/apiService';
 
 interface AddProductModalProps {
   show: boolean;
@@ -65,12 +63,24 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
   // État pour stocker le produit complet rechargé depuis Firebase
   const [fullProductData, setFullProductData] = useState<any>(null);
 
+  // Ref pour éviter de réinitialiser le formulaire une fois que l'utilisateur a commencé à éditer
+  const initializedProductIdRef = useRef<string | null>(null);
+  // Ref pour éviter que loadData (async) n'écrase les types ajoutés par l'utilisateur en mode création
+  const createModeInitializedRef = useRef(false);
+
   // Initialiser les valeurs en mode édition
   useEffect(() => {
     // Utiliser fullProductData si disponible (produit complet rechargé), sinon initialProduct
     const productToUse = fullProductData || initialProduct;
-    
+
     if (isEditMode && productToUse) {
+      // Clé qui distingue init depuis initialProduct vs fullProductData (données complètes)
+      const initKey = `${productToUse.id}:${fullProductData ? 'full' : 'partial'}`;
+      // Ne pas réinitialiser si on a déjà chargé la version complète (évite d'écraser les saisies utilisateur)
+      if (initializedProductIdRef.current === initKey) return;
+      // Autoriser le passage de 'partial' → 'full', mais pas 'full' → 'full' ni 'partial' → 'partial'
+      if (initializedProductIdRef.current === `${productToUse.id}:full`) return;
+      initializedProductIdRef.current = initKey;
       console.log('🔧 Mode édition activé pour le produit:', productToUse);
       console.log('📊 Données du produit:', {
         type: productToUse.type,
@@ -156,6 +166,8 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
   // Réinitialiser les états quand la modale se ferme
   useEffect(() => {
     if (!show) {
+      initializedProductIdRef.current = null as any;
+      createModeInitializedRef.current = false;
       setNewProduct({
         nom: '',
         categorie: '',
@@ -179,7 +191,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         prix: 0,
         stock: 0
       });
-      
+
       setTags({
         type: [],
         anse: [],
@@ -192,34 +204,46 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         manches: [],
         col: []
       });
+      setAvailableCharacteristics([]);
+      setUserAddedCharacteristics([]);
+      setNewCharTypeLabel('');
+      setNewCharTypeKey('');
     }
   }, [show]);
   
   // État pour la modal d'ajout de tag
   const [showTagModal, setShowTagModal] = useState(false);
-  const [currentTagField, setCurrentTagField] = useState<keyof typeof newProduct>('type');
+  const [currentTagField, setCurrentTagField] = useState<string>('type');
   const [tagInputValue, setTagInputValue] = useState('');
   
-  // États pour les tags visuels
-  const [tags, setTags] = useState({
-    type: [] as string[],
-    anse: [] as string[],
-    couleurs: [] as string[],
-    dimensions: [] as string[],
-    materiau: [] as string[],
-    capacite: [] as string[],
-    poids: [] as string[],
-    qualite: [] as string[],
-    manches: [] as string[],
-    col: [] as string[]
+  // États pour les tags visuels (clés fixes + dynamiques)
+  const [tags, setTags] = useState<Record<string, string[]>>({
+    type: [],
+    anse: [],
+    couleurs: [],
+    dimensions: [],
+    materiau: [],
+    capacite: [],
+    poids: [],
+    qualite: [],
+    manches: [],
+    col: []
   });
 
   // États pour les caractéristiques dynamiques
   const [customLabels, setCustomLabels] = useState<Map<string, string>>(new Map());
   const [customCharacteristics, setCustomCharacteristics] = useState<Array<{ key: string; label: string }>>([]);
+  // Types chargés depuis Firebase (remplacés à chaque rechargement)
   const [availableCharacteristics, setAvailableCharacteristics] = useState<Array<{ key: string; label: string }>>([]);
+  // Types ajoutés manuellement par l'utilisateur (jamais écrasés par Firebase)
+  const [userAddedCharacteristics, setUserAddedCharacteristics] = useState<Array<{ key: string; label: string }>>([]);
   // État pour stocker toutes les valeurs disponibles pour chaque caractéristique (depuis tous les produits)
   const [allAvailableValues, setAllAvailableValues] = useState<Map<string, string[]>>(new Map());
+
+  // États pour l'ajout d'un nouveau type de caractéristique (mode création)
+  const [showAddCharTypeModal, setShowAddCharTypeModal] = useState(false);
+  const [newCharTypeLabel, setNewCharTypeLabel] = useState('');
+  const [newCharTypeKey, setNewCharTypeKey] = useState('');
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -342,24 +366,12 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     }));
   }, []);
 
-  // Charger les labels personnalisés depuis Firebase
+  // Charger les labels personnalisés depuis l'API
   const loadCustomLabels = useCallback(async () => {
     try {
-      const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-      const labelsDoc = await getDoc(labelsDocRef);
-      
-      if (labelsDoc.exists()) {
-        const labelsData = labelsDoc.data();
-        const labelsMap = new Map<string, string>();
-        
-        Object.entries(labelsData).forEach(([key, value]) => {
-          if (typeof value === 'string') {
-            labelsMap.set(key, value);
-          }
-        });
-        
-        setCustomLabels(labelsMap);
-      }
+      const labelsData = await LabelService.getLabels();
+      const labelsMap = new Map<string, string>(Object.entries(labelsData));
+      setCustomLabels(labelsMap);
     } catch (error) {
       console.error('Erreur lors du chargement des labels personnalisés:', error);
     }
@@ -519,92 +531,34 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         // Ensuite, déterminer les caractéristiques du produit spécifique (si en mode édition)
         if (isEditMode && initialProduct) {
           try {
-            // Recharger le produit depuis Firebase pour être sûr d'avoir TOUTES les caractéristiques
-            // Le document ID Firebase est le nom du produit transformé en slug, pas l'ID GRA-XXX
-            // Donc on doit chercher par le champ 'id' (GRA-XXX)
-            console.log('🔄 Rechargement du produit depuis Firebase pour obtenir toutes les caractéristiques...');
-            console.log('🔍 Recherche du produit avec ID:', initialProduct.id);
-            
-            // Chercher le document par le champ 'id' (GRA-XXX) au lieu du document ID
-            const productsCollection = collection(db, 'Produits');
-            const q = query(productsCollection, where('id', '==', initialProduct.id));
-            const querySnapshot = await getDocs(q);
-            
-            if (!querySnapshot.empty && querySnapshot.docs.length > 0) {
-              const productDoc = querySnapshot.docs[0];
-              console.log('✅ Produit trouvé dans Firebase avec document ID:', productDoc.id);
-              
-            if (productDoc.exists()) {
-              const productData = productDoc.data();
-              console.log('📦 Données complètes du produit depuis Firebase:', productData);
-              
-              // Construire un produit complet avec SEULEMENT les caractéristiques qui ont des valeurs
+            console.log('🔄 Rechargement du produit depuis l\'API MySQL...');
+            const productData = await ProductService.getProductById(initialProduct.id);
+            if (productData) {
               const standardFieldsList = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification'];
-              
-              const fullProduct: any = {
-                id: productData.id || productDoc.id,
-                nom: productData.nom || '',
-                description: productData.description || '',
-                prix: productData.prix || 0,
-                image: productData.image || '',
-                images: Array.isArray(productData.images) ? productData.images : [],
-                categorie: productData.categorie || '',
-                stock: productData.stock || 0,
-                fournisseur: productData.fournisseur || { nom: '', ville: '' },
-                dateCreation: productData.dateCreation?.toDate() || new Date(),
-                dateModification: productData.dateModification?.toDate() || new Date(),
-              };
-              
-              // Ajouter UNIQUEMENT les caractéristiques qui sont des tableaux non vides
-              Object.keys(productData).forEach(key => {
-                if (!standardFieldsList.includes(key)) {
-                  const value = productData[key];
-                  // Ne garder que les caractéristiques qui sont des tableaux non vides
-                  if (Array.isArray(value) && value.length > 0) {
-                    fullProduct[key] = value;
-                  }
+              const fullProduct: any = { ...productData };
+              // Ne garder que les caractéristiques qui sont des tableaux non vides
+              Object.keys(fullProduct).forEach(key => {
+                if (!standardFieldsList.includes(key) && Array.isArray(fullProduct[key]) && fullProduct[key].length === 0) {
+                  delete fullProduct[key];
                 }
               });
-              
-              console.log('✅ Produit filtré depuis Firebase (seulement caractéristiques avec valeurs):', fullProduct);
-              console.log('🔑 Clés du produit filtré:', Object.keys(fullProduct));
-              console.log('📊 Caractéristiques du produit:', Object.keys(fullProduct).filter(k => !standardFieldsList.includes(k)));
-              
-              // Stocker le produit filtré pour l'utiliser dans l'initialisation des tags
               setFullProductData(fullProduct);
-              
-              // Récupérer les labels depuis Firebase directement
-              const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-              const labelsDoc = await getDoc(labelsDocRef);
-              const labelsMap = new Map<string, string>();
-              if (labelsDoc.exists()) {
-                const labelsData = labelsDoc.data();
-                Object.entries(labelsData).forEach(([key, value]) => {
-                  if (typeof value === 'string') {
-                    labelsMap.set(key, value);
-                  }
-                });
-              }
-              
-              console.log('📋 Labels chargés pour déterminer les caractéristiques:', Array.from(labelsMap.entries()));
-              console.log('🎯 Appel de determineAvailableCharacteristics avec le produit filtré');
+              const labelsData = await LabelService.getLabels();
+              const labelsMap = new Map<string, string>(Object.entries(labelsData));
               determineAvailableCharacteristics(fullProduct, labelsMap);
             } else {
-              console.error('❌ Document produit existe mais est vide');
-              determineAvailableCharacteristics(initialProduct);
-            }
-            } else {
-              console.error('❌ Produit non trouvé dans Firebase avec ID:', initialProduct.id);
               determineAvailableCharacteristics(initialProduct);
             }
           } catch (error) {
             console.error('❌ Erreur lors du rechargement du produit:', error);
-            // En cas d'erreur, utiliser le produit initial
             determineAvailableCharacteristics(initialProduct);
           }
         } else if (!isEditMode) {
-          // En mode création, aucune caractéristique n'est affichée
-          setAvailableCharacteristics([]);
+          // En mode création, initialiser une seule fois (évite d'écraser les types ajoutés par l'utilisateur)
+          if (!createModeInitializedRef.current) {
+            createModeInitializedRef.current = true;
+            setAvailableCharacteristics([]);
+          }
         }
       };
       loadData();
@@ -619,20 +573,11 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       if (productToUse) {
         console.log('🔄 Rechargement des caractéristiques après chargement des labels');
         console.log('📦 Produit utilisé:', productToUse.id, productToUse.nom);
-        // Récupérer les labels depuis Firebase directement
+        // Récupérer les labels depuis l'API
         const loadLabelsAndDetermine = async () => {
           try {
-            const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-            const labelsDoc = await getDoc(labelsDocRef);
-            const labelsMap = new Map<string, string>();
-            if (labelsDoc.exists()) {
-              const labelsData = labelsDoc.data();
-              Object.entries(labelsData).forEach(([key, value]) => {
-                if (typeof value === 'string') {
-                  labelsMap.set(key, value);
-                }
-              });
-            }
+            const labelsData = await LabelService.getLabels();
+            const labelsMap = new Map<string, string>(Object.entries(labelsData));
             determineAvailableCharacteristics(productToUse, labelsMap);
           } catch (error) {
             console.error('❌ Erreur lors du chargement des labels:', error);
@@ -661,7 +606,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
     return colorMap[key] || 'secondary';
   };
 
-  const openTagModal = useCallback((field: keyof typeof newProduct) => {
+  const openTagModal = useCallback((field: string) => {
     setCurrentTagField(field);
     setTagInputValue('');
     setShowTagModal(true);
@@ -669,61 +614,50 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
 
   const addTagFromModal = useCallback(() => {
     const tagValue = tagInputValue.trim();
-    
+
     if (tagValue) {
-      // Vérifier que currentTagField est un champ de caractéristique valide
-      const characteristicFields = ['type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
-      
-      if (characteristicFields.includes(currentTagField)) {
-        // Ajouter au tableau des tags
-        setTags(prev => {
-          const currentTags = prev[currentTagField as keyof typeof prev];
-          if (!currentTags.includes(tagValue)) {
-            return {
-              ...prev,
-              [currentTagField]: [...currentTags, tagValue]
-            };
-          }
-          return prev;
-        });
-        
-        // Mettre à jour aussi le champ texte pour la sauvegarde
+      // Ajouter au tableau des tags (toutes les clés sont valides)
+      setTags(prev => {
+        const currentTags = prev[currentTagField] || [];
+        if (!currentTags.includes(tagValue)) {
+          return { ...prev, [currentTagField]: [...currentTags, tagValue] };
+        }
+        return prev;
+      });
+
+      // Mettre à jour le champ texte si c'est un champ fixe de newProduct
+      const fixedFields = ['type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+      if (fixedFields.includes(currentTagField)) {
         setNewProduct(prev => {
-          const currentValue = prev[currentTagField] as string;
+          const currentValue = prev[currentTagField as keyof typeof prev] as string;
           const existingValues = currentValue ? currentValue.split(',').map(v => v.trim()) : [];
-          
           if (!existingValues.includes(tagValue)) {
-            const newValue = currentValue ? `${currentValue}, ${tagValue}` : tagValue;
-            return {
-              ...prev,
-              [currentTagField]: newValue
-            };
+            return { ...prev, [currentTagField]: currentValue ? `${currentValue}, ${tagValue}` : tagValue };
           }
           return prev;
         });
       }
-      
+
       setShowTagModal(false);
       setTagInputValue('');
     }
   }, [tagInputValue, currentTagField]);
 
-  const removeTag = useCallback((field: keyof typeof tags, tagToRemove: string) => {
-    // Supprimer du tableau des tags
+  const removeTag = useCallback((field: string, tagToRemove: string) => {
     setTags(prev => ({
       ...prev,
-      [field]: prev[field].filter(tag => tag !== tagToRemove)
+      [field]: (prev[field] || []).filter(tag => tag !== tagToRemove)
     }));
-    
-    // Mettre à jour le champ texte
-    setNewProduct(prev => {
-      const currentValue = prev[field] as string;
-      const updatedValues = currentValue ? currentValue.split(',').map(v => v.trim()).filter(v => v !== tagToRemove) : [];
-      return {
-        ...prev,
-        [field]: updatedValues.join(', ')
-      };
-    });
+
+    // Mettre à jour le champ texte si c'est un champ fixe
+    const fixedFields = ['type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+    if (fixedFields.includes(field)) {
+      setNewProduct(prev => {
+        const currentValue = prev[field as keyof typeof prev] as string;
+        const updatedValues = currentValue ? currentValue.split(',').map(v => v.trim()).filter(v => v !== tagToRemove) : [];
+        return { ...prev, [field]: updatedValues.join(', ') };
+      });
+    }
   }, []);
 
   const handleAddProduct = useCallback(async () => {
@@ -768,30 +702,14 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
           
           if (image && image !== '/placeholder-product.jpg' && image !== '/mug.webp') {
             if (image.startsWith('blob:')) {
-              // Convertir l'image blob en base64 pour la sauvegarder
+              // Téléverser l'image dans Firebase Storage
               try {
-                console.log('🔄 Conversion blob vers base64...');
-                const response = await fetch(image);
-                const blob = await response.blob();
-                
-                const base64Promise = new Promise<string>((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    console.log('✅ Conversion base64 réussie');
-                    resolve(reader.result as string);
-                  };
-                  reader.onerror = () => {
-                    console.error('❌ Erreur de lecture du fichier');
-                    reject(new Error('Erreur de lecture du fichier'));
-                  };
-                  reader.readAsDataURL(blob);
-                });
-                
-                const base64Image = await base64Promise;
-                imageUrls.push(base64Image);
-                console.log(`✅ Image ${i + 1} base64 ajoutée aux URLs (total: ${imageUrls.length})`);
+                console.log('🔄 Téléversement de l\'image vers Storage...');
+                const storageUrl = await uploadBlobUrl(image, 'images/produits');
+                imageUrls.push(storageUrl);
+                console.log(`✅ Image ${i + 1} téléversée (total: ${imageUrls.length})`);
               } catch (error) {
-                console.error('❌ Erreur lors de la conversion de l\'image:', error);
+                console.error('❌ Erreur lors du téléversement de l\'image:', error);
                 // En cas d'erreur, utiliser l'image par défaut
                 imageUrls.push('/mug.webp');
               }
@@ -814,6 +732,24 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       
       console.log('🖼️ URLs finales des images:', imageUrls.length, imageUrls);
       
+      // Collecter les caractéristiques dynamiques (clés non fixes)
+      const fixedFields = ['type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+      const dynamicCharacteristics: Record<string, string[]> = {};
+      Object.entries(tags).forEach(([key, values]) => {
+        if (!fixedFields.includes(key) && Array.isArray(values) && values.length > 0) {
+          dynamicCharacteristics[key] = values;
+        }
+      });
+
+      // Ne sauvegarder les champs de caractéristiques standard que s'ils ont des valeurs
+      const standardCharFields = ['type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+      const nonEmptyStandardChars: Record<string, string[]> = {};
+      standardCharFields.forEach(field => {
+        if (tags[field] && tags[field].length > 0) {
+          nonEmptyStandardChars[field] = tags[field];
+        }
+      });
+
       // Préparer les données du produit avec les tags
       const productData = {
         nom: newProduct.nom.trim(),
@@ -825,17 +761,10 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
           nom: '',
           ville: ''
         },
-        // Utiliser directement les tags des tableaux
-        type: tags.type,
-        anse: tags.anse,
-        couleurs: tags.couleurs,
-        dimensions: tags.dimensions,
-        materiau: tags.materiau,
-        capacite: tags.capacite,
-        poids: tags.poids,
-        qualite: tags.qualite,
-        manches: tags.manches,
-        col: tags.col,
+        // Seulement les caractéristiques standard non vides
+        ...nonEmptyStandardChars,
+        // Caractéristiques dynamiques créées en mode création
+        ...dynamicCharacteristics,
         prix: 0, // Valeur par défaut
         stock: 0, // Valeur par défaut
         // Ajouter les dates requises
@@ -849,14 +778,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         dateModification: new Date()
       };
 
-      console.log('💾 Données à sauvegarder:', {
-        qualite: productData.qualite,
-        manches: productData.manches,
-        col: productData.col,
-        tagsQualite: tags.qualite,
-        tagsManches: tags.manches,
-        tagsCol: tags.col
-      });
+      console.log('💾 Données à sauvegarder (caractéristiques non vides):', { ...nonEmptyStandardChars, ...dynamicCharacteristics });
 
       console.log('📊 Données finales du produit:', {
         nom: productData.nom,
@@ -887,6 +809,21 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         console.log('🚀 Début de la création du produit...');
         await ProductService.createProduct(productData);
         console.log('✅ Produit créé avec succès dans Firebase !');
+
+        // Sauvegarder les labels des nouveaux types via l'API
+        if (Object.keys(dynamicCharacteristics).length > 0) {
+          try {
+            const newLabels: Record<string, string> = {};
+            [...availableCharacteristics, ...userAddedCharacteristics].forEach(char => {
+              if (dynamicCharacteristics[char.key] !== undefined) {
+                newLabels[char.key] = char.label;
+              }
+            });
+            await LabelService.updateLabels(newLabels);
+          } catch (labelError) {
+            console.error('⚠️ Erreur lors de la sauvegarde des labels:', labelError);
+          }
+        }
       }
       
       console.log('🏁 Mise à jour terminée, continuation du processus...');
@@ -959,7 +896,7 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'ajout du produit';
       onAlert('danger', errorMessage);
     }
-  }, [newProduct, tags, isEditMode, initialProduct, onAlert, onHide, onProductAdded, newProduct.imageFiles, newProduct.images]);
+  }, [newProduct, tags, isEditMode, initialProduct, availableCharacteristics, onAlert, onHide, onProductAdded]);
 
   return (
     <>
@@ -1009,107 +946,146 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
                   </Form.Group>
                 </Col>
                 
-                <Col md={6}>
-                  <Form.Group className="mb-3">
+                <Col md={6} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <Form.Group className="mb-3" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <Form.Label>Images du produit</Form.Label>
-                    
-                    {/* Zone d'upload */}
+
+                    {/* Zone d'upload — même hauteur que la colonne gauche */}
                     <div
                       className="image-upload-zone"
                       onDrop={handleImageDrop}
                       onDragOver={handleDragOver}
                       style={{
                         border: '2px dashed #dee2e6',
-                        borderRadius: '8px',
-                        padding: '20px',
+                        borderRadius: '12px',
+                        padding: '16px',
                         textAlign: 'center',
-                        cursor: 'pointer',
-                        minHeight: '120px',
+                        flex: 1,
                         display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '15px'
+                        minHeight: '260px',
                       }}
                     >
-                          <i className="bi bi-cloud-upload" style={{ fontSize: '2rem', color: '#6c757d' }}></i>
-                      <p className="mt-2 mb-1">Glissez-déposez des images ici</p>
-                          <p className="text-muted small">ou</p>
-                          <Form.Control
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageUpload}
+                      <Form.Control
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
                         multiple
-                            style={{ display: 'none' }}
-                            id="image-upload"
-                          />
-                          <Form.Label 
-                            htmlFor="image-upload" 
-                            className="btn btn-outline-primary btn-sm"
-                            style={{ cursor: 'pointer' }}
-                          >
-                        Choisir des fichiers
-                          </Form.Label>
-                      <p className="text-muted small mt-2">JPG, JPEG, PNG, WEBP (max 5MB par image)</p>
-                        </div>
+                        style={{ display: 'none' }}
+                        id="image-upload"
+                      />
 
-                    {/* Affichage des images sélectionnées */}
-                    {newProduct.images.length > 0 && (
-                      <div>
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h6 className="mb-0">Images sélectionnées ({newProduct.images.length})</h6>
-                          <Button 
-                            variant="outline-danger" 
-                            size="sm"
-                            onClick={removeAllImages}
-                          >
-                            <i className="bi bi-trash me-1"></i>
-                            Tout supprimer
-                          </Button>
-                    </div>
-                        <div className="row g-2">
-                          {newProduct.images.map((image, index) => (
-                            <div key={index} className="col-md-4">
-                              <div className="position-relative">
-                                <img 
-                                  src={image} 
-                                  alt={`Aperçu ${index + 1}`} 
-                                  style={{ 
-                                    width: '100%', 
-                                    height: '100px', 
-                                    objectFit: 'cover',
-                                    borderRadius: '4px',
-                                    border: '1px solid #dee2e6'
-                                  }}
-                                />
-                                <Button 
-                                  variant="outline-danger" 
-                                  size="sm"
-                                  className="position-absolute"
-                                  style={{ 
-                                    top: '5px', 
-                                    right: '5px',
-                                    width: '24px',
-                                    height: '24px',
-                                    borderRadius: '50%',
-                                    padding: '0',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                  }}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    removeImage(index);
-                                  }}
-                                >
-                                  <i className="bi bi-x" style={{ fontSize: '12px' }}></i>
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                      {newProduct.images.length === 0 ? (
+                        /* État vide */
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+                          <i className="bi bi-cloud-upload" style={{ fontSize: '2.2rem', color: '#adb5bd' }}></i>
+                          <p className="mt-2 mb-1 text-muted" style={{ fontSize: '0.9rem' }}>Glissez-déposez des images ici</p>
+                          <p className="text-muted small mb-2">ou</p>
+                          <Form.Label htmlFor="image-upload" className="btn btn-outline-primary btn-sm" style={{ cursor: 'pointer', borderRadius: '20px', padding: '0.35rem 1.1rem' }}>
+                            Choisir des fichiers
+                          </Form.Label>
+                          <p className="text-muted mt-2 mb-0" style={{ fontSize: '0.72rem' }}>JPG, JPEG, PNG, WEBP (max 5MB par image)</p>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        /* État avec images */
+                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                          {/* Barre d'actions */}
+                          <div className="d-flex justify-content-between align-items-center mb-3">
+                            <span style={{ fontSize: '0.8rem', color: '#6c757d', fontWeight: 500 }}>
+                              <i className="bi bi-images me-1"></i>{newProduct.images.length} image{newProduct.images.length > 1 ? 's' : ''}
+                            </span>
+                            <div className="d-flex gap-2">
+                              <Form.Label
+                                htmlFor="image-upload"
+                                className="mb-0"
+                                style={{
+                                  cursor: 'pointer',
+                                  background: 'linear-gradient(135deg, #0d6efd, #0b5ed7)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '20px',
+                                  padding: '0.3rem 0.85rem',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 500,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  boxShadow: '0 2px 6px rgba(13,110,253,0.3)',
+                                  transition: 'opacity 0.2s'
+                                }}
+                              >
+                                <i className="bi bi-plus-circle"></i> Ajouter
+                              </Form.Label>
+                              <button
+                                type="button"
+                                onClick={removeAllImages}
+                                style={{
+                                  background: 'linear-gradient(135deg, #dc3545, #b02a37)',
+                                  color: '#fff',
+                                  border: 'none',
+                                  borderRadius: '20px',
+                                  padding: '0.3rem 0.85rem',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 500,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 2px 6px rgba(220,53,69,0.3)',
+                                }}
+                              >
+                                <i className="bi bi-trash"></i> Tout supprimer
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Grille d'aperçus */}
+                          <div className="row g-2">
+                            {newProduct.images.map((image, index) => (
+                              <div key={index} className="col-4">
+                                <div className="position-relative">
+                                  <img
+                                    src={image}
+                                    alt={`Aperçu ${index + 1}`}
+                                    style={{
+                                      width: '100%',
+                                      height: '85px',
+                                      objectFit: 'cover',
+                                      borderRadius: '8px',
+                                      border: '1px solid #dee2e6',
+                                      display: 'block'
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); removeImage(index); }}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '4px',
+                                      right: '4px',
+                                      width: '20px',
+                                      height: '20px',
+                                      borderRadius: '50%',
+                                      border: 'none',
+                                      background: 'rgba(220,53,69,0.9)',
+                                      color: '#fff',
+                                      fontSize: '13px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      padding: 0,
+                                      lineHeight: 1,
+                                      boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
+                                    }}
+                                  >×</button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </Form.Group>
                 </Col>
               </Row>
@@ -1117,149 +1093,111 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
 
             {/* Section 2: Caractéristiques */}
             <div className="mb-4">
-              <h5 className="text-primary mb-3">
-                <i className="bi bi-gear me-2"></i>
-                Section 2: Caractéristiques
-              </h5>
-              
-              {availableCharacteristics.length > 0 ? (
-                    (() => {
-                      // Créer les lignes par paires de caractéristiques
-                      const rows: React.ReactElement[] = [];
-                      for (let i = 0; i < availableCharacteristics.length; i += 2) {
-                        const charType = availableCharacteristics[i];
-                        const nextCharType = i + 1 < availableCharacteristics.length ? availableCharacteristics[i + 1] : null;
-                        const charKey = charType.key as keyof typeof tags;
-                        const charTags = tags[charKey] || [];
-                        const badgeColor = getBadgeColor(charType.key);
-                        // Utiliser les valeurs du produit spécifique (depuis tags ou fullProductData)
-                        // Ne pas utiliser allAvailableValues qui contient toutes les valeurs de tous les produits
-                        const productToUse = fullProductData || initialProduct;
-                        const productValues = productToUse && (productToUse as any)[charType.key];
-                        const availableValues = Array.isArray(productValues) && productValues.length > 0 
-                          ? productValues 
-                          : (charTags.length > 0 ? charTags : []);
-                        
-                        rows.push(
-                          <Row key={`row-${i}`}>
-                            <Col md={6}>
-                              <Form.Group className="mb-3">
-                                <div className="d-flex align-items-center justify-content-between mb-2">
-                                  <Form.Label className="mb-0">{charType.label}</Form.Label>
-                                  <Button
-                                    variant="outline-primary"
-                                    size="sm"
-                                    onClick={() => openTagModal(charKey)}
-                                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-                                  >
-                                    <i className="bi bi-plus me-1"></i>
-                                    Ajouter une nouvelle valeur
-                                  </Button>
-                                </div>
-                                <div className="tags-container">
-                                  {availableValues.length > 0 ? (
-                                    availableValues.map((value, index) => {
-                                      const isSelected = charTags.includes(value);
-                                      return (
-                                        <span 
-                                          key={index} 
-                                          className={`tag-badge ${isSelected ? `bg-${badgeColor}` : `bg-outline-${badgeColor}`}`}
-                                          onClick={() => {
-                                            if (isSelected) {
-                                              removeTag(charKey, value);
-                                            } else {
-                                              setTags(prev => ({
-                                                ...prev,
-                                                [charKey]: [...(prev[charKey] || []), value]
-                                              }));
-                                            }
-                                          }}
-                                          style={{ cursor: 'pointer' }}
-                                        >
-                                          {value}
-                                          {isSelected && <i className="bi bi-check ms-1"></i>}
-                                        </span>
-                                      );
-                                    })
-                                  ) : (
-                                    <span className="text-muted">Aucune valeur disponible</span>
-                                  )}
-                                </div>
-                              </Form.Group>
-                            </Col>
-                            {nextCharType && (
-                              <Col md={6}>
-                                {(() => {
-                                  const nextCharKey = nextCharType.key as keyof typeof tags;
-                                  const nextCharTags = tags[nextCharKey] || [];
-                                  const nextBadgeColor = getBadgeColor(nextCharType.key);
-                                  // Utiliser les valeurs du produit spécifique (depuis tags ou fullProductData)
-                                  // Ne pas utiliser allAvailableValues qui contient toutes les valeurs de tous les produits
-                                  const productToUse = fullProductData || initialProduct;
-                                  const nextProductValues = productToUse && (productToUse as any)[nextCharType.key];
-                                  const nextAvailableValues = Array.isArray(nextProductValues) && nextProductValues.length > 0 
-                                    ? nextProductValues 
-                                    : (nextCharTags.length > 0 ? nextCharTags : []);
-                                  
-                                  return (
-                                    <Form.Group className="mb-3">
-                                      <div className="d-flex align-items-center justify-content-between mb-2">
-                                        <Form.Label className="mb-0">{nextCharType.label}</Form.Label>
-                                        <Button
-                                          variant="outline-primary"
-                                          size="sm"
-                                          onClick={() => openTagModal(nextCharKey)}
-                                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-                                        >
-                                          <i className="bi bi-plus me-1"></i>
-                                          Ajouter une nouvelle valeur
-                                        </Button>
-                                      </div>
-                                      <div className="tags-container">
-                                        {nextAvailableValues.length > 0 ? (
-                                          nextAvailableValues.map((value, index) => {
-                                            const isSelected = nextCharTags.includes(value);
-                                            return (
-                                              <span 
-                                                key={index} 
-                                                className={`tag-badge ${isSelected ? `bg-${nextBadgeColor}` : `bg-outline-${nextBadgeColor}`}`}
-                                                onClick={() => {
-                                                  if (isSelected) {
-                                                    removeTag(nextCharKey, value);
-                                                  } else {
-                                                    setTags(prev => ({
-                                                      ...prev,
-                                                      [nextCharKey]: [...(prev[nextCharKey] || []), value]
-                                                    }));
-                                                  }
-                                                }}
-                                                style={{ cursor: 'pointer' }}
-                                              >
-                                                {value}
-                                                {isSelected && <i className="bi bi-check ms-1"></i>}
-                                              </span>
-                                            );
-                                          })
-                                        ) : (
-                                          <span className="text-muted">Aucune valeur disponible</span>
-                                        )}
-                                      </div>
-                                    </Form.Group>
-                                  );
-                                })()}
-                            </Col>
-                          )}
-                          </Row>
-                        );
-                      }
-                      return rows;
-                    })()
-                  ) : (
-                    <div className="alert alert-info">
-                      <i className="bi bi-info-circle me-2"></i>
-                      Aucune caractéristique disponible. Veuillez d'abord ajouter des caractéristiques via la page de gestion des caractéristiques.
-                    </div>
-                  )}
+              <div className="d-flex align-items-center justify-content-between mb-3">
+                <h5 className="text-primary mb-0">
+                  <i className="bi bi-gear me-2"></i>
+                  Section 2: Caractéristiques
+                </h5>
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => { setNewCharTypeLabel(''); setNewCharTypeKey(''); setShowAddCharTypeModal(true); }}
+                >
+                  <i className="bi bi-plus-circle me-1"></i>
+                  Ajouter un type
+                </Button>
+              </div>
+
+              {(() => {
+                // Combiner les types Firebase + types ajoutés par l'utilisateur (sans doublons)
+                const allCharKeys = new Set(availableCharacteristics.map(c => c.key));
+                const mergedCharacteristics = [
+                  ...availableCharacteristics,
+                  ...userAddedCharacteristics.filter(c => !allCharKeys.has(c.key))
+                ];
+                return mergedCharacteristics.length > 0 ? (
+                (() => {
+                  const rows: React.ReactElement[] = [];
+                  for (let i = 0; i < mergedCharacteristics.length; i += 2) {
+                    const renderCharCol = (charType: { key: string; label: string }) => {
+                      const charKey = charType.key;
+                      const charTags = tags[charKey] || [];
+                      const badgeColor = getBadgeColor(charKey);
+
+                      return (
+                        <Form.Group className="mb-3" key={charKey}>
+                          <div className="d-flex align-items-center justify-content-between mb-2">
+                            <Form.Label className="mb-0 fw-semibold">{charType.label}</Form.Label>
+                            <div className="d-flex gap-1">
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => openTagModal(charKey)}
+                                style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                              >
+                                <i className="bi bi-plus me-1"></i>Ajouter une valeur
+                              </Button>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => {
+                                  setAvailableCharacteristics(prev => prev.filter(c => c.key !== charKey));
+                                  setUserAddedCharacteristics(prev => prev.filter(c => c.key !== charKey));
+                                  setTags(prev => { const next = { ...prev }; delete next[charKey]; return next; });
+                                }}
+                                style={{ fontSize: '0.72rem', padding: '0.2rem 0.4rem' }}
+                                title="Supprimer ce type"
+                              >
+                                <i className="bi bi-trash"></i>
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="tags-container" style={{ minHeight: '36px' }}>
+                            {charTags.length > 0 ? (
+                              charTags.map((value, index) => (
+                                <span
+                                  key={index}
+                                  className={`tag-badge bg-${badgeColor}`}
+                                  style={{ cursor: 'default', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  {value}
+                                  <i
+                                    className="bi bi-x"
+                                    style={{ cursor: 'pointer', fontSize: '0.85rem', opacity: 0.7 }}
+                                    onClick={() => removeTag(charKey, value)}
+                                    title="Supprimer cette valeur"
+                                  ></i>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-muted small">Cliquez sur « Ajouter une valeur » pour commencer</span>
+                            )}
+                          </div>
+                        </Form.Group>
+                      );
+                    };
+
+                    const charType = mergedCharacteristics[i];
+                    const nextCharType = i + 1 < mergedCharacteristics.length ? mergedCharacteristics[i + 1] : null;
+
+                    rows.push(
+                      <Row key={`row-${i}`}>
+                        <Col md={6}>{renderCharCol(charType)}</Col>
+                        {nextCharType && <Col md={6}>{renderCharCol(nextCharType)}</Col>}
+                      </Row>
+                    );
+                  }
+                  return rows;
+                })()
+              ) : (
+                <div className="alert alert-info">
+                  <i className="bi bi-info-circle me-2"></i>
+                  {isEditMode
+                    ? 'Ce produit n\'a pas encore de caractéristiques. Cliquez sur « Ajouter un type » pour en ajouter.'
+                    : 'Aucun type de caractéristique ajouté. Cliquez sur « Ajouter un type » pour commencer.'}
+                </div>
+              );
+              })()}
             </div>
           </Form>
         </Modal.Body>
@@ -1291,6 +1229,72 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
         setTagInputValue={setTagInputValue}
         addTagFromModal={addTagFromModal}
       />
+
+      {/* Modal pour ajouter un nouveau type de caractéristique (mode création) */}
+      <Modal show={showAddCharTypeModal} onHide={() => setShowAddCharTypeModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="bi bi-plus-circle me-2"></i>
+            Nouveau type de caractéristique
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>Nom du type <span className="text-danger">*</span></Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Ex: Finition, Emballage, Certification..."
+              value={newCharTypeLabel}
+              onChange={(e) => {
+                const label = e.target.value;
+                setNewCharTypeLabel(label);
+                // Générer automatiquement la clé depuis le label
+                const key = label.toLowerCase()
+                  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                  .replace(/\s+/g, '-')
+                  .replace(/[^a-z0-9-]/g, '');
+                setNewCharTypeKey(key);
+              }}
+              autoFocus
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Clé interne</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="generee-automatiquement"
+              value={newCharTypeKey}
+              onChange={(e) => setNewCharTypeKey(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+            />
+            <Form.Text className="text-muted">Identifiant unique, généré automatiquement depuis le nom.</Form.Text>
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAddCharTypeModal(false)}>
+            Annuler
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!newCharTypeLabel.trim() || !newCharTypeKey.trim()}
+            onClick={() => {
+              const key = newCharTypeKey.trim();
+              const label = newCharTypeLabel.trim();
+              // Vérifier que la clé n'existe pas déjà (dans les deux listes)
+              const allChars = [...availableCharacteristics, ...userAddedCharacteristics];
+              if (allChars.some(c => c.key === key)) {
+                return;
+              }
+              // Ajouter dans la liste utilisateur (jamais écrasée par Firebase)
+              setUserAddedCharacteristics(prev => [...prev, { key, label }]);
+              setTags(prev => ({ ...prev, [key]: [] }));
+              setShowAddCharTypeModal(false);
+            }}
+          >
+            <i className="bi bi-check-circle me-1"></i>
+            Ajouter
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };

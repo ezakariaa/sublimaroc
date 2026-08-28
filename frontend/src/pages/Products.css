@@ -69,6 +69,28 @@
   transform: scale(1.05);
 }
 
+.image-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 2;
+}
+
+.image-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transition: background 0.2s ease;
+}
+
+.image-dot.active {
+  background: #fff;
+}
+
 .product-badges {
   position: absolute;
   top: 10px;

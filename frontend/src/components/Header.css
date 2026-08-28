@@ -11,19 +11,23 @@
   font-family: 'Bebas Neue', sans-serif;
 }
 
+/* Header nav principal */
 .header {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
   background-color: white !important;
-  padding: 1rem 0;
+  padding: 0.8rem 0;
 }
 
-.header-bar {
-  height: 4px;
-  background-color: #6c757d;
-  width: 100%;
+.header-container {
+  position: relative;
+}
+
+/* Logo centered absolutely */
+.header-brand-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
 }
 
 /* Logo Container */
@@ -35,9 +39,9 @@
 
 .logo-circles {
   position: relative;
-  width: 50px;
-  height: 50px;
-  animation: rotate 8s linear infinite;
+  width: 45px;
+  height: 45px;
+  animation: rotate 10s linear infinite;
 }
 
 @keyframes rotate {
@@ -114,12 +118,15 @@
 }
 
 .nav-link-custom:hover {
-  color: #495057 !important;
+  background-color: #007bff !important;
+  color: white !important;
+  border-radius: 25px;
 }
 
 .nav-link-custom.active {
   color: #000 !important;
   font-weight: 600;
+  
 }
 
 /* User Button */
@@ -127,9 +134,9 @@
   display: flex;
   align-items: center;
   background-color: transparent;
-  border: 2px solid #007bff;
+  border: 1px solid #007bff;
   border-radius: 25px;
-  padding: 0.5rem 1rem;
+  padding: 0.2rem 1rem;
   color: #007bff;
   font-weight: 500;
   transition: all 0.3s ease;
@@ -171,14 +178,62 @@
 }
 
 .dropdown-item:hover {
-  background-color: #f8f9fa;
-  color: #000;
+  background-color: #007bff;
+  color: #fff;
 }
 
 .dropdown-item i {
   width: 16px;
   text-align: center;
   color: #6c757d;
+}
+
+.dropdown-item:hover i {
+  color: #fff;
+}
+
+/* Announcement Bar */
+.announcement-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #e8f0fe 0%, #f0f4ff 100%);
+  border-bottom: 1px solid #d0d9f0;
+  padding: 0.45rem 1.5rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #333;
+  min-height: 36px;
+}
+
+.announcement-bar__left,
+.announcement-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.announcement-bar__center {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.announcement-social {
+  color: #555;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: color 0.2s ease;
+  font-family: 'bootstrap-icons' !important;
+}
+
+.announcement-social:hover {
+  color: #007bff;
+}
+
+.announcement-social i,
+.announcement-bar .bi {
+  font-family: 'bootstrap-icons' !important;
 }
 
 /* Responsive */

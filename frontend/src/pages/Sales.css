@@ -24,45 +24,68 @@
 
 /* Statistiques */
 .stat-card {
-  border: none;
-  border-radius: 15px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  background: #ffffff;
 }
 
 .stat-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+}
+
+.stat-card .card-body {
+  padding: 0.45rem 1.35rem !important;
+}
+
+.stat-card-body {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 1.1rem !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  min-height: 55px !important;
+}
+
+.stat-card-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
 }
 
 .stat-icon {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
   background: linear-gradient(135deg, #27ae60, #2ecc71);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1rem;
-  font-size: 1.5rem;
+  margin: 0 !important;
+  font-size: 1.4rem;
   color: #fff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
 }
 
 .stat-number {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #2c3e50;
-  margin-bottom: 0.5rem;
+  font-size: 2.1rem !important;
+  font-weight: 700 !important;
+  color: #1f2d3d !important;
+  margin-bottom: 0.1rem !important;
 }
 
 .stat-label {
-  color: #7f8c8d;
-  font-weight: 500;
-  margin: 0;
-  text-transform: uppercase;
-  font-size: 0.9rem;
-  letter-spacing: 0.5px;
+  color: #64748b !important;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  margin: 0 !important;
+  line-height: 1.1 !important;
 }
 
 /* Tableau */

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Button, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
 import { Product } from '../types';
-import { ProductService } from '../services/firebaseService';
+import { ProductService } from '../services/apiService';
 import './Purchases.css';
+import CustomSelect from '../components/CustomSelect';
 
 interface Purchase {
   id: string;
@@ -174,48 +175,56 @@ const Purchases: React.FC = () => {
         <Row className="mb-4">
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-cart-dash"></i>
                 </div>
-                <h3 className="stat-number">{purchases.length}</h3>
-                <p className="stat-label">Total Achats</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{purchases.length}</h3>
+                  <p className="stat-label">Total Achats</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-currency-dollar"></i>
                 </div>
-                <h3 className="stat-number">{formatPrice(getTotalPurchases())}</h3>
-                <p className="stat-label">Montant Total</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{formatPrice(getTotalPurchases())}</h3>
+                  <p className="stat-label">Montant Total</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-clock"></i>
                 </div>
-                <h3 className="stat-number">{getPurchasesByStatus('pending')}</h3>
-                <p className="stat-label">En Attente</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getPurchasesByStatus('pending')}</h3>
+                  <p className="stat-label">En Attente</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-check-circle"></i>
                 </div>
-                <h3 className="stat-number">{getPurchasesByStatus('received')}</h3>
-                <p className="stat-label">Reçus</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getPurchasesByStatus('received')}</h3>
+                  <p className="stat-label">Reçus</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -238,7 +247,7 @@ const Purchases: React.FC = () => {
           </Col>
           
           <Col md={3}>
-            <Form.Select
+            <CustomSelect
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -247,7 +256,7 @@ const Purchases: React.FC = () => {
               <option value="ordered">Commandé</option>
               <option value="received">Reçu</option>
               <option value="cancelled">Annulé</option>
-            </Form.Select>
+            </CustomSelect>
           </Col>
           
           <Col md={3}>
@@ -422,14 +431,14 @@ const Purchases: React.FC = () => {
             
             <Form.Group className="mb-3">
               <Form.Label>Produits à commander</Form.Label>
-              <Form.Select>
+              <CustomSelect>
                 <option>Sélectionner un produit</option>
                 {products.map(product => (
                   <option key={product.id} value={product.id}>
                     {product.nom} - {product.prix} MAD
                   </option>
                 ))}
-              </Form.Select>
+              </CustomSelect>
             </Form.Group>
           </Form>
         </Modal.Body>

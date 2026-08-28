@@ -1,0 +1,63 @@
+rules_version = '2';
+
+// ============================================
+// SUBLIMAROC - Règles Firestore
+//
+// Principe : le catalogue est public en lecture (pages / et /products),
+// tout le reste — et toute écriture — exige un compte authentifié.
+// ============================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Catalogue affiché sur le site public
+    match /Produits/{document=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /SousProduits/{document=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Libellés des caractéristiques : lus pour afficher les fiches produit
+    match /Settings/{document=**} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Données de gestion : back-office uniquement
+    match /Articles/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /Achats/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /AchatsArticles/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /Consommables/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Profils : chacun ne lit que le sien. Les rôles se modifient
+    // depuis la console Firebase, jamais depuis le client.
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Tout le reste est refusé
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -6,16 +6,16 @@ export interface Product {
   image: string; // Image principale (pour compatibilité)
   images: string[]; // Tableau d'images multiples
   categorie: string;
-  type: string[];
-  anse: string[];
-  dimensions: string[];
-  couleurs: string[];
-  materiau: string[];
-  capacite: string[];
-  poids: string[];
-  qualite: string[];
-  manches: string[];
-  col: string[];
+  type?: string[];
+  anse?: string[];
+  dimensions?: string[];
+  couleurs?: string[];
+  materiau?: string[];
+  capacite?: string[];
+  poids?: string[];
+  qualite?: string[];
+  manches?: string[];
+  col?: string[];
   stock: number;
   fournisseur: {
     nom: string;
@@ -23,6 +23,7 @@ export interface Product {
   };
   dateCreation: Date;
   dateModification: Date;
+  [key: string]: any; // Permet les caractéristiques personnalisées dynamiques
 }
 
 export interface Variation {

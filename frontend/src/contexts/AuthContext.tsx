@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User as FirebaseUser, onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+
 import { auth } from '../firebase';
+import { AuthService, buildApiUser, ApiUser } from '../services/apiService';
+
+type User = ApiUser;
 
 interface AuthContextType {
-  user: FirebaseUser | null;
+  user: User | null;
   loading: boolean;
+  login: (userData: User) => void;
   logout: () => Promise<void>;
 }
 
@@ -23,36 +28,41 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Firebase restaure la session automatiquement au chargement de la page.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        try {
+          setUser(await buildApiUser(fbUser));
+        } catch {
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
 
-  const logout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
-    }
+  // Conservé pour compatibilité : la modal de connexion appelle login()
+  // juste après AuthService.login(), ce qui évite d'attendre onAuthStateChanged.
+  const login = (userData: User) => {
+    setUser(userData);
   };
 
-  const value = {
-    user,
-    loading,
-    logout,
+  const logout = async () => {
+    await AuthService.logout();
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
-

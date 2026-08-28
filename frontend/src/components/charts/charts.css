@@ -1,0 +1,203 @@
+/* Composants de visualisation — surface blanche, encre discrète, données seules en couleur */
+
+.viz-card {
+  border: none;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(44, 62, 80, 0.08);
+  height: 100%;
+}
+
+.viz-card .card-body {
+  padding: 1.5rem 1.5rem 1.25rem;
+}
+
+.viz-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.1rem;
+}
+
+.viz-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #0b0b0b;
+  margin-bottom: 0.15rem;
+}
+
+.viz-subtitle {
+  font-size: 0.8rem;
+  color: #898781;
+  margin: 0;
+}
+
+.viz-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #898781;
+  transition: all 0.2s ease;
+}
+
+.viz-toggle:hover {
+  color: #2a78d6;
+  border-color: #2a78d6;
+  background: rgba(42, 120, 214, 0.07);
+}
+
+.viz-toggle.active {
+  color: #2a78d6;
+  border-color: #2a78d6;
+  background: rgba(42, 120, 214, 0.1);
+}
+
+/* Légende — toujours présente dès deux séries */
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin-bottom: 0.9rem;
+}
+
+.viz-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: #52514e;
+}
+
+.viz-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Zone de tracé + infobulle */
+.viz-plot {
+  position: relative;
+  width: 100%;
+}
+
+.viz-plot svg {
+  display: block;
+  overflow: visible;
+}
+
+.viz-tooltip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 12px));
+  background: rgba(11, 11, 11, 0.92);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.viz-tooltip-title {
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.viz-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.viz-tooltip-row .viz-legend-swatch {
+  width: 8px;
+  height: 8px;
+}
+
+.viz-tooltip-row .viz-tooltip-value {
+  margin-left: auto;
+  padding-left: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-tooltip-total {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+/* Vue tableau — l'équivalent lisible de chaque graphique */
+.viz-table {
+  width: 100%;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.viz-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #898781;
+  font-weight: 600;
+  border-bottom: 1px solid #e1e0d9;
+  padding: 0.4rem 0.5rem;
+}
+
+.viz-table td {
+  color: #0b0b0b;
+  border-bottom: 1px solid #f2f1ec;
+  padding: 0.45rem 0.5rem;
+}
+
+.viz-table td.num,
+.viz-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-table-wrap {
+  max-height: 280px;
+  overflow: auto;
+}
+
+/* Placeholder quand la période ne contient aucune donnée */
+.viz-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 180px;
+  color: #898781;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.viz-empty i {
+  font-size: 1.8rem;
+  color: #c3c2b7;
+}
+
+/* Anneau : total au centre */
+.viz-donut-center-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  fill: #0b0b0b;
+}
+
+.viz-donut-center-label {
+  font-size: 0.7rem;
+  fill: #898781;
+  letter-spacing: 0.04em;
+}

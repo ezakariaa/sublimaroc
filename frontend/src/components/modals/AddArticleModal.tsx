@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, Form, Button, Row, Col, Card, Badge, Table } from 'react-bootstrap';
-import { SubProductService, ProductService, ArticleService } from '../../services/firebaseService';
+import { SubProductService, ProductService, ArticleService, uploadImage } from '../../services/apiService';
 import { SubProduct, Product } from '../../types';
+import CustomSelect from '../CustomSelect';
 
 interface Variation {
   id: string;
@@ -587,32 +588,17 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
           return;
         }
 
-      // Convertir l'image en base64 si une nouvelle image est uploadée
+      // Téléverser l'image dans Firebase Storage si une nouvelle image est choisie
       let imageBase64 = '';
       if (imageFile) {
         try {
-          console.log('🖼️ Conversion de l\'image en base64...');
-          imageBase64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const result = reader.result as string;
-              // Limiter la taille à 1MB pour éviter les problèmes avec Firestore
-              if (result.length > 1000000) {
-                console.warn('⚠️ Image trop grande, réduction de la taille...');
-                // Tronquer à 1MB
-                resolve(result.substring(0, 1000000));
-              } else {
-                resolve(result);
-              }
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(imageFile);
-          });
-          console.log('✅ Image convertie en base64, taille:', imageBase64.length, 'bytes');
+          console.log('🖼️ Téléversement de l\'image vers Storage...');
+          imageBase64 = await uploadImage(imageFile, 'images/articles');
+          console.log('✅ Image téléversée:', imageBase64);
         } catch (error) {
-          console.error('❌ Erreur lors de la conversion de l\'image:', error);
+          console.error('❌ Erreur lors du téléversement de l\'image:', error);
           if (onAlert) {
-            onAlert('danger', 'Erreur lors de la conversion de l\'image');
+            onAlert('danger', 'Erreur lors du téléversement de l\'image');
           }
           return;
         }
@@ -744,7 +730,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                       
                       <Form.Group className="mb-3">
                   <Form.Label>Catégorie d'Article *</Form.Label>
-                  <Form.Select
+                  <CustomSelect
                     value={categorieArticle}
                     onChange={(e) => setCategorieArticle(e.target.value)}
                     required
@@ -756,7 +742,7 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                         {product.nom || 'Sans nom'} ({product.id})
                       </option>
                     ))}
-                  </Form.Select>
+                  </CustomSelect>
                   {loading && (
                     <Form.Text className="text-muted">
                       Chargement des catégories...

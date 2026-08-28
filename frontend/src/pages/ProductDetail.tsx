@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Carousel, Spinner, Alert } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Product, SubProduct } from '../types';
-import { ProductService, SubProductService } from '../services/firebaseService';
+import { ProductService, SubProductService } from '../services/apiService';
 import './ProductDetail.css';
 
 const ProductDetail: React.FC = () => {
@@ -194,9 +194,9 @@ const ProductDetail: React.FC = () => {
                         <i className="bi bi-plus"></i>
                       </Button>
                     </div>
-                    {product.type.length > 0 && (
+                    {(product.type?.length ?? 0) > 0 && (
                       <div className="feature-tags">
-                        {product.type.map((type, index) => (
+                        {product.type?.map((type, index) => (
                           <Badge key={index} bg="primary" className="me-1 mb-1">
                             {type}
                           </Badge>
@@ -212,9 +212,9 @@ const ProductDetail: React.FC = () => {
                         <i className="bi bi-plus"></i>
                       </Button>
                     </div>
-                    {product.couleurs.length > 0 && (
+                    {(product.couleurs?.length ?? 0) > 0 && (
                       <div className="feature-tags">
-                        {product.couleurs.map((couleur, index) => (
+                        {product.couleurs?.map((couleur, index) => (
                           <Badge key={index} bg="info" className="me-1 mb-1">
                             {couleur}
                           </Badge>
@@ -230,9 +230,9 @@ const ProductDetail: React.FC = () => {
                         <i className="bi bi-plus"></i>
                       </Button>
                     </div>
-                    {product.materiau.length > 0 && (
+                    {(product.materiau?.length ?? 0) > 0 && (
                       <div className="feature-tags">
-                        {product.materiau.map((materiau, index) => (
+                        {product.materiau?.map((materiau, index) => (
                           <Badge key={index} bg="secondary" className="me-1 mb-1">
                             {materiau}
                           </Badge>
@@ -248,9 +248,9 @@ const ProductDetail: React.FC = () => {
                         <i className="bi bi-plus"></i>
                       </Button>
                     </div>
-                    {product.dimensions.length > 0 && (
+                    {(product.dimensions?.length ?? 0) > 0 && (
                       <div className="feature-tags">
-                        {product.dimensions.map((dimension, index) => (
+                        {product.dimensions?.map((dimension, index) => (
                           <Badge key={index} bg="success" className="me-1 mb-1">
                             {dimension}
                           </Badge>

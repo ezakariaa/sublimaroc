@@ -62,9 +62,9 @@
 }
 
 .achats-table-container .table th:nth-child(2), /* Produits / Matériels */
-.achats-table-container .table td:nth-child(2) { 
-  width: auto !important; 
-  min-width: 600px !important; 
+.achats-table-container .table td:nth-child(2) {
+  width: auto !important;
+  min-width: 200px !important;
   overflow: visible !important;
 }
 
@@ -208,7 +208,7 @@
 /* Informations produits */
 .achats-table-container .products-info {
   max-width: 100%;
-  min-width: 580px;
+  min-width: 0;
   width: 100%;
   overflow: visible;
 }

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, useRef } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Button, Alert, Modal } from 'react-bootstrap';
 import { Product, SubProduct } from '../types';
-import { ProductService, SubProductService } from '../services/firebaseService';
+import { ProductService, SubProductService } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import ImageCarousel from '../components/ImageCarousel';
 import { toast } from 'react-toastify';
@@ -32,6 +32,25 @@ const Stock: React.FC = () => {
   const [showImageCarousel, setShowImageCarousel] = useState(false);
   const [carouselImages, setCarouselImages] = useState<string[]>([]);
   const [carouselProductName, setCarouselProductName] = useState('');
+
+  // Défilement d'images au hover
+  const [hoverImageIndex, setHoverImageIndex] = useState<Record<string, number>>({});
+  const hoverIntervals = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+
+  const handleProductImageMouseEnter = (productId: string, images: string[]) => {
+    if (images.length <= 1) return;
+    let idx = 0;
+    hoverIntervals.current[productId] = setInterval(() => {
+      idx = (idx + 1) % images.length;
+      setHoverImageIndex(prev => ({ ...prev, [productId]: idx }));
+    }, 700);
+  };
+
+  const handleProductImageMouseLeave = (productId: string) => {
+    clearInterval(hoverIntervals.current[productId]);
+    delete hoverIntervals.current[productId];
+    setHoverImageIndex(prev => ({ ...prev, [productId]: 0 }));
+  };
   
   // États pour la modale de confirmation de suppression
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -371,11 +390,19 @@ const Stock: React.FC = () => {
       if (itemToDelete.type === 'product') {
         const product = itemToDelete.item as Product;
         console.log('🗑️ Suppression du produit:', product.nom);
-        
+
+        // Fermer la modale immédiatement
+        setShowDeleteConfirmModal(false);
+        setItemToDelete(null);
+
         // Supprimer le produit de Firebase
         await ProductService.deleteProduct(product.id);
-        
-        // Rafraîchir la liste des produits
+
+        // Mise à jour optimiste : retirer le produit de l'état local immédiatement
+        setProducts(prev => prev.filter(p => p.id !== product.id));
+        setSubProducts(prev => prev.filter(sp => sp.productId !== product.id));
+
+        // Rafraîchir depuis Firebase pour être sûr
         const productsData = await ProductService.getAllProducts();
         setProducts(productsData);
         
@@ -405,7 +432,7 @@ const Stock: React.FC = () => {
         console.log('🗑️ Suppression du sous-produit:', subProduct.nom);
         
         // Supprimer le sous-produit de Firebase
-        await SubProductService.deleteSubProduct(subProduct.productId, subProduct.id);
+        await SubProductService.deleteSubProduct(subProduct.id);
         
         // Rafraîchir la liste des sous-produits
         const productsData = await ProductService.getAllProducts();
@@ -431,11 +458,10 @@ const Stock: React.FC = () => {
         });
       }
       
-      // Fermer la modale
+    } catch (error) {
+      // En cas d'erreur, s'assurer que la modale est fermée
       setShowDeleteConfirmModal(false);
       setItemToDelete(null);
-      
-    } catch (error) {
       console.error('❌ Erreur lors de la suppression:', error);
       const itemName = itemToDelete.type === 'product' 
         ? (itemToDelete.item as Product).nom 
@@ -517,11 +543,11 @@ const Stock: React.FC = () => {
             </p>
           </Col>
           <Col md={4} className="text-end">
-            <div className="d-flex gap-2 justify-content-end">
+            <div className="d-flex flex-column align-items-end gap-2">
               <Button 
-                variant="primary" 
+                variant="outline-primary" 
                 size="sm"
-                className="d-flex align-items-center"
+                className="d-flex align-items-center stock-btn-add-product"
                 onClick={() => {
                   if (!user) {
                     setAlert({ type: 'danger', message: 'Vous devez être connecté pour ajouter un produit' });
@@ -537,7 +563,7 @@ const Stock: React.FC = () => {
               <Button 
                 variant="outline-primary" 
                 size="sm"
-                className="d-flex align-items-center"
+                className="d-flex align-items-center stock-btn-add-subproduct"
                 onClick={() => {
                   if (!user) {
                     setAlert({ type: 'danger', message: 'Vous devez être connecté pour ajouter un sous-produit' });
@@ -573,50 +599,58 @@ const Stock: React.FC = () => {
         <Row className="mb-5">
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-box"></i>
                 </div>
-                <h3 className="stat-number">{products.length}</h3>
-                <p className="stat-label">Produits</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{products.length}</h3>
+                  <p className="stat-label">Produits</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
           
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-stack"></i>
                 </div>
-                <h3 className="stat-number">{totalStock}</h3>
-                <p className="stat-label">Total Stock</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{totalStock}</h3>
+                  <p className="stat-label">Total Stock</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
           
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon stat-icon-warning">
                   <i className="bi bi-exclamation-triangle"></i>
                 </div>
-                <h3 className="stat-number">{lowStockProducts.length}</h3>
-                <p className="stat-label">Stock Faible</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{lowStockProducts.length}</h3>
+                  <p className="stat-label">Stock Faible</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
           
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon stat-icon-danger">
                   <i className="bi bi-x-circle"></i>
                 </div>
-                <h3 className="stat-number">
-                  {outOfStockProducts.length}
-                </h3>
-                <p className="stat-label">Ruptures</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">
+                    {outOfStockProducts.length}
+                  </h3>
+                  <p className="stat-label">Ruptures</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -655,10 +689,10 @@ const Stock: React.FC = () => {
                     <table className="table table-hover align-middle">
                       <thead className="table-light">
                         <tr>
-                          <th style={{ width: '15%' }}>Nom du Produit</th>
-                          <th style={{ width: '10%' }}>Image du Produit</th>
+                          <th style={{ width: '15%' }}>Produit</th>
+                          <th style={{ width: '10%' }}>Image</th>
                           <th style={{ width: '35%' }}>Caractéristiques</th>
-                          <th style={{ width: '10%' }}>Quantité en Stock</th>
+                          <th style={{ width: '10%' }}>Quantité</th>
                           <th style={{ width: '10%' }}>État du Stock</th>
                           <th style={{ width: '20%' }}>Actions</th>
                         </tr>
@@ -674,74 +708,78 @@ const Stock: React.FC = () => {
 
                             {/* Image du Produit */}
                             <td className="text-center">
-                              <div 
-                                className="product-image-wrapper"
-                                style={{ 
-                                  position: 'relative',
-                                  display: 'inline-block',
-                                  cursor: 'pointer'
-                                }}
-                                onClick={() => handleOpenImageCarousel(product)}
-                                title="Cliquez pour voir toutes les images"
-                              >
-                                {product.image && product.image !== '/placeholder-product.jpg' && product.image !== '/mug.webp' ? (
-                                  <img
-                                    src={product.image}
-                                    alt={product.nom}
-                                    className="product-thumb"
-                                    style={{ 
-                                      width: '70px', 
-                                      height: '70px', 
-                                      objectFit: 'cover',
-                                      borderRadius: '8px',
-                                      border: '2px solid #dee2e6',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s ease'
-                                    }}
-                                    loading="lazy"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.src = '/mug.webp';
-                                    }}
-                                  />
-                                ) : (
-                                  <div 
-                                    className="product-thumb-placeholder"
-                                    style={{ 
-                                      width: '70px', 
-                                      height: '70px', 
-                                      backgroundColor: '#f8f9fa',
-                                      border: '2px dashed #dee2e6',
-                                      borderRadius: '8px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontSize: '0.8rem',
-                                      color: '#6c757d',
-                                      cursor: 'pointer'
-                                    }}
-                                    title="Aucune image"
+                              {(() => {
+                                const allImages = Array.isArray((product as any).images) && (product as any).images.length > 0
+                                  ? (product as any).images as string[]
+                                  : product.image ? [product.image] : [];
+                                const currentIdx = hoverImageIndex[product.id] ?? 0;
+                                const currentSrc = allImages[currentIdx] || null;
+                                return (
+                                  <div
+                                    className="product-image-wrapper"
+                                    style={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }}
+                                    onClick={() => handleOpenImageCarousel(product)}
+                                    title="Cliquez pour voir toutes les images"
+                                    onMouseEnter={() => handleProductImageMouseEnter(product.id, allImages)}
+                                    onMouseLeave={() => handleProductImageMouseLeave(product.id)}
                                   >
-                                    <i className="bi bi-image" style={{ fontSize: '1.2rem' }}></i>
+                                    {currentSrc && currentSrc !== '/placeholder-product.jpg' && currentSrc !== '/mug.webp' ? (
+                                      <img
+                                        src={currentSrc}
+                                        alt={product.nom}
+                                        className="product-thumb"
+                                        style={{
+                                          width: '70px',
+                                          height: '70px',
+                                          objectFit: 'cover',
+                                          borderRadius: '8px',
+                                          border: '2px solid #dee2e6',
+                                          cursor: 'pointer',
+                                          transition: 'opacity 0.3s ease'
+                                        }}
+                                        loading="lazy"
+                                        onError={(e) => { (e.target as HTMLImageElement).src = '/mug.webp'; }}
+                                      />
+                                    ) : (
+                                      <div
+                                        className="product-thumb-placeholder"
+                                        style={{
+                                          width: '70px', height: '70px', backgroundColor: '#f8f9fa',
+                                          border: '2px dashed #dee2e6', borderRadius: '8px',
+                                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          fontSize: '0.8rem', color: '#6c757d', cursor: 'pointer'
+                                        }}
+                                        title="Aucune image"
+                                      >
+                                        <i className="bi bi-image" style={{ fontSize: '1.2rem' }}></i>
+                                      </div>
+                                    )}
+
+                                    {/* Dots de navigation */}
+                                    {allImages.length > 1 && (
+                                      <div style={{ position: 'absolute', bottom: '3px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '3px', zIndex: 2 }}>
+                                        {allImages.map((_, i) => (
+                                          <span key={i} style={{
+                                            width: '5px', height: '5px', borderRadius: '50%',
+                                            background: i === currentIdx ? '#fff' : 'rgba(255,255,255,0.5)',
+                                            display: 'inline-block'
+                                          }} />
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Badge nombre d'images */}
+                                    {allImages.length > 1 && (
+                                      <span
+                                        className="badge bg-primary position-absolute"
+                                        style={{ top: '-8px', right: '-8px', fontSize: '0.6rem', padding: '2px 6px', borderRadius: '10px' }}
+                                      >
+                                        {allImages.length}
+                                      </span>
+                                    )}
                                   </div>
-                                )}
-                                
-                                {/* Badge pour images multiples */}
-                                {(product as any).images && Array.isArray((product as any).images) && (product as any).images.length > 1 && (
-                                  <span 
-                                    className="badge bg-primary position-absolute"
-                                    style={{
-                                      top: '-8px',
-                                      right: '-8px',
-                                      fontSize: '0.6rem',
-                                      padding: '2px 6px',
-                                      borderRadius: '10px'
-                                    }}
-                                  >
-                                    {(product as any).images.length}
-                                  </span>
-                                )}
-                              </div>
+                                );
+                              })()}
                             </td>
 
                             {/* Caractéristiques - Tags */}
@@ -888,6 +926,26 @@ const Stock: React.FC = () => {
                                     );
                                   }
 
+                                  // Caractéristiques dynamiques (non fixes)
+                                  const fixedKeys = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification', 'type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+                                  Object.keys(product).forEach(key => {
+                                    if (!fixedKeys.includes(key)) {
+                                      const values = (product as any)[key];
+                                      if (Array.isArray(values) && values.length > 0) {
+                                        values.forEach((val: string, index: number) => {
+                                          if (val) {
+                                            tags.push(
+                                              <span key={`${key}-${index}`} className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#6c757d', color: '#fff' }}>
+                                                <i className="bi bi-tag me-1"></i>
+                                                {val}
+                                              </span>
+                                            );
+                                          }
+                                        });
+                                      }
+                                    }
+                                  });
+
                                   return tags;
                                 })()}
                               </div>
@@ -1032,12 +1090,12 @@ const Stock: React.FC = () => {
                     <table className="table table-hover align-middle sub-products-table">
                       <thead className="table-light">
                         <tr>
-                          <th>Nom du Sous-Produit</th>
-                          <th style={{ width: '90px' }}>Catégorie Parent</th>
+                          <th>Sous-Produit</th>
+                          <th style={{ width: '90px' }}>Catégorie</th>
                           <th>Image</th>
                           <th>Caractéristiques</th>
-                          <th>Prix Unitaire</th>
-                          <th>Quantité</th>
+                          <th>P.U</th>
+                          <th>Qté</th>
                           <th style={{ width: '110px' }}>État du Stock</th>
                           <th style={{ width: '100px' }}>Actions</th>
                         </tr>
@@ -1615,7 +1673,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tags Type */}
-                        {productToPreview.type && Array.isArray(productToPreview.type) && productToPreview.type.length > 0 && (
+                        {Array.isArray(productToPreview.type) && productToPreview.type.length > 0 && (
                           <>
                             {productToPreview.type.map((type, index) => (
                               <span key={`type-${index}`} className="badge bg-primary">
@@ -1627,7 +1685,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tags Anse */}
-                        {productToPreview.anse && Array.isArray(productToPreview.anse) && productToPreview.anse.length > 0 && (
+                        {Array.isArray(productToPreview.anse) && productToPreview.anse.length > 0 && (
                           <>
                             {productToPreview.anse.map((anse, index) => (
                               <span key={`anse-${index}`} className="badge bg-info">
@@ -1639,7 +1697,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tags Dimensions */}
-                        {productToPreview.dimensions && Array.isArray(productToPreview.dimensions) && productToPreview.dimensions.length > 0 && (
+                        {Array.isArray(productToPreview.dimensions) && productToPreview.dimensions.length > 0 && (
                           <>
                             {productToPreview.dimensions.map((dim, index) => (
                               <span key={`dim-${index}`} className="badge bg-success">
@@ -1651,7 +1709,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tags Couleurs */}
-                        {productToPreview.couleurs && Array.isArray(productToPreview.couleurs) && productToPreview.couleurs.length > 0 && (
+                        {Array.isArray(productToPreview.couleurs) && productToPreview.couleurs.length > 0 && (
                           <>
                             {productToPreview.couleurs.map((couleur, index) => (
                               <span key={`couleur-${index}`} className="badge bg-warning">
@@ -1663,7 +1721,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tags Matériaux */}
-                        {productToPreview.materiau && Array.isArray(productToPreview.materiau) && productToPreview.materiau.length > 0 && (
+                        {Array.isArray(productToPreview.materiau) && productToPreview.materiau.length > 0 && (
                           <>
                             {productToPreview.materiau.map((materiau, index) => (
                               <span key={`materiau-${index}`} className="badge bg-dark">
@@ -1675,7 +1733,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tags Capacité */}
-                        {productToPreview.capacite && Array.isArray(productToPreview.capacite) && productToPreview.capacite.length > 0 && (
+                        {Array.isArray(productToPreview.capacite) && productToPreview.capacite.length > 0 && (
                           <>
                             {productToPreview.capacite.map((cap, index) => (
                               <span key={`cap-${index}`} className="badge bg-secondary">
@@ -1687,7 +1745,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tags Poids */}
-                        {productToPreview.poids && Array.isArray(productToPreview.poids) && productToPreview.poids.length > 0 && (
+                        {Array.isArray(productToPreview.poids) && productToPreview.poids.length > 0 && (
                           <>
                             {productToPreview.poids.map((poids, index) => (
                               <span key={`poids-${index}`} className="badge bg-light text-dark">
@@ -1697,6 +1755,30 @@ const Stock: React.FC = () => {
                             ))}
                           </>
                         )}
+
+                        {/* Caractéristiques dynamiques (champs non fixes) */}
+                        {(() => {
+                          const fixedKeys = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification', 'type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
+                          const dynamicTags: React.ReactNode[] = [];
+                          Object.keys(productToPreview).forEach(key => {
+                            if (!fixedKeys.includes(key)) {
+                              const values = (productToPreview as any)[key];
+                              if (Array.isArray(values) && values.length > 0) {
+                                values.forEach((val: string, index: number) => {
+                                  if (val) {
+                                    dynamicTags.push(
+                                      <span key={`${key}-${index}`} className="badge" style={{ backgroundColor: '#6c757d', color: '#fff' }}>
+                                        <i className="bi bi-tag me-1"></i>
+                                        {val}
+                                      </span>
+                                    );
+                                  }
+                                });
+                              }
+                            }
+                          });
+                          return dynamicTags;
+                        })()}
 
                         {/* Tag Fournisseur */}
                         {productToPreview.fournisseur && productToPreview.fournisseur.nom && (
@@ -1715,7 +1797,7 @@ const Stock: React.FC = () => {
                         )}
 
                         {/* Tag Prix */}
-                        {productToPreview.prix && productToPreview.prix > 0 && (
+                        {productToPreview.prix > 0 && (
                           <span className="badge" style={{ backgroundColor: '#fd7e14', color: 'white' }}>
                             <i className="bi bi-currency-exchange me-1"></i>
                             {productToPreview.prix} MAD

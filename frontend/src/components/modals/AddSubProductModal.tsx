@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, Form, Button, Row, Col, Card, Table, Badge } from 'react-bootstrap';
 import { Product, SubProduct } from '../../types';
-import { SubProductService, ProductService } from '../../services/firebaseService';
+import { SubProductService, ProductService } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
-import { Timestamp } from 'firebase/firestore';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
+import CustomSelect from '../CustomSelect';
+import { LabelService, uploadImage } from '../../services/apiService';
 
 interface Variation {
   id: string;
@@ -196,101 +195,24 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
         setVariations([]);
       }
 
-      // Recharger le produit parent depuis Firebase pour obtenir toutes ses caractéristiques
-      const loadParentProductFromFirebase = async () => {
+      // Charger le produit parent depuis l'API MySQL
+      const loadParentProduct = async () => {
         try {
-          console.log('🔄 Rechargement du produit parent depuis Firebase...');
-          console.log('🔍 Recherche du produit avec ID:', initialSubProduct.productId);
-          
-          // Chercher le document par le champ 'id' (GRA-XXX)
-          const productsCollection = collection(db, 'Produits');
-          const q = query(productsCollection, where('id', '==', initialSubProduct.productId));
-          const querySnapshot = await getDocs(q);
-          
-          if (!querySnapshot.empty && querySnapshot.docs.length > 0) {
-            const productDoc = querySnapshot.docs[0];
-            const productData = productDoc.data();
-            console.log('✅ Produit parent trouvé dans Firebase avec document ID:', productDoc.id);
-            
-            // Construire un produit complet avec SEULEMENT les caractéristiques qui ont des valeurs
-            const standardFieldsList = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification'];
-            
-            const fullProduct: any = {
-              id: productData.id || productDoc.id,
-              nom: productData.nom || '',
-              description: productData.description || '',
-              prix: productData.prix || 0,
-              image: productData.image || '',
-              images: Array.isArray(productData.images) ? productData.images : [],
-              categorie: productData.categorie || '',
-              stock: productData.stock || 0,
-              fournisseur: productData.fournisseur || { nom: '', ville: '' },
-              dateCreation: productData.dateCreation?.toDate() || new Date(),
-              dateModification: productData.dateModification?.toDate() || new Date(),
-            };
-            
-            // Ajouter UNIQUEMENT les caractéristiques qui sont des tableaux non vides
-            Object.keys(productData).forEach(key => {
-              if (!standardFieldsList.includes(key)) {
-                const value = productData[key];
-                // Ne garder que les caractéristiques qui sont des tableaux non vides
-                if (Array.isArray(value) && value.length > 0) {
-                  fullProduct[key] = value;
-                }
-              }
-            });
-            
-            console.log('✅ Produit parent filtré depuis Firebase (seulement caractéristiques avec valeurs):', fullProduct);
-            console.log('🔑 Clés du produit parent filtré:', Object.keys(fullProduct));
-            console.log('📊 Caractéristiques du produit parent:', Object.keys(fullProduct).filter(k => !standardFieldsList.includes(k)));
-            
-            setSelectedProduct(fullProduct);
+          const productData = await ProductService.getProductById(initialSubProduct.productId);
+          if (productData) {
+            setSelectedProduct(productData);
           } else {
-            console.warn('⚠️ Produit parent non trouvé dans Firebase avec ID:', initialSubProduct.productId);
-            // Fallback sur le produit depuis la liste locale
+            // Fallback sur la liste locale
             const parentProduct = products.find(p => p.id === initialSubProduct.productId);
-            if (parentProduct) {
-              const normalizedParentProduct = {
-                ...parentProduct,
-                type: Array.isArray(parentProduct.type) ? parentProduct.type : [],
-                anse: Array.isArray(parentProduct.anse) ? parentProduct.anse : [],
-                couleurs: Array.isArray(parentProduct.couleurs) ? parentProduct.couleurs : [],
-                dimensions: Array.isArray(parentProduct.dimensions) ? parentProduct.dimensions : [],
-                materiau: Array.isArray(parentProduct.materiau) ? parentProduct.materiau : [],
-                capacite: Array.isArray(parentProduct.capacite) ? parentProduct.capacite : [],
-                poids: Array.isArray(parentProduct.poids) ? parentProduct.poids : [],
-                qualite: Array.isArray((parentProduct as any).qualite) ? (parentProduct as any).qualite : [],
-                manches: Array.isArray((parentProduct as any).manches) ? (parentProduct as any).manches : [],
-                col: Array.isArray((parentProduct as any).col) ? (parentProduct as any).col : []
-              };
-              setSelectedProduct(normalizedParentProduct);
-            }
+            if (parentProduct) setSelectedProduct(parentProduct);
           }
         } catch (error) {
-          console.error('❌ Erreur lors du rechargement du produit parent:', error);
-          // Fallback sur le produit depuis la liste locale
+          console.error('❌ Erreur lors du chargement du produit parent:', error);
           const parentProduct = products.find(p => p.id === initialSubProduct.productId);
-          if (parentProduct) {
-            const normalizedParentProduct = {
-              ...parentProduct,
-              type: Array.isArray(parentProduct.type) ? parentProduct.type : [],
-              anse: Array.isArray(parentProduct.anse) ? parentProduct.anse : [],
-              couleurs: Array.isArray(parentProduct.couleurs) ? parentProduct.couleurs : [],
-              dimensions: Array.isArray(parentProduct.dimensions) ? parentProduct.dimensions : [],
-              materiau: Array.isArray(parentProduct.materiau) ? parentProduct.materiau : [],
-              capacite: Array.isArray(parentProduct.capacite) ? parentProduct.capacite : [],
-              poids: Array.isArray(parentProduct.poids) ? parentProduct.poids : [],
-              qualite: Array.isArray((parentProduct as any).qualite) ? (parentProduct as any).qualite : [],
-              manches: Array.isArray((parentProduct as any).manches) ? (parentProduct as any).manches : [],
-              col: Array.isArray((parentProduct as any).col) ? (parentProduct as any).col : []
-            };
-            setSelectedProduct(normalizedParentProduct);
-          }
+          if (parentProduct) setSelectedProduct(parentProduct);
         }
       };
-      
-      // Charger le produit parent depuis Firebase
-      loadParentProductFromFirebase();
+      loadParentProduct();
     } else if (!isEditMode && show) {
       // Réinitialiser en mode création uniquement
       setNewSubProduct(prev => ({ ...prev, images: [] }));
@@ -349,24 +271,12 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
     ? variations.reduce((sum, variation) => sum + (variation.prixUnitaire || newSubProduct.prix || 0), 0) / variations.length
     : newSubProduct.prix || 0;
 
-  // Charger les labels personnalisés depuis Firebase
+  // Charger les labels personnalisés depuis l'API
   const loadCustomLabels = useCallback(async () => {
     try {
-      const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-      const labelsDoc = await getDoc(labelsDocRef);
-      
-      if (labelsDoc.exists()) {
-        const labelsData = labelsDoc.data();
-        const labelsMap = new Map<string, string>();
-        
-        Object.entries(labelsData).forEach(([key, value]) => {
-          if (typeof value === 'string') {
-            labelsMap.set(key, value);
-          }
-        });
-        
-        setCustomLabels(labelsMap);
-      }
+      const labelsData = await LabelService.getLabels();
+      const labelsMap = new Map<string, string>(Object.entries(labelsData));
+      setCustomLabels(labelsMap);
     } catch (error) {
       console.error('Erreur lors du chargement des labels personnalisés:', error);
     }
@@ -465,53 +375,10 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
   // Gérer le changement de catégorie
   const handleCategoryChange = async (productId: string) => {
     try {
-      // Recharger le produit depuis Firebase pour obtenir toutes ses caractéristiques
-      console.log('🔄 Rechargement du produit depuis Firebase pour obtenir toutes les caractéristiques...');
-      console.log('🔍 Recherche du produit avec ID:', productId);
-      
-      // Chercher le document par le champ 'id' (GRA-XXX) au lieu du document ID
-      const productsCollection = collection(db, 'Produits');
-      const q = query(productsCollection, where('id', '==', productId));
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty && querySnapshot.docs.length > 0) {
-        const productDoc = querySnapshot.docs[0];
-        const productData = productDoc.data();
-        console.log('✅ Produit trouvé dans Firebase avec document ID:', productDoc.id);
-        
-        // Construire un produit complet avec SEULEMENT les caractéristiques qui ont des valeurs
-        const standardFieldsList = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification'];
-        
-        const fullProduct: any = {
-          id: productData.id || productDoc.id,
-          nom: productData.nom || '',
-          description: productData.description || '',
-          prix: productData.prix || 0,
-          image: productData.image || '',
-          images: Array.isArray(productData.images) ? productData.images : [],
-          categorie: productData.categorie || '',
-          stock: productData.stock || 0,
-          fournisseur: productData.fournisseur || { nom: '', ville: '' },
-          dateCreation: productData.dateCreation?.toDate() || new Date(),
-          dateModification: productData.dateModification?.toDate() || new Date(),
-        };
-        
-        // Ajouter UNIQUEMENT les caractéristiques qui sont des tableaux non vides
-        Object.keys(productData).forEach(key => {
-          if (!standardFieldsList.includes(key)) {
-            const value = productData[key];
-            // Ne garder que les caractéristiques qui sont des tableaux non vides
-            if (Array.isArray(value) && value.length > 0) {
-              fullProduct[key] = value;
-            }
-          }
-        });
-        
-        console.log('✅ Produit filtré depuis Firebase (seulement caractéristiques avec valeurs):', fullProduct);
-        console.log('🔑 Clés du produit filtré:', Object.keys(fullProduct));
-        console.log('📊 Caractéristiques du produit:', Object.keys(fullProduct).filter(k => !standardFieldsList.includes(k)));
-        
-        setSelectedProduct(fullProduct);
+      // Charger le produit depuis l'API MySQL
+      const productData = await ProductService.getProductById(productId);
+      if (productData) {
+        setSelectedProduct(productData);
         setNewSubProduct(prev => ({ ...prev, categorie: productId }));
         
         // Réinitialiser les caractéristiques sélectionnées SEULEMENT si on n'est pas en mode édition
@@ -849,28 +716,23 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
         return;
       }
 
-      // Convertir en base64
+      // Téléverser dans Firebase Storage
       try {
-        const base64Image = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
-          reader.readAsDataURL(file);
-        });
+        const storageUrl = await uploadImage(file, 'images/variations');
 
         // Mettre à jour la variation avec l'image
         const updatedVariation = variations.find(v => v.id === variationId);
         if (updatedVariation) {
           const updated = {
             ...updatedVariation,
-            image: base64Image
+            image: storageUrl
           };
           handleUpdateVariation(updated);
           onAlert('success', 'Image ajoutée avec succès');
         }
       } catch (error) {
-        console.error('❌ Erreur lors de la conversion de l\'image:', error);
-        onAlert('danger', 'Erreur lors de la conversion de l\'image');
+        console.error('❌ Erreur lors du téléversement de l\'image:', error);
+        onAlert('danger', 'Erreur lors du téléversement de l\'image');
       }
     }
     // Réinitialiser l'input pour permettre la sélection du même fichier
@@ -920,38 +782,27 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
     }
 
     try {
-      // Gestion des images multiples en base64
+      // Gestion des images multiples (Firebase Storage)
       let imageUrls: string[] = [];
       let mainImageUrl = '/mug.webp';
 
-      // Convertir les fichiers sélectionnés en base64
+      // Téléverser les fichiers sélectionnés
       if (newSubProduct.imageFiles.length > 0) {
-        console.log(`🔄 Conversion de ${newSubProduct.imageFiles.length} image(s) en base64...`);
-        
-        const base64Promises = newSubProduct.imageFiles.map(file => {
-          return new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              resolve(reader.result as string);
-            };
-            reader.onerror = () => {
-              reject(new Error('Erreur de lecture du fichier'));
-            };
-            reader.readAsDataURL(file);
-          });
-        });
+        console.log(`🔄 Téléversement de ${newSubProduct.imageFiles.length} image(s)...`);
 
         try {
-          imageUrls = await Promise.all(base64Promises);
-          console.log(`✅ ${imageUrls.length} image(s) convertie(s) en base64`);
-        
-        // La première image devient l'image principale
-        if (imageUrls.length > 0) {
-          mainImageUrl = imageUrls[0];
-        }
+          imageUrls = await Promise.all(
+            newSubProduct.imageFiles.map(file => uploadImage(file, 'images/sous-produits'))
+          );
+          console.log(`✅ ${imageUrls.length} image(s) téléversée(s)`);
+
+          // La première image devient l'image principale
+          if (imageUrls.length > 0) {
+            mainImageUrl = imageUrls[0];
+          }
         } catch (conversionError) {
-          console.error('❌ Erreur lors de la conversion des images:', conversionError);
-          onAlert('danger', 'Erreur lors de la conversion des images');
+          console.error('❌ Erreur lors du téléversement des images:', conversionError);
+          onAlert('danger', 'Erreur lors du téléversement des images');
           return;
         }
       }
@@ -1140,7 +991,7 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
           variationsCount: subProductData.variations?.length || 0,
           variations: subProductData.variations
         });
-        await SubProductService.updateSubProduct(initialSubProduct.productId, initialSubProduct.id, subProductData);
+        await SubProductService.updateSubProduct(initialSubProduct.id, subProductData);
         
         // Attendre un peu pour s'assurer que Firebase a terminé la mise à jour
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -1246,7 +1097,7 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
 
                 <Form.Group className="mb-3">
                   <Form.Label>Catégorie *</Form.Label>
-                  <Form.Select
+                  <CustomSelect
                     value={newSubProduct.categorie}
                     onChange={(e) => handleCategoryChange(e.target.value)}
                     required
@@ -1257,7 +1108,7 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
                         {product.nom}
                       </option>
                     ))}
-                  </Form.Select>
+                  </CustomSelect>
                 </Form.Group>
 
                 <Form.Group className="mb-3">

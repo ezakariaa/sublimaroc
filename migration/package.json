@@ -1,0 +1,14 @@
+{
+  "name": "sublimaroc-migration",
+  "version": "1.0.0",
+  "description": "Migration Firebase Firestore vers MySQL",
+  "main": "migrate.js",
+  "scripts": {
+    "migrate": "node migrate.js"
+  },
+  "dependencies": {
+    "firebase": "^10.0.0",
+    "mysql2": "^3.6.0",
+    "dotenv": "^16.0.0"
+  }
+}

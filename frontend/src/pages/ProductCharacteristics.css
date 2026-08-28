@@ -3,18 +3,23 @@
   width: 100% !important;
 }
 
+.product-characteristics-page table tbody td {
+  padding-top: 0.4rem !important;
+  padding-bottom: 0.4rem !important;
+}
+
 .product-characteristics-page table thead th:nth-child(1),
 .product-characteristics-page table tbody td:nth-child(1) {
-  width: 20% !important;
-  min-width: 20% !important;
-  max-width: 20% !important;
+  width: 15% !important;
+  min-width: 15% !important;
+  max-width: 15% !important;
 }
 
 .product-characteristics-page table thead th:nth-child(2),
 .product-characteristics-page table tbody td:nth-child(2) {
-  width: 70% !important;
-  min-width: 70% !important;
-  max-width: 70% !important;
+  width: 75% !important;
+  min-width: 75% !important;
+  max-width: 75% !important;
 }
 
 .product-characteristics-page table thead th:nth-child(3),

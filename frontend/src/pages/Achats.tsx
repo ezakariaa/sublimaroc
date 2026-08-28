@@ -2,8 +2,10 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Button, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { Product } from '../types';
-import { ProductService, AchatService } from '../services/firebaseService';
+import { ProductService } from '../services/apiService';
+import { ACHAT_VARIANTS, AchatVariant } from '../config/achats';
 import ConfirmModal from '../components/modals/ConfirmModal';
+import CustomSelect from '../components/CustomSelect';
 import './Purchases.css';
 import './AchatsTable.css';
 
@@ -42,12 +44,23 @@ interface Achat {
 }
 
 
-const Achats: React.FC = () => {
+interface AchatsProps {
+  /**
+   * Variante affichée : « materiel » (collection Achats) par défaut,
+   * ou « consommable » (collection Consommables). Voir `config/achats.ts`.
+   */
+  variant?: AchatVariant;
+}
+
+const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
+  const config = ACHAT_VARIANTS[variant];
   const [achats, setAchats] = useState<Achat[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -74,8 +87,8 @@ const Achats: React.FC = () => {
         setProducts(productsData);
         console.log('✅ Produits chargés:', productsData.length);
         
-        // Charger les achats de matériel depuis Firebase
-        const achatsData = await AchatService.getAllAchats();
+        // Charger les achats depuis Firebase (Achats ou Consommables)
+        const achatsData = await config.getAll();
         console.log('✅ Achats chargés depuis Firebase:', achatsData.length);
         
         // Convertir les données Firebase en format compatible
@@ -107,7 +120,7 @@ const Achats: React.FC = () => {
     };
 
     loadData();
-  }, []);
+  }, [config]);
 
 
   const formatPrice = (price: number) => {
@@ -131,10 +144,15 @@ const Achats: React.FC = () => {
                          achat.fournisseur.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          achat.materials.some(m => m.nom.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    // Appliquer le filtre de statut
     const matchesStatus = !statusFilter || achat.etat === statusFilter;
-    
-    return matchesSearch && matchesStatus;
+
+    const rawDate = achat.dateCommande || achat.dateAchat;
+    const date = rawDate ? new Date(rawDate) : null;
+    const isValidDate = date && !isNaN(date.getTime());
+    const matchesYear = !yearFilter || (isValidDate && date!.getFullYear().toString() === yearFilter);
+    const matchesMonth = !monthFilter || (isValidDate && (date!.getMonth() + 1).toString() === monthFilter);
+
+    return matchesSearch && matchesStatus && matchesYear && matchesMonth;
   });
 
   const getTotalPurchases = () => {
@@ -176,7 +194,7 @@ const Achats: React.FC = () => {
   const refreshAchats = async () => {
     try {
       console.log('🔄 Rafraîchissement des achats...');
-      const achatsData = await AchatService.getAllAchats();
+      const achatsData = await config.getAll();
       console.log('📥 Données brutes reçues de Firebase:', achatsData);
       
       const formattedAchats: Achat[] = achatsData.map(achat => ({
@@ -251,8 +269,8 @@ const Achats: React.FC = () => {
     try {
       const materialNames = achatToDelete.materials.map((m: any) => m.nom).join(', ');
       console.log('🗑️ Suppression de l\'achat:', achatToDelete.id);
-      await AchatService.deleteAchat(achatToDelete.id);
-      toast.success(`Achat de matériel "${materialNames}" supprimé avec succès`);
+      await config.remove(achatToDelete.id);
+      toast.success(`Achat de ${config.singularLower} "${materialNames}" supprimé avec succès`);
       refreshAchats();
       console.log('✅ Achat supprimé avec succès');
       
@@ -273,7 +291,7 @@ const Achats: React.FC = () => {
         <Row className="justify-content-center">
           <Col className="text-center">
             <Spinner animation="border" variant="primary" />
-            <p className="mt-3">Chargement des articles...</p>
+            <p className="mt-3">{config.loadingLabel}</p>
           </Col>
         </Row>
       </Container>
@@ -299,10 +317,10 @@ const Achats: React.FC = () => {
           <Col md={8}>
             <h1 className="page-title">
               <i className="bi bi-cart-dash me-2"></i>
-              Gestion des Articles
+              {config.pageTitle}
             </h1>
             <p className="page-subtitle">
-              Gérez vos commandes et achats d'articles auprès des fournisseurs
+              {config.pageSubtitle}
             </p>
           </Col>
           <Col md={4} className="d-flex justify-content-end align-items-center">
@@ -312,7 +330,7 @@ const Achats: React.FC = () => {
                 onClick={() => setShowAddMaterialModal(true)}
               >
                 <i className="bi bi-box-seam me-1"></i>
-                Nouveau Matériel
+                Nouvel Achat
               </Button>
             </div>
           </Col>
@@ -322,48 +340,56 @@ const Achats: React.FC = () => {
         <Row className="mb-4 purchases-stats-row">
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-cart-dash"></i>
                 </div>
-                <h3 className="stat-number">{achats.length}</h3>
-                <p className="stat-label">Total Articles</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{achats.length}</h3>
+                  <p className="stat-label">{config.statTotalLabel}</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-currency-dollar"></i>
                 </div>
-                <h3 className="stat-number">{formatPrice(getTotalPurchases())}</h3>
-                <p className="stat-label">Montant Total</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{formatPrice(getTotalPurchases())}</h3>
+                  <p className="stat-label">Montant Total</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-clock"></i>
                 </div>
-                <h3 className="stat-number">{getPurchasesByStatus('pending')}</h3>
-                <p className="stat-label">En Cours</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getPurchasesByStatus('pending')}</h3>
+                  <p className="stat-label">En Cours</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-check-circle"></i>
                 </div>
-                <h3 className="stat-number">{getPurchasesByStatus('received')}</h3>
-                <p className="stat-label">Reçus</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getPurchasesByStatus('received')}</h3>
+                  <p className="stat-label">Reçus</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -389,22 +415,57 @@ const Achats: React.FC = () => {
           </Col>
           
           <Col md={2}>
-            <Form.Select
+            <CustomSelect
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">Tous les états</option>
               <option value="En cours">En cours</option>
               <option value="Reçue">Reçue</option>
-            </Form.Select>
+            </CustomSelect>
           </Col>
-          
+
+          <Col md={2}>
+            <CustomSelect
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+            >
+              <option value="">Toutes les années</option>
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                <option key={y} value={y.toString()}>{y}</option>
+              ))}
+            </CustomSelect>
+          </Col>
+
+          <Col md={2}>
+            <CustomSelect
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+            >
+              <option value="">Tous les mois</option>
+              <option value="1">Janvier</option>
+              <option value="2">Février</option>
+              <option value="3">Mars</option>
+              <option value="4">Avril</option>
+              <option value="5">Mai</option>
+              <option value="6">Juin</option>
+              <option value="7">Juillet</option>
+              <option value="8">Août</option>
+              <option value="9">Septembre</option>
+              <option value="10">Octobre</option>
+              <option value="11">Novembre</option>
+              <option value="12">Décembre</option>
+            </CustomSelect>
+          </Col>
+
           <Col md={2}>
             <Button
               variant="outline-secondary"
               onClick={() => {
                 setSearchTerm('');
                 setStatusFilter('');
+                setYearFilter('');
+                setMonthFilter('');
               }}
             >
               <i className="bi bi-arrow-clockwise me-1"></i>
@@ -420,7 +481,7 @@ const Achats: React.FC = () => {
               <Card.Header>
                 <h5 className="mb-0">
                   <i className="bi bi-list-ul me-2"></i>
-                  Liste des Articles
+                  {config.listTitle}
                 </h5>
               </Card.Header>
               
@@ -429,8 +490,8 @@ const Achats: React.FC = () => {
                   <Table hover className="mb-0 align-middle">
                      <thead className="table-header">
                        <tr>
-                         <th>Référence Achat / Matériel</th>
-                         <th>Produits / Matériels</th>
+                         <th>Référence Achat / {config.singular}</th>
+                         <th>Produits / {config.plural}</th>
                          <th>Total</th>
                          <th>Date Commande</th>
                          <th>Date Livraison</th>
@@ -444,7 +505,7 @@ const Achats: React.FC = () => {
                           <td>
                             <div>
                               <strong className="text-primary">{purchase.referenceAchat}</strong>
-                              <Badge bg="info" className="ms-2">Matériel</Badge>
+                              <Badge bg="info" className="ms-2">{config.badgeLabel}</Badge>
                             </div>
                           </td>
                            <td>
@@ -569,7 +630,7 @@ const Achats: React.FC = () => {
           <Row>
             <Col className="text-center py-5">
               <i className="bi bi-search display-1 text-muted"></i>
-              <h3 className="mt-3 text-muted">Aucun article trouvé</h3>
+              <h3 className="mt-3 text-muted">{config.emptyTitle}</h3>
               <p className="text-muted">
                 Essayez de modifier vos critères de recherche
               </p>
@@ -611,14 +672,14 @@ const Achats: React.FC = () => {
             
             <Form.Group className="mb-3">
               <Form.Label>Produits à commander</Form.Label>
-              <Form.Select>
+              <CustomSelect>
                 <option>Sélectionner un produit</option>
                 {products.map(product => (
                   <option key={product.id} value={product.id}>
                     {product.nom} - {product.prix} MAD
                   </option>
                 ))}
-              </Form.Select>
+              </CustomSelect>
             </Form.Group>
           </Form>
         </Modal.Body>
@@ -654,6 +715,7 @@ const Achats: React.FC = () => {
           onAlert={handleAlert}
           initialAchat={selectedAchat}
           isEditMode={isEditMode}
+          variant={variant}
         />
       </Suspense>
 
@@ -662,7 +724,7 @@ const Achats: React.FC = () => {
         <Modal.Header closeButton>
           <Modal.Title>
             <i className="bi bi-eye me-2"></i>
-            Aperçu de l'Achat de Matériel
+            Aperçu de l'Achat de {config.singular}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -692,7 +754,7 @@ const Achats: React.FC = () => {
                 </Col>
               </Row>
               
-              <h6 className="modal-section-title">Matériels Achetés</h6>
+              <h6 className="modal-section-title">{config.plural} Achetés</h6>
               <div className="table-responsive">
                 <Table striped bordered hover size="sm" className="materials-preview-table">
                   <thead>
@@ -736,8 +798,8 @@ const Achats: React.FC = () => {
         }}
         onConfirm={handleConfirmDeleteAchat}
         title="Confirmer la suppression"
-        message={achatToDelete ? `Êtes-vous sûr de vouloir supprimer cet achat de matériel ?\n\n` +
-          `Matériel(s): ${achatToDelete.materials.map((m: any) => m.nom).join(', ')}\n` +
+        message={achatToDelete ? `Êtes-vous sûr de vouloir supprimer cet achat de ${config.singularLower} ?\n\n` +
+          `${config.singular}(s): ${achatToDelete.materials.map((m: any) => m.nom).join(', ')}\n` +
           `Fournisseur: ${achatToDelete.fournisseur.nom}\n` +
           `Total: ${formatPrice(achatToDelete.totalAchat)}\n\n` +
           `Cette action est irréversible et supprimera définitivement l'achat de Firebase.` : ''}

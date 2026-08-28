@@ -22,10 +22,15 @@
 
 /* Styles de base */
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Montserrat', sans-serif !important;
   line-height: 1.6;
   color: var(--dark-color);
   background-color: var(--light-color);
+}
+
+/* Forcer Montserrat sur tous les éléments et variantes */
+*, *::before, *::after {
+  font-family: 'Montserrat', sans-serif !important;
 }
 
 /* Boutons personnalisés */
@@ -79,6 +84,11 @@ body {
   border: 1px solid #dee2e6;
   transition: var(--transition);
   padding: 0.75rem 1rem;
+  font-family: 'Montserrat', sans-serif;
+}
+
+select, option {
+  font-family: 'Montserrat', sans-serif;
 }
 
 .form-control:focus, .form-select:focus {

@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Form, Badge, Table, Alert, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ProductService } from '../services/firebaseService';
+import { ProductService } from '../services/apiService';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, getDocs, query, doc, updateDoc, deleteField, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { LabelService } from '../services/apiService';
 import './ProductCharacteristics.css';
+import CustomSelect from '../components/CustomSelect';
 
 // Types de caractéristiques de base (définis en dehors du composant car constants)
 const baseCharacteristicTypes = [
@@ -63,125 +63,33 @@ const ProductCharacteristics: React.FC = () => {
     return customLabel ? { ...charType, label: customLabel } : charType;
   });
 
-  // Fonction pour charger les produits avec leurs document IDs Firebase
+  // Charger les produits depuis l'API MySQL
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Récupérer directement les documents Firebase pour avoir les vrais document IDs
-      const produitsCollection = collection(db, 'Produits');
-      const q = query(produitsCollection);
-      const querySnapshot = await getDocs(q);
-      
-      // Créer une map pour stocker les document IDs Firebase
-      const docIdMap = new Map<string, string>();
-      const productsData: Product[] = [];
-      
-      querySnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const standardFields = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification'];
-        
-        // Créer l'objet produit de base
-        const product: any = {
-          id: data.id || doc.id,
-          nom: data.nom || '',
-          description: data.description || '',
-          prix: data.prix || 0,
-          image: data.image || '',
-          images: Array.isArray(data.images) ? data.images : [],
-          categorie: data.categorie || '',
-          stock: data.stock || 0,
-          fournisseur: data.fournisseur || { nom: '', ville: '' },
-          dateCreation: data.dateCreation?.toDate() || new Date(),
-          dateModification: data.dateModification?.toDate() || new Date(),
-        };
-        
-        // Récupérer TOUTES les caractéristiques du document Firebase (y compris les personnalisées)
-        Object.keys(data).forEach(key => {
-          if (!standardFields.includes(key)) {
-            const value = data[key];
-            // Si c'est un tableau, c'est une caractéristique
-            if (Array.isArray(value)) {
-              product[key] = value;
-            }
-          }
-        });
-        
-        // S'assurer que les caractéristiques de base sont définies même si elles n'existent pas dans Firebase
-        product.type = product.type || [];
-        if (product.anse === undefined) product.anse = undefined;
-        if (product.dimensions === undefined) product.dimensions = undefined;
-        if (product.couleurs === undefined) product.couleurs = undefined;
-        if (product.materiau === undefined) product.materiau = undefined;
-        if (product.capacite === undefined) product.capacite = undefined;
-        if (product.poids === undefined) product.poids = undefined;
-        if (product.qualite === undefined) product.qualite = undefined;
-        if (product.manches === undefined) product.manches = undefined;
-        if (product.col === undefined) product.col = undefined;
-        
-        productsData.push(product as Product);
-        // Utiliser le vrai document ID Firebase (doc.id)
-        docIdMap.set(product.id, doc.id);
-        console.log('📋 Mapping produit:', { productId: product.id, nom: product.nom, documentId: doc.id });
-      });
-      
+      const productsData = await ProductService.getAllProducts();
       setProducts(productsData);
-      setProductDocumentIds(docIdMap);
-      
-      // Charger les labels personnalisés depuis Firebase avant de détecter les caractéristiques
-      let labelsMap = new Map<string, string>();
-      try {
-        const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-        const labelsDoc = await getDoc(labelsDocRef);
-        
-        if (labelsDoc.exists()) {
-          const labelsData = labelsDoc.data();
-          Object.entries(labelsData).forEach(([key, value]) => {
-            if (typeof value === 'string') {
-              labelsMap.set(key, value);
-            }
-          });
-        }
-        setCustomLabels(labelsMap);
-      } catch (labelsError) {
-        console.error('Erreur lors du chargement des labels personnalisés:', labelsError);
-        // Continuer avec une map vide
-      }
-      
-      // Détecter les caractéristiques personnalisées dans les produits
+
+      // Charger les labels personnalisés
+      const labelsData = await LabelService.getLabels().catch(() => ({}));
+      const labelsMap = new Map<string, string>(Object.entries(labelsData));
+      setCustomLabels(labelsMap);
+
+      // Détecter les caractéristiques personnalisées
+      const standardFields = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification'];
       const customChars = new Map<string, string>();
       productsData.forEach(product => {
         Object.keys(product).forEach(key => {
-          // Ignorer les champs standards qui ne sont pas des caractéristiques
-          const standardFields = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification'];
-          if (!standardFields.includes(key)) {
-            const value = product[key as keyof Product];
-            // Vérifier si c'est un tableau (caractéristique)
-            if (Array.isArray(value)) {
-              // Vérifier si c'est une caractéristique personnalisée (pas dans la liste de base)
-              const isBaseChar = baseCharacteristicTypes.some(ct => ct.key === key);
-              if (!isBaseChar && !customChars.has(key)) {
-                // Chercher d'abord dans les labels personnalisés chargés
-                const customLabel = labelsMap.get(key);
-                if (customLabel) {
-                  customChars.set(key, customLabel);
-                } else {
-                  // Sinon, générer un label à partir de la clé (capitaliser la première lettre)
-                  const label = key
-                    .split('-')
-                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(' ');
-                  customChars.set(key, label);
-                }
-              }
+          if (!standardFields.includes(key) && Array.isArray(product[key as keyof Product])) {
+            const isBaseChar = baseCharacteristicTypes.some(ct => ct.key === key);
+            if (!isBaseChar && !customChars.has(key)) {
+              const customLabel = labelsMap.get(key);
+              customChars.set(key, customLabel || key.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
             }
           }
         });
       });
-      
-      // Mettre à jour les caractéristiques personnalisées
-      const customCharsArray = Array.from(customChars.entries()).map(([key, label]) => ({ key, label }));
-      setCustomCharacteristics(customCharsArray);
+      setCustomCharacteristics(Array.from(customChars.entries()).map(([key, label]) => ({ key, label })));
     } catch (error) {
       console.error('Erreur lors du chargement des produits:', error);
       toast.error('Erreur lors du chargement des produits');
@@ -190,29 +98,13 @@ const ProductCharacteristics: React.FC = () => {
     }
   }, []);
 
-  // Fonction pour charger les labels personnalisés depuis Firebase
+  // Charger les labels personnalisés depuis l'API
   const loadCustomLabels = useCallback(async () => {
     try {
-      const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-      const labelsDoc = await getDoc(labelsDocRef);
-      
-      if (labelsDoc.exists()) {
-        const labelsData = labelsDoc.data();
-        const labelsMap = new Map<string, string>();
-        
-        // Convertir l'objet en Map
-        Object.entries(labelsData).forEach(([key, value]) => {
-          if (typeof value === 'string') {
-            labelsMap.set(key, value);
-          }
-        });
-        
-        setCustomLabels(labelsMap);
-        console.log('✅ Labels personnalisés chargés:', Array.from(labelsMap.entries()));
-      }
+      const labelsData = await LabelService.getLabels();
+      setCustomLabels(new Map<string, string>(Object.entries(labelsData)));
     } catch (error) {
       console.error('Erreur lors du chargement des labels personnalisés:', error);
-      // Ne pas afficher d'erreur à l'utilisateur car ce n'est pas critique
     }
   }, []);
 
@@ -224,10 +116,10 @@ const ProductCharacteristics: React.FC = () => {
     }
   }, [user, loadProducts, loadCustomLabels]);
 
-  // Trouver le nom du document Firebase à partir de l'ID du produit
+  // Avec MySQL, l'ID du produit est directement l'identifiant — plus besoin de document Firebase
   const findProductDocumentId = useCallback((productId: string): string | null => {
-    return productDocumentIds.get(productId) || null;
-  }, [productDocumentIds]);
+    return productId;
+  }, []);
 
   // Ajouter une nouvelle valeur à une caractéristique
   const handleAddCharacteristic = useCallback(async (productId: string, characteristicType: string) => {
@@ -427,11 +319,10 @@ const ProductCharacteristics: React.FC = () => {
         currentValues
       });
       
-      // Supprimer complètement le champ du document Firebase en utilisant deleteField()
-      const docRef = doc(db, 'Produits', documentId);
-      await updateDoc(docRef, {
-        [characteristicType]: deleteField()
-      });
+      // Mettre à jour le produit avec null pour supprimer la caractéristique
+      await ProductService.updateProduct(documentId!, {
+        [characteristicType]: null
+      } as any);
       
       console.log('✅ Caractéristique supprimée dans Firebase (champ supprimé)');
 
@@ -479,21 +370,8 @@ const ProductCharacteristics: React.FC = () => {
     }
 
     try {
-      // Sauvegarder le label personnalisé dans Firebase
-      const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-      const labelsDoc = await getDoc(labelsDocRef);
-      
       const newLabel = editingCharacteristicLabel.trim();
-      const updateData: any = {};
-      updateData[editingCharacteristicKey] = newLabel;
-      
-      if (labelsDoc.exists()) {
-        // Mettre à jour le document existant
-        await updateDoc(labelsDocRef, updateData);
-      } else {
-        // Créer le document s'il n'existe pas
-        await setDoc(labelsDocRef, updateData);
-      }
+      await LabelService.updateLabels({ [editingCharacteristicKey]: newLabel });
 
       // Vérifier si c'est une caractéristique personnalisée
       const isCustomChar = customCharacteristics.some(c => c.key === editingCharacteristicKey);
@@ -569,24 +447,14 @@ const ProductCharacteristics: React.FC = () => {
       }
 
       const characteristicKey = newCharacteristicKey.toLowerCase();
-      
-      // Sauvegarder le label de la caractéristique personnalisée dans Firebase Settings
-      const labelsDocRef = doc(db, 'Settings', 'characteristicLabels');
-      const labelsDoc = await getDoc(labelsDocRef);
-      const labelUpdateData: any = {};
-      labelUpdateData[characteristicKey] = newCharacteristicName.trim();
-      
-      if (labelsDoc.exists()) {
-        await updateDoc(labelsDocRef, labelUpdateData);
-      } else {
-        await setDoc(labelsDocRef, labelUpdateData);
-      }
 
-      // Ajouter la nouvelle caractéristique au produit dans Firebase
-      const docRef = doc(db, 'Produits', documentId);
-      await updateDoc(docRef, {
+      // Sauvegarder le label via l'API
+      await LabelService.updateLabels({ [characteristicKey]: newCharacteristicName.trim() });
+
+      // Ajouter la nouvelle caractéristique au produit via l'API
+      await ProductService.updateProduct(documentId!, {
         [characteristicKey]: []
-      });
+      } as any);
 
       // Ajouter la nouvelle caractéristique à la liste des caractéristiques personnalisées
       const newCharType = {
@@ -702,14 +570,14 @@ const ProductCharacteristics: React.FC = () => {
                   <Card.Body>
                     <Table bordered hover style={{ tableLayout: 'fixed', width: '100%' }}>
                       <colgroup>
-                        <col style={{ width: '20%' }} />
-                        <col style={{ width: '70%' }} />
+                        <col style={{ width: '13%' }} />
+                        <col style={{ width: '77%' }} />
                         <col style={{ width: '10%' }} />
                       </colgroup>
                       <thead>
                         <tr>
-                          <th style={{ width: '20%', minWidth: '20%', maxWidth: '20%' }}>Type de Caractéristique</th>
-                          <th style={{ width: '70%', minWidth: '70%', maxWidth: '70%' }}>Valeurs</th>
+                          <th style={{ width: '13%', minWidth: '13%', maxWidth: '13%' }}>Caractéristique</th>
+                          <th style={{ width: '77%', minWidth: '77%', maxWidth: '77%' }}>Valeurs</th>
                           <th style={{ width: '10%', minWidth: '10%', maxWidth: '10%' }}>Actions</th>
                         </tr>
                       </thead>
@@ -727,10 +595,10 @@ const ProductCharacteristics: React.FC = () => {
 
                           return (
                             <tr key={charType.key}>
-                              <td style={{ width: '20%', minWidth: '20%', maxWidth: '20%' }}>
+                              <td style={{ width: '13%', minWidth: '13%', maxWidth: '13%' }}>
                                 <strong>{charType.label}</strong>
                               </td>
-                              <td style={{ width: '70%', minWidth: '70%', maxWidth: '70%' }}>
+                              <td style={{ width: '77%', minWidth: '77%', maxWidth: '77%' }}>
                                 {values.length > 0 ? (
                                   <div className="d-flex flex-wrap gap-2">
                                     {values.map((value, index) => (
@@ -738,7 +606,7 @@ const ProductCharacteristics: React.FC = () => {
                                         key={index} 
                                         bg="secondary" 
                                         className="d-flex align-items-center"
-                                        style={{ fontSize: '0.9rem', padding: '0.5rem', cursor: 'default', userSelect: 'none' }}
+                                        style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem', cursor: 'default', userSelect: 'none' }}
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <span style={{ marginRight: '0.25rem' }}>{value}</span>
@@ -871,7 +739,7 @@ const ProductCharacteristics: React.FC = () => {
           <Form>
             <Form.Group className="mb-3">
               <Form.Label>Produit *</Form.Label>
-              <Form.Select
+              <CustomSelect
                 value={selectedProductForNewChar}
                 onChange={(e) => setSelectedProductForNewChar(e.target.value)}
                 required
@@ -883,7 +751,7 @@ const ProductCharacteristics: React.FC = () => {
                     {product.nom} (ID: {product.id})
                   </option>
                 ))}
-              </Form.Select>
+              </CustomSelect>
               {selectedProductForNewChar && (
                 <Form.Text className="text-muted">
                   Produit sélectionné depuis l'en-tête du produit

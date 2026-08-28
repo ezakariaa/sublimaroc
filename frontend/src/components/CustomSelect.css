@@ -1,0 +1,85 @@
+.custom-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select-wrapper.disabled {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.custom-select-trigger {
+  cursor: pointer;
+  user-select: none;
+  font-family: 'Montserrat', sans-serif !important;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #212529;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem 2.25rem 0.75rem 1rem;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: var(--border-radius, 8px);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  box-sizing: border-box;
+  min-height: calc(1.5em + 1.5rem + 2px);
+}
+
+.custom-select-trigger.open,
+.custom-select-trigger:focus {
+  border-color: var(--primary-color, #3498db);
+  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+  outline: none;
+}
+
+.custom-select-trigger .cs-placeholder {
+  color: #6c757d;
+}
+
+.custom-select-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 260px;
+  overflow-y: auto;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+.custom-select-option {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-family: 'Montserrat', sans-serif !important;
+  font-size: 0.95rem;
+  color: #212529;
+  transition: background-color 0.15s ease;
+}
+
+.custom-select-option:hover {
+  background-color: #f0f4f8;
+}
+
+.custom-select-option.selected {
+  background-color: #e8f4fd;
+  color: var(--primary-color, #3498db);
+  font-weight: 500;
+}
+
+.custom-select-option.cs-placeholder {
+  color: #6c757d;
+}

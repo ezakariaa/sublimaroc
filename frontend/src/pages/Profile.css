@@ -1,0 +1,327 @@
+/* Styles pour la page Profil */
+.profile-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9eef5 100%);
+  padding: 2rem 0;
+}
+
+.profile-page h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+}
+
+.profile-page h1 i {
+  font-size: 2.5rem;
+  color: #3498db;
+  margin-right: 0.75rem;
+}
+
+/* ------- Bandeau d'identité ------- */
+.profile-hero {
+  position: relative;
+  border: none;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+  box-shadow: 0 18px 40px rgba(44, 62, 80, 0.25);
+  color: #ffffff;
+}
+
+/* Halo décoratif */
+.profile-hero::after {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -80px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+}
+
+.profile-hero .card-body {
+  position: relative;
+  z-index: 1;
+  padding: 2.25rem 2rem;
+}
+
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #2c3e50;
+  background: #ffffff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.profile-hero-name {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.profile-hero-email {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 0.9rem;
+  word-break: break-all;
+}
+
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  backdrop-filter: blur(4px);
+}
+
+.profile-chip.admin {
+  background: rgba(241, 196, 15, 0.22);
+  border-color: rgba(241, 196, 15, 0.55);
+  color: #ffeaa7;
+}
+
+.profile-chip.verified {
+  background: rgba(46, 204, 113, 0.22);
+  border-color: rgba(46, 204, 113, 0.5);
+  color: #d5f5e3;
+}
+
+/* ------- Cartes d'information ------- */
+.profile-card {
+  border: none;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(44, 62, 80, 0.08);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.profile-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 35px rgba(44, 62, 80, 0.14);
+}
+
+.profile-card .card-body {
+  padding: 1.75rem;
+}
+
+.profile-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 1.25rem;
+}
+
+.profile-card-title i {
+  color: #3498db;
+  font-size: 1.15rem;
+}
+
+/* Lignes clé / valeur */
+.profile-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid #eef1f5;
+}
+
+.profile-field:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.profile-field:first-child {
+  padding-top: 0;
+}
+
+.profile-field-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #3498db;
+  background: rgba(52, 152, 219, 0.1);
+}
+
+.profile-field-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-field-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #95a5a6;
+  margin-bottom: 0.15rem;
+}
+
+.profile-field-value {
+  font-size: 0.98rem;
+  font-weight: 500;
+  color: #2c3e50;
+  word-break: break-word;
+}
+
+.profile-field-value.muted {
+  color: #95a5a6;
+  font-weight: 400;
+}
+
+.profile-field-value.mono {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace !important;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  word-break: break-all;
+}
+
+/* Bouton copier l'identifiant */
+.profile-copy-btn {
+  flex-shrink: 0;
+  border: 1px solid #e3e8ee;
+  background: #ffffff;
+  color: #7f8c8d;
+  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.profile-copy-btn:hover {
+  color: #3498db;
+  border-color: #3498db;
+  background: rgba(52, 152, 219, 0.08);
+}
+
+.profile-copy-btn.copied {
+  color: #27ae60;
+  border-color: #27ae60;
+  background: rgba(39, 174, 96, 0.1);
+}
+
+/* ------- Actions ------- */
+.profile-action {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border: 1px solid #eef1f5;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #2c3e50;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.25s ease;
+}
+
+.profile-action + .profile-action {
+  margin-top: 0.75rem;
+}
+
+.profile-action i:first-child {
+  font-size: 1.1rem;
+  color: #3498db;
+}
+
+.profile-action .profile-action-arrow {
+  margin-left: auto;
+  color: #bdc3c7;
+  font-size: 0.9rem;
+}
+
+.profile-action:hover {
+  border-color: #3498db;
+  background: rgba(52, 152, 219, 0.06);
+  color: #2c3e50;
+  transform: translateX(3px);
+}
+
+.profile-action.danger i:first-child,
+.profile-action.danger {
+  color: #e74c3c;
+}
+
+.profile-action.danger:hover {
+  border-color: #e74c3c;
+  background: rgba(231, 76, 60, 0.06);
+  color: #c0392b;
+}
+
+/* ------- État déconnecté ------- */
+.profile-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+}
+
+.profile-empty i {
+  font-size: 3rem;
+  color: #bdc3c7;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+/* ------- Responsive ------- */
+@media (max-width: 767.98px) {
+  .profile-page h1 {
+    font-size: 1.9rem;
+  }
+
+  .profile-page h1 i {
+    font-size: 1.9rem;
+  }
+
+  .profile-hero .card-body {
+    padding: 1.75rem 1.25rem;
+    text-align: center;
+  }
+
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    font-size: 1.75rem;
+    margin: 0 auto;
+  }
+
+  .profile-hero-name {
+    font-size: 1.5rem;
+  }
+
+  .profile-card .card-body {
+    padding: 1.35rem;
+  }
+}

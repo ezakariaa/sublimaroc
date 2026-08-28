@@ -13,6 +13,7 @@ import Home from './pages/Home';
 import Products from './pages/Products';
 import Stock from './pages/Stock';
 import Achats from './pages/Achats';
+import Consommables from './pages/Consommables';
 import Articles from './pages/Articles';
 import Sales from './pages/Sales';
 import Profile from './pages/Profile';
@@ -48,6 +49,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Achats />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/consommables" 
+                element={
+                  <ProtectedRoute>
+                    <Consommables />
                   </ProtectedRoute>
                 } 
               />

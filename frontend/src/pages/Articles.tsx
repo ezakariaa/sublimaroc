@@ -2,8 +2,9 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Button, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { Product } from '../types';
-import { ProductService, AchatService, ArticleService, SubProductService } from '../services/firebaseService';
+import { ProductService, AchatService, ArticleService, SubProductService } from '../services/apiService';
 import ConfirmModal from '../components/modals/ConfirmModal';
+import CustomSelect from '../components/CustomSelect';
 import './Purchases.css';
 
 // Lazy loading de la modal pour optimiser les performances
@@ -405,48 +406,56 @@ const Articles: React.FC = () => {
         <Row className="mb-4 purchases-stats-row">
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-bag"></i>
                 </div>
-                <h3 className="stat-number">{articles.length}</h3>
-                <p className="stat-label">Total Articles</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{articles.length}</h3>
+                  <p className="stat-label">Total Articles</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-currency-dollar"></i>
                 </div>
-                <h3 className="stat-number">{formatPrice(articles.reduce((total, article) => total + article.prixAPayer, 0))}</h3>
-                <p className="stat-label">Montant Total</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{new Intl.NumberFormat('fr-MA').format(articles.reduce((total, article) => total + article.prixAPayer, 0))}</h3>
+                  <p className="stat-label">Montant Total</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-clock"></i>
                 </div>
-                <h3 className="stat-number">{getPurchasesByStatus('pending')}</h3>
-                <p className="stat-label">En Cours</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getPurchasesByStatus('pending')}</h3>
+                  <p className="stat-label">En Cours</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-check-circle"></i>
                 </div>
-                <h3 className="stat-number">{getPurchasesByStatus('received')}</h3>
-                <p className="stat-label">Reçus</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getPurchasesByStatus('received')}</h3>
+                  <p className="stat-label">Reçus</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -472,14 +481,14 @@ const Articles: React.FC = () => {
           </Col>
           
           <Col md={2}>
-            <Form.Select
+            <CustomSelect
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">Tous les états</option>
               <option value="En cours">En cours</option>
               <option value="Reçue">Reçue</option>
-            </Form.Select>
+            </CustomSelect>
           </Col>
           
           <Col md={2}>

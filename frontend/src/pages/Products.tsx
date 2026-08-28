@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Form, InputGroup, Spinner } from 'react-bootstrap';
 import { Product } from '../types';
-import { ProductService, SubProductService } from '../services/firebaseService';
+import { ProductService, SubProductService } from '../services/apiService';
 import './Products.css';
+import CustomSelect from '../components/CustomSelect';
 
 const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -11,6 +12,24 @@ const Products: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [selectedPriceRange, setSelectedPriceRange] = useState('');
+  const [hoverImageIndex, setHoverImageIndex] = useState<Record<string, number>>({});
+  const hoverIntervals = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+
+  const handleMouseEnter = (product: Product) => {
+    const allImages = [product.image, ...(product.images || [])].filter(Boolean) as string[];
+    if (allImages.length <= 1) return;
+    let idx = 0;
+    hoverIntervals.current[product.id] = setInterval(() => {
+      idx = (idx + 1) % allImages.length;
+      setHoverImageIndex(prev => ({ ...prev, [product.id]: idx }));
+    }, 700);
+  };
+
+  const handleMouseLeave = (product: Product) => {
+    clearInterval(hoverIntervals.current[product.id]);
+    delete hoverIntervals.current[product.id];
+    setHoverImageIndex(prev => ({ ...prev, [product.id]: 0 }));
+  };
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -63,7 +82,7 @@ const Products: React.FC = () => {
     // Filtrage par type
     if (selectedType) {
       filtered = filtered.filter(product =>
-        product.type.includes(selectedType)
+        product.type?.includes(selectedType)
       );
     }
 
@@ -85,7 +104,7 @@ const Products: React.FC = () => {
   const getUniqueTypes = () => {
     const types = new Set<string>();
     products.forEach(product => {
-      product.type.forEach(type => types.add(type));
+      product.type?.forEach(type => types.add(type));
     });
     return Array.from(types);
   };
@@ -143,7 +162,7 @@ const Products: React.FC = () => {
           </Col>
           
           <Col md={3}>
-            <Form.Select
+            <CustomSelect
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
             >
@@ -151,11 +170,11 @@ const Products: React.FC = () => {
               {getUniqueTypes().map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
-            </Form.Select>
+            </CustomSelect>
           </Col>
           
           <Col md={3}>
-            <Form.Select
+            <CustomSelect
               value={selectedPriceRange}
               onChange={(e) => setSelectedPriceRange(e.target.value)}
             >
@@ -164,7 +183,7 @@ const Products: React.FC = () => {
               <option value="50-100">50 - 100 MAD</option>
               <option value="100-200">100 - 200 MAD</option>
               <option value="200">200+ MAD</option>
-            </Form.Select>
+            </CustomSelect>
           </Col>
           
           <Col md={2}>
@@ -195,14 +214,33 @@ const Products: React.FC = () => {
         <Row>
           {filteredProducts.map((product) => (
             <Col md={6} lg={4} xl={3} key={product.id} className="mb-4">
-              <Card className="product-card h-100">
+              <Card
+                className="product-card h-100"
+                onMouseEnter={() => handleMouseEnter(product)}
+                onMouseLeave={() => handleMouseLeave(product)}
+              >
                 <div className="product-image-container">
-                  <Card.Img
-                    variant="top"
-                    src={product.image || '/placeholder-product.jpg'}
-                    alt={product.nom}
-                    className="product-image"
-                  />
+                  {(() => {
+                    const allImages = [product.image, ...(product.images || [])].filter(Boolean) as string[];
+                    const currentIdx = hoverImageIndex[product.id] ?? 0;
+                    return (
+                      <>
+                        <Card.Img
+                          variant="top"
+                          src={allImages[currentIdx] || '/placeholder-product.jpg'}
+                          alt={product.nom}
+                          className="product-image"
+                        />
+                        {allImages.length > 1 && (
+                          <div className="image-dots">
+                            {allImages.map((_, i) => (
+                              <span key={i} className={`image-dot${i === currentIdx ? ' active' : ''}`} />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div className="product-badges">
                     {product.stock === 0 ? (
                       <Badge bg="danger">Stock Épuisé</Badge>
@@ -223,13 +261,13 @@ const Products: React.FC = () => {
                   
                   <div className="product-details mb-3">
                     <div className="product-types">
-                      {product.type.slice(0, 2).map((type, index) => (
+                      {product.type?.slice(0, 2).map((type, index) => (
                         <Badge key={index} bg="primary" className="me-1 mb-1">
                           {type}
                         </Badge>
                       ))}
-                      {product.type.length > 2 && (
-                        <Badge bg="secondary">+{product.type.length - 2}</Badge>
+                      {(product.type?.length ?? 0) > 2 && (
+                        <Badge bg="secondary">+{(product.type?.length ?? 0) - 2}</Badge>
                       )}
                     </div>
                   </div>

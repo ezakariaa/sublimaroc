@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, Form, Button, Row, Col, Card, Badge } from 'react-bootstrap';
 import { Material } from '../../types';
-import { Timestamp } from 'firebase/firestore';
-import { AchatService } from '../../services/firebaseService';
+import { resolveImageUrl } from '../../services/apiService';
+import { ACHAT_VARIANTS, AchatVariant } from '../../config/achats';
+import CustomSelect from '../CustomSelect';
 
 interface MaterialItem {
   id: string;
@@ -54,6 +55,8 @@ interface AddMaterialModalProps {
   onAlert: (type: 'success' | 'danger', message: string) => void;
   initialAchat?: Achat | null;
   isEditMode?: boolean;
+  /** Cible la collection et les libellés : Matériels par défaut. */
+  variant?: AchatVariant;
 }
 
 const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
@@ -62,8 +65,11 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   onMaterialAdded,
   onAlert,
   initialAchat,
-  isEditMode = false
+  isEditMode = false,
+  variant = 'materiel'
 }) => {
+  const config = ACHAT_VARIANTS[variant];
+
   // Fonction pour générer la référence d'achat
   const generateReferenceAchat = useCallback(() => {
     const now = new Date();
@@ -71,8 +77,8 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = String(now.getFullYear()).slice(-2);
     const randomNumbers = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-    return `SUB-ACH-${day}${month}${year}-${randomNumbers}`;
-  }, []);
+    return `${config.referencePrefix}-${day}${month}${year}-${randomNumbers}`;
+  }, [config]);
 
   const [materials, setMaterials] = useState<MaterialItem[]>([
     {
@@ -305,91 +311,51 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
 
       const validMaterials = materials.filter(material => material.nom.trim());
       if (validMaterials.length === 0) {
-        onAlert('danger', 'Au moins un matériel avec un nom est requis');
+        onAlert('danger', `Au moins un ${config.singularLower} avec un nom est requis`);
         return;
       }
 
       // Vérifier que tous les matériels ont les champs requis
       for (const material of validMaterials) {
         if (!material.nom.trim()) {
-          onAlert('danger', 'Le nom du matériel est obligatoire pour tous les matériels');
+          onAlert('danger', `Le nom du ${config.singularLower} est obligatoire pour tous les ${config.pluralLower}`);
           return;
         }
         if (material.prixUnitaire <= 0) {
-          onAlert('danger', 'Le prix unitaire doit être supérieur à 0 pour tous les matériels');
+          onAlert('danger', `Le prix unitaire doit être supérieur à 0 pour tous les ${config.pluralLower}`);
           return;
         }
         if (material.quantite <= 0) {
-          onAlert('danger', 'La quantité doit être supérieure à 0 pour tous les matériels');
+          onAlert('danger', `La quantité doit être supérieure à 0 pour tous les ${config.pluralLower}`);
           return;
         }
       }
 
-      // Convertir les images blob en base64 avant de sauvegarder (comme pour les produits)
+      // Téléverser les images dans Firebase Storage avant de sauvegarder
       const materialsWithBase64 = await Promise.all(
         validMaterials.map(async (material) => {
-          let imageBase64 = material.image || '';
-          
-          // Si l'image est une URL blob, la convertir en base64
-          if (material.image && material.image.startsWith('blob:')) {
-            try {
-              console.log(`🔄 Conversion blob vers base64 pour matériel: ${material.nom}`);
-              const response = await fetch(material.image);
-              const blob = await response.blob();
-              
-              const base64Promise = new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  console.log('✅ Conversion base64 réussie');
-                  resolve(reader.result as string);
-                };
-                reader.onerror = () => {
-                  console.error('❌ Erreur de lecture du fichier');
-                  reject(new Error('Erreur de lecture du fichier'));
-                };
-                reader.readAsDataURL(blob);
-              });
-              
-              imageBase64 = await base64Promise;
-              console.log(`✅ Image convertie en base64 pour ${material.nom}`);
-            } catch (error) {
-              console.error('❌ Erreur lors de la conversion de l\'image:', error);
-              // En cas d'erreur, garder l'image vide
-              imageBase64 = '';
+          let imageUrl = material.image || '';
+
+          try {
+            // Aperçu local ou fichier sélectionné → envoi vers Storage.
+            // Les URLs déjà stockées (et les anciennes images base64) sont conservées.
+            imageUrl = await resolveImageUrl(
+              material.image,
+              material.imageFile,
+              config.imageFolder
+            );
+            if (imageUrl !== material.image) {
+              console.log(`✅ Image téléversée pour ${material.nom}`);
             }
-          } else if (material.imageFile && material.imageFile instanceof File) {
-            // Si on a un fichier directement, le convertir en base64
-            try {
-              console.log(`🔄 Conversion fichier vers base64 pour matériel: ${material.nom}`);
-              const base64Promise = new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                  console.log('✅ Conversion base64 réussie');
-                  resolve(reader.result as string);
-                };
-                reader.onerror = () => {
-                  console.error('❌ Erreur de lecture du fichier');
-                  reject(new Error('Erreur de lecture du fichier'));
-                };
-                reader.readAsDataURL(material.imageFile!);
-              });
-              
-              imageBase64 = await base64Promise;
-              console.log(`✅ Fichier converti en base64 pour ${material.nom}`);
-            } catch (error) {
-              console.error('❌ Erreur lors de la conversion du fichier:', error);
-              imageBase64 = '';
-            }
-          } else if (material.image && !material.image.startsWith('blob:') && !material.image.startsWith('data:image')) {
-            // Si c'est déjà une URL Firebase Storage ou autre URL, la garder telle quelle
-            // (pour la compatibilité avec les anciennes données)
-            imageBase64 = material.image;
+          } catch (error) {
+            console.error('❌ Erreur lors du téléversement de l\'image:', error);
+            imageUrl = '';
           }
-          
+
           return {
             nom: material.nom.trim(),
             description: material.description.trim(),
-            image: imageBase64, // Stocker l'image en base64 ou URL existante
+            image: imageUrl, // URL Storage, ou valeur existante conservée
             referenceFournisseur: material.referenceFournisseur.trim(),
             prixUnitaire: material.prixUnitaire,
             quantite: material.quantite,
@@ -413,7 +379,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         dateLivraison: isNaN(dateLivraison.getTime()) ? new Date() : dateLivraison,
         etat: etat, // Utiliser la valeur actuelle de l'état
         totalAchat: validMaterials.reduce((sum, material) => sum + material.prixPaye, 0),
-        createdAt: Timestamp.now()
+        createdAt: new Date().toISOString()
       };
 
       console.log('Données à sauvegarder:', achatData);
@@ -434,13 +400,13 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       if (isEditMode && initialAchat) {
         // Mode édition : mettre à jour l'achat existant
         console.log('🔄 Mise à jour de l\'achat:', initialAchat.id);
-        await AchatService.updateAchat(initialAchat.id, achatData);
+        await config.update(initialAchat.id, achatData);
         console.log('✅ Mise à jour terminée, affichage de l\'alerte...');
         onAlert('success', `Achat modifié avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
       } else {
         // Mode création : créer un nouvel achat
         console.log('🆕 Création d\'un nouvel achat');
-        await AchatService.createAchat(achatData);
+        await config.create(achatData);
         console.log('✅ Création terminée, affichage de l\'alerte...');
         onAlert('success', `Achat enregistré avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
       }
@@ -456,7 +422,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'enregistrement de l\'achat';
       onAlert('danger', errorMessage);
     }
-  }, [materials, fournisseur, onAlert, onMaterialAdded, onHide, referenceAchat, isEditMode, initialAchat, dateCommande, dateLivraison, etat]);
+  }, [materials, fournisseur, onAlert, onMaterialAdded, onHide, referenceAchat, isEditMode, initialAchat, dateCommande, dateLivraison, etat, config]);
 
   return (
     <Modal 
@@ -467,7 +433,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         <Modal.Header closeButton>
           <Modal.Title>
             <i className={`bi ${isEditMode ? 'bi-pencil-square' : 'bi-plus-circle'} me-2`}></i>
-            {isEditMode ? 'Modifier l\'Achat de Matériel' : 'Nouveau Matériel Acheté'}
+            {isEditMode ? `Modifier l'Achat de ${config.singular}` : `Nouveau ${config.singular} Acheté`}
           </Modal.Title>
         </Modal.Header>
       <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto', padding: '1.5rem' }}>
@@ -493,7 +459,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           <div className="mb-4">
             <h5 className="text-primary mb-3">
               <i className="bi bi-box me-2"></i>
-              Section 1: Informations Matériel
+              Section 1: Informations {config.singular}
             </h5>
             
             {materials.map((material, index) => (
@@ -501,7 +467,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                 <Card.Header className="d-flex justify-content-between align-items-center" style={{ backgroundColor: '#424272', color: '#ffffff' }}>
                   <h6 className="mb-0" style={{ color: '#ffffff' }}>
                     <i className="bi bi-box-seam me-2" style={{ color: '#ffffff' }}></i>
-                    Matériel {index + 1}
+                    {config.singular} {index + 1}
                   </h6>
                   {materials.length > 1 && (
                     <Button
@@ -517,7 +483,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                   <Row>
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Nom du matériel *</Form.Label>
+                        <Form.Label>Nom du {config.singularLower} *</Form.Label>
                         <Form.Control
                           type="text"
                           value={material.nom}
@@ -534,14 +500,14 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                           rows={2}
                           value={material.description}
                           onChange={(e) => updateMaterial(material.id, 'description', e.target.value)}
-                          placeholder="Description du matériel..."
+                          placeholder={`Description du ${config.singularLower}...`}
                         />
                       </Form.Group>
                     </Col>
                     
                     <Col md={6}>
                       <Form.Group className="mb-3">
-                        <Form.Label>Image du matériel</Form.Label>
+                        <Form.Label>Image du {config.singularLower}</Form.Label>
                         <div
                           className="image-upload-zone"
                           onDrop={(e) => handleImageDrop(e, material.id)}
@@ -673,7 +639,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                 className="mb-3"
               >
                 <i className="bi bi-plus-circle me-2"></i>
-                Ajouter un autre matériel
+                Ajouter un autre {config.singularLower}
               </Button>
             </div>
           </div>
@@ -768,7 +734,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
               <Col md={3}>
                 <Form.Group className="mb-3">
                   <Form.Label>État *</Form.Label>
-                  <Form.Select
+                  <CustomSelect
                     value={etat}
                     onChange={(e) => {
                       const newEtat = e.target.value as 'Reçue' | 'En cours';
@@ -780,7 +746,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                   >
                     <option value="En cours">En cours</option>
                     <option value="Reçue">Reçue</option>
-                  </Form.Select>
+                  </CustomSelect>
                 </Form.Group>
               </Col>
               
@@ -811,7 +777,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
               <Card.Body style={{ padding: '1.25rem' }}>
                 <Row>
                   <Col md={6}>
-                    <p><strong>Nombre de matériels:</strong> {materials.filter(m => m.nom.trim()).length}</p>
+                    <p><strong>Nombre de {config.pluralLower}:</strong> {materials.filter(m => m.nom.trim()).length}</p>
                     <p><strong>Fournisseur:</strong> {fournisseur.nom || 'Non renseigné'}</p>
                   </Col>
                   <Col md={6}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Button, Form, InputGroup, Spinner, Alert } from 'react-bootstrap';
 import { Order } from '../types';
 import './Sales.css';
+import CustomSelect from '../components/CustomSelect';
 
 const Sales: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -137,48 +138,56 @@ const Sales: React.FC = () => {
         <Row className="mb-4">
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-cart-check"></i>
                 </div>
-                <h3 className="stat-number">{orders.length}</h3>
-                <p className="stat-label">Total Commandes</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{orders.length}</h3>
+                  <p className="stat-label">Total Commandes</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-currency-dollar"></i>
                 </div>
-                <h3 className="stat-number">{formatPrice(getTotalSales())}</h3>
-                <p className="stat-label">Chiffre d'Affaires</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{new Intl.NumberFormat('fr-MA').format(getTotalSales())}</h3>
+                  <p className="stat-label">Chiffre d'Affaires</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-clock"></i>
                 </div>
-                <h3 className="stat-number">{getOrdersByStatus('pending')}</h3>
-                <p className="stat-label">En Attente</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getOrdersByStatus('pending')}</h3>
+                  <p className="stat-label">En Attente</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
-          
+
           <Col md={3}>
             <Card className="stat-card">
-              <Card.Body className="text-center">
+              <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
                   <i className="bi bi-check-circle"></i>
                 </div>
-                <h3 className="stat-number">{getOrdersByStatus('delivered')}</h3>
-                <p className="stat-label">Livrées</p>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{getOrdersByStatus('delivered')}</h3>
+                  <p className="stat-label">Livrées</p>
+                </div>
               </Card.Body>
             </Card>
           </Col>
@@ -201,7 +210,7 @@ const Sales: React.FC = () => {
           </Col>
           
           <Col md={3}>
-            <Form.Select
+            <CustomSelect
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -211,7 +220,7 @@ const Sales: React.FC = () => {
               <option value="shipped">Expédiée</option>
               <option value="delivered">Livrée</option>
               <option value="cancelled">Annulée</option>
-            </Form.Select>
+            </CustomSelect>
           </Col>
           
           <Col md={3}>
