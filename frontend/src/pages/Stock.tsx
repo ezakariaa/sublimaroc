@@ -4,6 +4,7 @@ import { Product, SubProduct } from '../types';
 import { ProductService, SubProductService } from '../services/apiService';
 import { useAuth } from '../contexts/AuthContext';
 import ImageCarousel from '../components/ImageCarousel';
+import CharacteristicTags from '../components/CharacteristicTags';
 import { toast } from 'react-toastify';
 import './Stock.css';
 
@@ -25,6 +26,8 @@ const Stock: React.FC = () => {
   const [showProductPreviewModal, setShowProductPreviewModal] = useState(false);
   const [productToPreview, setProductToPreview] = useState<Product | null>(null);
   const [showEditSubProductModal, setShowEditSubProductModal] = useState(false);
+  const [showSubProductPreviewModal, setShowSubProductPreviewModal] = useState(false);
+  const [subProductToPreview, setSubProductToPreview] = useState<SubProduct | null>(null);
   const [subProductToEdit, setSubProductToEdit] = useState<SubProduct | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'danger', message: string } | null>(null);
   
@@ -175,6 +178,11 @@ const Stock: React.FC = () => {
   const handleViewProduct = useCallback((product: Product) => {
     setProductToPreview(product);
     setShowProductPreviewModal(true);
+  }, []);
+
+  const handleViewSubProduct = useCallback((subProduct: SubProduct) => {
+    setSubProductToPreview(subProduct);
+    setShowSubProductPreviewModal(true);
   }, []);
 
   const handleEditProduct = useCallback((product: Product) => {
@@ -533,7 +541,7 @@ const Stock: React.FC = () => {
       <Container className="py-4">
         {/* Header */}
         <Row className="mb-4 align-items-center">
-          <Col md={8}>
+          <Col md={12}>
             <h1 className="page-title">
               <i className="bi bi-clipboard-data me-2"></i>
               Gestion du Stock
@@ -541,42 +549,6 @@ const Stock: React.FC = () => {
             <p className="page-subtitle">
               Suivez et gérez l'inventaire de vos produits
             </p>
-          </Col>
-          <Col md={4} className="text-end">
-            <div className="d-flex flex-column align-items-end gap-2">
-              <Button 
-                variant="outline-primary" 
-                size="sm"
-                className="d-flex align-items-center stock-btn-add-product"
-                onClick={() => {
-                  if (!user) {
-                    setAlert({ type: 'danger', message: 'Vous devez être connecté pour ajouter un produit' });
-                    return;
-                  }
-                  setShowAddProductModal(true);
-                }}
-                disabled={!user}
-              >
-                <i className="bi bi-plus-circle me-2"></i>
-                Ajouter un Produit
-              </Button>
-              <Button 
-                variant="outline-primary" 
-                size="sm"
-                className="d-flex align-items-center stock-btn-add-subproduct"
-                onClick={() => {
-                  if (!user) {
-                    setAlert({ type: 'danger', message: 'Vous devez être connecté pour ajouter un sous-produit' });
-                    return;
-                  }
-                  setShowSubProductModal(true);
-                }}
-                disabled={!user}
-              >
-                <i className="bi bi-plus-square me-2"></i>
-                Ajouter un Sous-Produit
-              </Button>
-            </div>
           </Col>
         </Row>
 
@@ -596,8 +568,8 @@ const Stock: React.FC = () => {
         )}
 
         {/* Statistiques */}
-        <Row className="mb-5">
-          <Col md={3}>
+        <Row className="mb-5 gy-3">
+          <Col md={4} lg>
             <Card className="stat-card">
               <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
@@ -611,7 +583,21 @@ const Stock: React.FC = () => {
             </Card>
           </Col>
           
-          <Col md={3}>
+          <Col md={4} lg>
+            <Card className="stat-card">
+              <Card.Body className="stat-card-body d-flex align-items-center">
+                <div className="stat-icon">
+                  <i className="bi bi-boxes"></i>
+                </div>
+                <div className="stat-card-content">
+                  <h3 className="stat-number">{subProducts.length}</h3>
+                  <p className="stat-label">Sous-Produits</p>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+          
+          <Col md={4} lg>
             <Card className="stat-card">
               <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon">
@@ -625,7 +611,7 @@ const Stock: React.FC = () => {
             </Card>
           </Col>
           
-          <Col md={3}>
+          <Col md={4} lg>
             <Card className="stat-card">
               <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon stat-icon-warning">
@@ -639,7 +625,7 @@ const Stock: React.FC = () => {
             </Card>
           </Col>
           
-          <Col md={3}>
+          <Col md={4} lg>
             <Card className="stat-card">
               <Card.Body className="stat-card-body d-flex align-items-center">
                 <div className="stat-icon stat-icon-danger">
@@ -785,169 +771,31 @@ const Stock: React.FC = () => {
                             {/* Caractéristiques - Tags */}
                             <td>
                               <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '100%' }}>
-                                {(() => {
-                                  const tags = [];
-                                  
-                                  // Tag Catégorie
-                                  if (product.categorie) {
-                                    tags.push(
-                                      <span key="categorie" className="badge bg-purple" style={{ fontSize: '0.7rem', backgroundColor: '#6f42c1' }}>
-                                        <i className="bi bi-tag me-1"></i>
-                                        {product.categorie}
-                                      </span>
-                                    );
-                                  }
-
-                                  // Tags Type
-                                  if (Array.isArray(product.type)) {
-                                    product.type.forEach((type, index) => {
-                                      if (type) {
-                                        tags.push(
-                                    <span key={`type-${index}`} className="badge bg-primary" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-box me-1"></i>
-                                      {type}
-                                    </span>
-                                        );
-                                      }
-                                    });
-                                  }
-
-                                  // Tags Anse
-                                  if (Array.isArray(product.anse)) {
-                                    product.anse.forEach((anse, index) => {
-                                      if (anse) {
-                                        tags.push(
-                                    <span key={`anse-${index}`} className="badge bg-info" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-handle me-1"></i>
-                                      {anse}
-                                    </span>
-                                        );
-                                      }
-                                    });
-                                  }
-
-                                  // Tags Dimensions
-                                  if (Array.isArray(product.dimensions)) {
-                                    product.dimensions.forEach((dim, index) => {
-                                      if (dim) {
-                                        tags.push(
-                                    <span key={`dim-${index}`} className="badge bg-success" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-rulers me-1"></i>
-                                      {dim}
-                                    </span>
-                                        );
-                                      }
-                                    });
-                                  }
-
-                                  // Tags Couleurs
-                                  if (Array.isArray(product.couleurs)) {
-                                    product.couleurs.forEach((couleur, index) => {
-                                      if (couleur) {
-                                        tags.push(
-                                    <span key={`couleur-${index}`} className="badge bg-warning" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-palette me-1"></i>
-                                      {couleur}
-                                    </span>
-                                        );
-                                      }
-                                    });
-                                  }
-
-                                  // Tags Matériaux
-                                  if (Array.isArray(product.materiau)) {
-                                    product.materiau.forEach((materiau, index) => {
-                                      if (materiau) {
-                                        tags.push(
-                                    <span key={`materiau-${index}`} className="badge bg-dark" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-gear me-1"></i>
-                                      {materiau}
-                                    </span>
-                                        );
-                                      }
-                                    });
-                                  }
-
-                                  // Tags Capacité
-                                  if (Array.isArray(product.capacite)) {
-                                    product.capacite.forEach((cap, index) => {
-                                      if (cap) {
-                                        tags.push(
-                                    <span key={`cap-${index}`} className="badge bg-secondary" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-cup me-1"></i>
-                                      {cap}
-                                    </span>
-                                        );
-                                      }
-                                    });
-                                  }
-
-                                  // Tags Poids
-                                  if (Array.isArray(product.poids)) {
-                                    product.poids.forEach((poids, index) => {
-                                      if (poids) {
-                                        tags.push(
-                                    <span key={`poids-${index}`} className="badge bg-light text-dark" style={{ fontSize: '0.7rem' }}>
-                                            <i className="bi bi-speedometer2 me-1"></i>
-                                      {poids}
-                                    </span>
-                                        );
-                                      }
-                                    });
-                                  }
-
-                                  // Tag Fournisseur
-                                  if (product.fournisseur && product.fournisseur.nom) {
-                                    tags.push(
-                                      <span key="fournisseur" className="badge bg-indigo" style={{ fontSize: '0.7rem', backgroundColor: '#6610f2' }}>
-                                        <i className="bi bi-building me-1"></i>
-                                        {product.fournisseur.nom}
-                                      </span>
-                                    );
-                                  }
-
-                                  // Tag Ville du Fournisseur
-                                  if (product.fournisseur && product.fournisseur.ville) {
-                                    tags.push(
-                                      <span key="ville" className="badge bg-teal" style={{ fontSize: '0.7rem', backgroundColor: '#20c997' }}>
-                                        <i className="bi bi-geo-alt me-1"></i>
-                                        {product.fournisseur.ville}
-                                      </span>
-                                    );
-                                  }
-
-                                  // Tag Prix
-                                  if (product.prix && product.prix > 0) {
-                                    tags.push(
-                                      <span key="prix" className="badge bg-orange" style={{ fontSize: '0.7rem', backgroundColor: '#fd7e14' }}>
-                                        <i className="bi bi-currency-exchange me-1"></i>
-                                        {product.prix} MAD
-                                      </span>
-                                    );
-                                  }
-
-                                  // Caractéristiques dynamiques (non fixes)
-                                  const fixedKeys = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification', 'type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
-                                  Object.keys(product).forEach(key => {
-                                    if (!fixedKeys.includes(key)) {
-                                      const values = (product as any)[key];
-                                      if (Array.isArray(values) && values.length > 0) {
-                                        values.forEach((val: string, index: number) => {
-                                          if (val) {
-                                            tags.push(
-                                              <span key={`${key}-${index}`} className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#6c757d', color: '#fff' }}>
-                                                <i className="bi bi-tag me-1"></i>
-                                                {val}
-                                              </span>
-                                            );
-                                          }
-                                        });
-                                      }
-                                    }
-                                  });
-
-                                  return tags;
-                                })()}
+                                {product.categorie && (
+                                  <span className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#6f42c1', color: '#ffffff' }}>
+                                    <i className="bi bi-tag me-1"></i>
+                                    {product.categorie}
+                                  </span>
+                                )}
+                                {product.fournisseur?.nom && (
+                                  <span className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#6610f2', color: '#ffffff' }}>
+                                    <i className="bi bi-building me-1"></i>
+                                    {product.fournisseur.nom}
+                                  </span>
+                                )}
+                                {product.fournisseur?.ville && (
+                                  <span className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#20c997', color: '#111111' }}>
+                                    <i className="bi bi-geo-alt me-1"></i>
+                                    {product.fournisseur.ville}
+                                  </span>
+                                )}
+                                {product.prix > 0 && (
+                                  <span className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#fd7e14', color: '#111111' }}>
+                                    <i className="bi bi-currency-exchange me-1"></i>
+                                    {product.prix} MAD
+                                  </span>
+                                )}
+                                <CharacteristicTags source={product} fontSize="0.7rem" />
                               </div>
                             </td>
 
@@ -1115,108 +963,6 @@ const Stock: React.FC = () => {
                           if (variationsArray.length > 0) {
                             return variationsArray.map((variation, varIndex) => {
                               const char = variation.characteristics || {};
-                              const tags = [];
-                              
-                              // Tag Type
-                              if (char.type) {
-                                tags.push(
-                                  <span key={`type`} className="badge bg-primary" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-box me-1"></i>
-                                    {char.type}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Anse
-                              if (char.anse) {
-                                tags.push(
-                                  <span key={`anse`} className="badge bg-info" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-handle me-1"></i>
-                                    {char.anse}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Dimensions
-                              if (char.dimensions) {
-                                tags.push(
-                                  <span key={`dim`} className="badge bg-success" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-rulers me-1"></i>
-                                    {char.dimensions}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Couleurs
-                              if (char.couleurs) {
-                                tags.push(
-                                  <span key={`couleur`} className="badge bg-warning" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-palette me-1"></i>
-                                    {char.couleurs}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Matériaux
-                              if (char.materiau) {
-                                tags.push(
-                                  <span key={`materiau`} className="badge bg-dark" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-gear me-1"></i>
-                                    {char.materiau}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Capacité
-                              if (char.capacite) {
-                                tags.push(
-                                  <span key={`cap`} className="badge bg-secondary" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-cup me-1"></i>
-                                    {char.capacite}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Poids
-                              if (char.poids) {
-                                tags.push(
-                                  <span key={`poids`} className="badge bg-light text-dark" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-speedometer2 me-1"></i>
-                                    {char.poids}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Qualité
-                              if (char.qualite) {
-                                tags.push(
-                                  <span key={`qualite`} className="badge bg-purple" style={{ fontSize: '0.7rem', backgroundColor: '#6f42c1' }}>
-                                    <i className="bi bi-star me-1"></i>
-                                    {char.qualite}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Manches
-                              if (char.manches) {
-                                tags.push(
-                                  <span key={`manches`} className="badge bg-teal" style={{ fontSize: '0.7rem', backgroundColor: '#20c997' }}>
-                                    <i className="bi bi-hand-index me-1"></i>
-                                    {char.manches}
-                                  </span>
-                                );
-                              }
-                              
-                              // Tag Col
-                              if (char.col) {
-                                tags.push(
-                                  <span key={`col`} className="badge bg-indigo" style={{ fontSize: '0.7rem', backgroundColor: '#6610f2' }}>
-                                    <i className="bi bi-shield me-1"></i>
-                                    {char.col}
-                                  </span>
-                                );
-                              }
-                              
                               const variationQuantite = variation.quantite || 0;
                               const variationPrix = variation.prixUnitaire || subProduct.prix;
                               
@@ -1316,11 +1062,12 @@ const Stock: React.FC = () => {
                                   {/* Caractéristiques - Tags de la variation */}
                             <td>
                               <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '100%' }}>
-                                      {tags.length > 0 ? tags : (
+                                      <CharacteristicTags source={char} fontSize="0.7rem" />
+                                      {Object.values(char).every((v) => !v) && (
                                         <span className="text-muted" style={{ fontSize: '0.7rem' }}>
                                           <i className="bi bi-dash-circle me-1"></i>
                                           Aucune caractéristique
-                                    </span>
+                                        </span>
                                       )}
                                     </div>
                                   </td>
@@ -1355,6 +1102,7 @@ const Stock: React.FC = () => {
                                           size="sm"
                                           className="rounded-3"
                                           title="Voir les détails"
+                                          onClick={() => handleViewSubProduct(subProduct)}
                                         >
                                           <i className="bi bi-eye"></i>
                                         </Button>
@@ -1496,6 +1244,7 @@ const Stock: React.FC = () => {
                                   size="sm"
                                   className="rounded-3"
                                   title="Voir les détails"
+                                  onClick={() => handleViewSubProduct(subProduct)}
                                 >
                                   <i className="bi bi-eye"></i>
                                 </Button>
@@ -1672,113 +1421,7 @@ const Stock: React.FC = () => {
                           </span>
                         )}
 
-                        {/* Tags Type */}
-                        {Array.isArray(productToPreview.type) && productToPreview.type.length > 0 && (
-                          <>
-                            {productToPreview.type.map((type, index) => (
-                              <span key={`type-${index}`} className="badge bg-primary">
-                                <i className="bi bi-box me-1"></i>
-                                {type}
-                              </span>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Tags Anse */}
-                        {Array.isArray(productToPreview.anse) && productToPreview.anse.length > 0 && (
-                          <>
-                            {productToPreview.anse.map((anse, index) => (
-                              <span key={`anse-${index}`} className="badge bg-info">
-                                <i className="bi bi-handle me-1"></i>
-                                {anse}
-                              </span>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Tags Dimensions */}
-                        {Array.isArray(productToPreview.dimensions) && productToPreview.dimensions.length > 0 && (
-                          <>
-                            {productToPreview.dimensions.map((dim, index) => (
-                              <span key={`dim-${index}`} className="badge bg-success">
-                                <i className="bi bi-rulers me-1"></i>
-                                {dim}
-                              </span>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Tags Couleurs */}
-                        {Array.isArray(productToPreview.couleurs) && productToPreview.couleurs.length > 0 && (
-                          <>
-                            {productToPreview.couleurs.map((couleur, index) => (
-                              <span key={`couleur-${index}`} className="badge bg-warning">
-                                <i className="bi bi-palette me-1"></i>
-                                {couleur}
-                              </span>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Tags Matériaux */}
-                        {Array.isArray(productToPreview.materiau) && productToPreview.materiau.length > 0 && (
-                          <>
-                            {productToPreview.materiau.map((materiau, index) => (
-                              <span key={`materiau-${index}`} className="badge bg-dark">
-                                <i className="bi bi-gear me-1"></i>
-                                {materiau}
-                              </span>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Tags Capacité */}
-                        {Array.isArray(productToPreview.capacite) && productToPreview.capacite.length > 0 && (
-                          <>
-                            {productToPreview.capacite.map((cap, index) => (
-                              <span key={`cap-${index}`} className="badge bg-secondary">
-                                <i className="bi bi-cup me-1"></i>
-                                {cap}
-                              </span>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Tags Poids */}
-                        {Array.isArray(productToPreview.poids) && productToPreview.poids.length > 0 && (
-                          <>
-                            {productToPreview.poids.map((poids, index) => (
-                              <span key={`poids-${index}`} className="badge bg-light text-dark">
-                                <i className="bi bi-speedometer2 me-1"></i>
-                                {poids}
-                              </span>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Caractéristiques dynamiques (champs non fixes) */}
-                        {(() => {
-                          const fixedKeys = ['id', 'nom', 'description', 'prix', 'image', 'images', 'categorie', 'stock', 'fournisseur', 'dateCreation', 'dateModification', 'type', 'anse', 'couleurs', 'dimensions', 'materiau', 'capacite', 'poids', 'qualite', 'manches', 'col'];
-                          const dynamicTags: React.ReactNode[] = [];
-                          Object.keys(productToPreview).forEach(key => {
-                            if (!fixedKeys.includes(key)) {
-                              const values = (productToPreview as any)[key];
-                              if (Array.isArray(values) && values.length > 0) {
-                                values.forEach((val: string, index: number) => {
-                                  if (val) {
-                                    dynamicTags.push(
-                                      <span key={`${key}-${index}`} className="badge" style={{ backgroundColor: '#6c757d', color: '#fff' }}>
-                                        <i className="bi bi-tag me-1"></i>
-                                        {val}
-                                      </span>
-                                    );
-                                  }
-                                });
-                              }
-                            }
-                          });
-                          return dynamicTags;
-                        })()}
+                        <CharacteristicTags source={productToPreview} fontSize="0.75rem" />
 
                         {/* Tag Fournisseur */}
                         {productToPreview.fournisseur && productToPreview.fournisseur.nom && (
@@ -1835,6 +1478,219 @@ const Stock: React.FC = () => {
             </Modal.Footer>
           </Modal>
         )}
+
+        {/* Aperçu d'un sous-produit */}
+        {showSubProductPreviewModal && subProductToPreview && (() => {
+          const sp = subProductToPreview;
+          const parent = products.find(p => p.id === sp.productId);
+          const gallery = (Array.isArray(sp.images) ? sp.images : [])
+            .filter(img => img && img !== '/placeholder-product.jpg' && img !== '/mug.webp');
+          const mainImage = gallery[0]
+            || (sp.image && sp.image !== '/placeholder-product.jpg' && sp.image !== '/mug.webp' ? sp.image : '');
+          const variations = Array.isArray(sp.variations) ? sp.variations : [];
+
+
+          return (
+            <Modal
+              show={showSubProductPreviewModal}
+              onHide={() => setShowSubProductPreviewModal(false)}
+              size="lg"
+              centered
+            >
+              <Modal.Header closeButton>
+                <Modal.Title>
+                  <i className="bi bi-eye me-2"></i>
+                  Aperçu du Sous-Produit
+                </Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <Row>
+                  {/* Colonne 1: Images */}
+                  <Col md={6}>
+                    <div className="text-center">
+                      <h6 className="mb-3 text-primary">
+                        <i className="bi bi-image me-2"></i>
+                        Images du Sous-Produit
+                      </h6>
+                      {mainImage ? (
+                        <img
+                          src={mainImage}
+                          alt={sp.nom}
+                          className="img-fluid rounded border shadow-sm"
+                          style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/mug.webp';
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="rounded border d-flex align-items-center justify-content-center text-muted"
+                          style={{
+                            width: '100%',
+                            height: '200px',
+                            backgroundColor: '#f8f9fa',
+                            border: '2px dashed #dee2e6'
+                          }}
+                        >
+                          <div className="text-center">
+                            <i className="bi bi-image display-4 mb-2"></i>
+                            <p className="mb-0">Aucune image disponible</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Vignettes des images supplémentaires */}
+                      {gallery.length > 1 && (
+                        <div className="d-flex flex-wrap gap-2 justify-content-center mt-3">
+                          {gallery.slice(1).map((img, index) => (
+                            <img
+                              key={index}
+                              src={img}
+                              alt={`${sp.nom} ${index + 2}`}
+                              className="rounded border"
+                              style={{ width: '60px', height: '60px', objectFit: 'cover' }}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/mug.webp';
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Col>
+
+                  {/* Colonne 2: Détails */}
+                  <Col md={6}>
+                    <div>
+                      <h6 className="mb-3 text-primary">
+                        <i className="bi bi-info-circle me-2"></i>
+                        Détails du Sous-Produit
+                      </h6>
+
+                      <div className="mb-3">
+                        <h5 className="fw-bold text-dark mb-1">{sp.nom}</h5>
+                        <small style={{ color: '#FF33FF' }}>ID: {sp.id}</small>
+                      </div>
+
+                      <div className="mb-3">
+                        <h6 className="text-secondary mb-2">Produit Parent</h6>
+                        <p className="text-muted mb-0">{parent ? parent.nom : sp.productId}</p>
+                      </div>
+
+                      {sp.description && (
+                        <div className="mb-3">
+                          <h6 className="text-secondary mb-2">Description</h6>
+                          <p className="text-muted">{sp.description}</p>
+                        </div>
+                      )}
+
+                      <div className="mb-3">
+                        <h6 className="text-secondary mb-2">Caractéristiques</h6>
+                        <div className="d-flex flex-wrap gap-1">
+                          <CharacteristicTags source={sp} fontSize="0.75rem" showLabel />
+                        </div>
+                      </div>
+
+                      <div className="row">
+                        <div className="col-6">
+                          <h6 className="text-secondary mb-2">Prix</h6>
+                          <div className="fw-bold fs-5 text-dark">{sp.prix} DH</div>
+                        </div>
+                        <div className="col-6">
+                          <h6 className="text-secondary mb-2">Quantité en Stock</h6>
+                          <div className="fw-bold fs-4 text-primary">{sp.stock}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <h6 className="text-secondary mb-2">État du Stock</h6>
+                        <span className={`badge fs-6 ${
+                          sp.stock === 0 ? 'bg-danger' :
+                          sp.stock < 10 ? 'bg-warning' : 'bg-success'
+                        }`}>
+                          {sp.stock === 0 ? 'Rupture' :
+                           sp.stock < 10 ? 'Stock faible' : 'Disponible'}
+                        </span>
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+
+                {/* Variations */}
+                {variations.length > 0 && (
+                  <Row className="mt-4">
+                    <Col md={12}>
+                      <h6 className="mb-3 text-primary">
+                        <i className="bi bi-diagram-3 me-2"></i>
+                        Variations ({variations.length})
+                      </h6>
+                      <div className="table-responsive">
+                        <table className="table table-sm table-bordered align-middle mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th style={{ width: '70px' }}>Image</th>
+                              <th>Caractéristiques</th>
+                              <th style={{ width: '110px' }}>Prix Unitaire</th>
+                              <th style={{ width: '90px' }}>Quantité</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {variations.map((variation, index) => {
+                              const characteristics = Object.entries(variation.characteristics || {})
+                                .filter(([, value]) => value);
+                              return (
+                                <tr key={variation.id || index}>
+                                  <td>
+                                    {variation.image ? (
+                                      <img
+                                        src={variation.image}
+                                        alt={`Variation ${index + 1}`}
+                                        className="rounded border"
+                                        style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.src = '/mug.webp';
+                                        }}
+                                      />
+                                    ) : (
+                                      <span className="text-muted"><i className="bi bi-image"></i></span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    {characteristics.length > 0 ? (
+                                      <div className="d-flex flex-wrap gap-1">
+                                        <CharacteristicTags
+                                          source={variation.characteristics}
+                                          fontSize="0.7rem"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted">Aucune</span>
+                                    )}
+                                  </td>
+                                  <td>{variation.prixUnitaire ?? sp.prix} DH</td>
+                                  <td>{variation.quantite ?? 0}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Col>
+                  </Row>
+                )}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onClick={() => setShowSubProductPreviewModal(false)}>
+                  <i className="bi bi-x-circle me-2"></i>
+                  Fermer
+                </Button>
+              </Modal.Footer>
+            </Modal>
+          );
+        })()}
 
         {/* Modale de confirmation de suppression */}
         <Modal 

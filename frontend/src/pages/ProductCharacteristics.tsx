@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { ProductService } from '../services/apiService';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { getCharacteristicStyle, getCharacteristicIcon } from '../config/characteristics';
 import { LabelService } from '../services/apiService';
 import './ProductCharacteristics.css';
 import CustomSelect from '../components/CustomSelect';
@@ -319,12 +320,11 @@ const ProductCharacteristics: React.FC = () => {
         currentValues
       });
       
-      // Mettre à jour le produit avec null pour supprimer la caractéristique
-      await ProductService.updateProduct(documentId!, {
-        [characteristicType]: null
-      } as any);
+      // Retirer réellement le champ du document de CE produit uniquement.
+      // Écrire null ne supprimerait pas le champ : il réapparaîtrait au rechargement.
+      await ProductService.deleteProductFields(documentId!, [characteristicType]);
       
-      console.log('✅ Caractéristique supprimée dans Firebase (champ supprimé)');
+      console.log('✅ Caractéristique retirée du document Firebase');
 
       // Mettre à jour le state local directement sans recharger
       setProducts(prev => prev.map(p => {
@@ -585,8 +585,9 @@ const ProductCharacteristics: React.FC = () => {
                         {characteristicTypes.map((charType) => {
                           // Vérifier si la caractéristique existe dans le produit
                           const characteristicValue = product[charType.key as keyof Product];
-                          // Si la caractéristique n'existe pas (undefined), ne pas l'afficher
-                          if (characteristicValue === undefined) {
+                          // Absente du produit (undefined), ou laissée à null par
+                          // l'ancienne suppression qui n'effaçait pas le champ.
+                          if (characteristicValue === undefined || characteristicValue === null) {
                             return null;
                           }
                           const values = Array.isArray(characteristicValue) ? characteristicValue : [];
@@ -604,14 +605,21 @@ const ProductCharacteristics: React.FC = () => {
                                     {values.map((value, index) => (
                                       <Badge 
                                         key={index} 
-                                        bg="secondary" 
+                                        bg=""
                                         className="d-flex align-items-center"
-                                        style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem', cursor: 'default', userSelect: 'none' }}
+                                        style={{
+                                          ...getCharacteristicStyle(charType.key),
+                                          fontSize: '0.75rem',
+                                          padding: '0.35rem 0.5rem',
+                                          cursor: 'default',
+                                          userSelect: 'none'
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                       >
+                                        <i className={`bi ${getCharacteristicIcon(charType.key)} me-1`}></i>
                                         <span style={{ marginRight: '0.25rem' }}>{value}</span>
                                         <span
-                                          className="text-white ms-2"
+                                          className="ms-2"
                                           style={{ fontSize: '0.8rem', cursor: 'pointer', lineHeight: '1', display: 'inline-flex', alignItems: 'center' }}
                                           onClick={(e) => {
                                             e.preventDefault();
@@ -625,7 +633,7 @@ const ProductCharacteristics: React.FC = () => {
                                           <i className="bi bi-pencil"></i>
                                         </span>
                                         <span
-                                          className="text-white ms-1"
+                                          className="ms-1"
                                           style={{ fontSize: '0.8rem', cursor: 'pointer', lineHeight: '1', display: 'inline-flex', alignItems: 'center' }}
                                           onClick={(e) => {
                                             e.preventDefault();

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, Form, Button, Row, Col, Card, Badge } from 'react-bootstrap';
 import { Material } from '../../types';
-import { resolveImageUrl } from '../../services/apiService';
+import { resolveImageData, FIRESTORE_IMAGE_TOTAL_BUDGET } from '../../services/apiService';
 import { ACHAT_VARIANTS, AchatVariant } from '../../config/achats';
 import CustomSelect from '../CustomSelect';
 
@@ -331,31 +331,37 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         }
       }
 
-      // Téléverser les images dans Firebase Storage avant de sauvegarder
+      // Convertir les images en base64 avant de sauvegarder.
+      // Un échec de conversion ne bloque pas l'enregistrement, mais il est
+      // signalé à l'utilisateur au lieu d'être remplacé par une image vide.
+      const imageErrors: string[] = [];
+
       const materialsWithBase64 = await Promise.all(
         validMaterials.map(async (material) => {
           let imageUrl = material.image || '';
 
           try {
-            // Aperçu local ou fichier sélectionné → envoi vers Storage.
-            // Les URLs déjà stockées (et les anciennes images base64) sont conservées.
-            imageUrl = await resolveImageUrl(
+            // Aperçu local ou fichier sélectionné → compression puis base64,
+            // stocké directement dans le document Firestore.
+            // Les images déjà enregistrées sont conservées telles quelles.
+            imageUrl = await resolveImageData(
               material.image,
-              material.imageFile,
-              config.imageFolder
+              material.imageFile
             );
             if (imageUrl !== material.image) {
-              console.log(`✅ Image téléversée pour ${material.nom}`);
+              console.log(`✅ Image convertie pour ${material.nom}`);
             }
           } catch (error) {
-            console.error('❌ Erreur lors du téléversement de l\'image:', error);
+            console.error('❌ Erreur lors de la conversion de l\'image:', error);
+            const code = (error as any)?.code || '';
+            imageErrors.push(material.nom + (code ? ' (' + code + ')' : ''));
             imageUrl = '';
           }
 
           return {
             nom: material.nom.trim(),
             description: material.description.trim(),
-            image: imageUrl, // URL Storage, ou valeur existante conservée
+            image: imageUrl, // data URL base64, ou valeur existante conservée
             referenceFournisseur: material.referenceFournisseur.trim(),
             prixUnitaire: material.prixUnitaire,
             quantite: material.quantite,
@@ -363,6 +369,22 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           };
         })
       );
+
+      // Firestore plafonne un document à 1 Mio : on vérifie avant d'écrire,
+      // sinon l'écriture échoue entièrement et l'achat est perdu.
+      const imagesWeight = materialsWithBase64.reduce(
+        (sum: number, m: any) => sum + (m.image ? m.image.length : 0),
+        0
+      );
+      if (imagesWeight > FIRESTORE_IMAGE_TOTAL_BUDGET) {
+        onAlert(
+          'danger',
+          `Les images pèsent ${Math.round(imagesWeight / 1024)} Ko au total, pour ` +
+          `${Math.round(FIRESTORE_IMAGE_TOTAL_BUDGET / 1024)} Ko autorisés dans un document Firestore. ` +
+          `Retirez une image ou choisissez des fichiers plus légers.`
+        );
+        return;
+      }
 
       // Préparer les données pour Firebase
       const achatData = {
@@ -380,6 +402,17 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         etat: etat, // Utiliser la valeur actuelle de l'état
         totalAchat: validMaterials.reduce((sum, material) => sum + material.prixPaye, 0),
         createdAt: new Date().toISOString()
+      };
+
+      const notifySaved = (label: string, total: number) => {
+        if (imageErrors.length > 0) {
+          onAlert(
+            'danger',
+            `${label} (Total: ${total.toFixed(2)} DH), mais ${imageErrors.length} image(s) n'ont pas pu etre televersees : ${imageErrors.join(', ')}. Voir la console pour le detail.`
+          );
+        } else {
+          onAlert('success', `${label} avec succes ! Total: ${total.toFixed(2)} DH`);
+        }
       };
 
       console.log('Données à sauvegarder:', achatData);
@@ -402,13 +435,13 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         console.log('🔄 Mise à jour de l\'achat:', initialAchat.id);
         await config.update(initialAchat.id, achatData);
         console.log('✅ Mise à jour terminée, affichage de l\'alerte...');
-        onAlert('success', `Achat modifié avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
+        notifySaved('Achat modifié', achatData.totalAchat);
       } else {
         // Mode création : créer un nouvel achat
         console.log('🆕 Création d\'un nouvel achat');
         await config.create(achatData);
         console.log('✅ Création terminée, affichage de l\'alerte...');
-        onAlert('success', `Achat enregistré avec succès ! Total: ${achatData.totalAchat.toFixed(2)} DH`);
+        notifySaved('Achat enregistré', achatData.totalAchat);
       }
       
       console.log('🔄 Appel de onMaterialAdded...');

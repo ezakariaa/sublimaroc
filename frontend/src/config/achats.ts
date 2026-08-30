@@ -35,8 +35,6 @@ export interface AchatVariantConfig {
 
   /** Préfixe des références générées : SUB-ACH-… / SUB-CON-… */
   referencePrefix: string;
-  /** Dossier Firebase Storage des images. */
-  imageFolder: string;
 
   // Accès Firestore
   getAll: () => Promise<any[]>;
@@ -60,7 +58,6 @@ export const ACHAT_VARIANTS: Record<AchatVariant, AchatVariantConfig> = {
     loadingLabel: 'Chargement des articles...',
     badgeLabel: 'Matériel',
     referencePrefix: 'SUB-ACH',
-    imageFolder: 'images/materiels',
     getAll: () => AchatService.getAllAchats(),
     create: (data) => AchatService.createAchat(data),
     update: (id, data) => AchatService.updateAchat(id, data),
@@ -81,7 +78,6 @@ export const ACHAT_VARIANTS: Record<AchatVariant, AchatVariantConfig> = {
     loadingLabel: 'Chargement des consommables...',
     badgeLabel: 'Consommable',
     referencePrefix: 'SUB-CON',
-    imageFolder: 'images/consommables',
     getAll: () => ConsommableService.getAllConsommables(),
     create: (data) => ConsommableService.createConsommable(data),
     update: (id, data) => ConsommableService.updateConsommable(id, data),

@@ -17,6 +17,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   query,
   where,
   limit,
@@ -144,6 +145,24 @@ export class ProductService {
     await updateDoc(ref, { ...product, dateModification: new Date() } as DocumentData);
   }
 
+  /**
+   * Retire complètement un ou plusieurs champs du document d'un seul produit.
+   * `updateDoc` avec `null` ne supprimerait pas le champ : il resterait présent
+   * avec la valeur null et réapparaîtrait dans l'interface au rechargement.
+   */
+  static async deleteProductFields(id: string, fields: string[]): Promise<void> {
+    if (fields.length === 0) return;
+
+    const ref = await resolveRef(COL_PRODUITS, id);
+    if (!ref) throw new Error(`Produit introuvable : ${id}`);
+
+    const payload: DocumentData = { dateModification: new Date() };
+    fields.forEach((field) => {
+      payload[field] = deleteField();
+    });
+    await updateDoc(ref, payload);
+  }
+
   /** L'ID métier n'est jamais modifié par l'interface : mise à jour en place. */
   static async updateProductWithIdChange(oldId: string, productData: any): Promise<string> {
     await this.updateProduct(oldId, productData);
@@ -264,6 +283,104 @@ export async function resolveImageUrl(
 ): Promise<string> {
   if (file instanceof File) return uploadImage(file, folder);
   if (image && image.startsWith('blob:')) return uploadBlobUrl(image, folder);
+  return image || '';
+}
+
+// ── Images en base64 (stockées dans le document Firestore) ──
+
+/**
+ * Budget total des images d'un même document, en caractères base64.
+ * Firestore plafonne un document à 1 Mio ; on garde de la marge pour le
+ * reste des champs (fournisseur, dates, lignes d'achat…).
+ */
+export const FIRESTORE_IMAGE_TOTAL_BUDGET = 700 * 1024;
+
+/**
+ * Budget d'une image parmi plusieurs dans un même document (galerie d'un
+ * sous-produit, images de variations…). Plus serré que le budget total pour
+ * qu'une dizaine d'images tiennent dans la limite d'un document Firestore.
+ */
+export const FIRESTORE_IMAGE_ITEM_BUDGET = 120 * 1024;
+
+/** Paliers d'encodage essayés successivement jusqu'à tenir dans le budget. */
+const IMAGE_STEPS = [
+  { maxSize: 800, quality: 0.75 },
+  { maxSize: 600, quality: 0.65 },
+  { maxSize: 400, quality: 0.55 },
+];
+
+/** Charge une image à partir d'un File ou d'une URL (blob:, data:, http). */
+function loadImageElement(source: File | string): Promise<HTMLImageElement> {
+  const url = typeof source === 'string' ? source : URL.createObjectURL(source);
+  const isTemporary = typeof source !== 'string';
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      if (isTemporary) URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      if (isTemporary) URL.revokeObjectURL(url);
+      reject(new Error("Image illisible ou format non supporté"));
+    };
+    img.src = url;
+  });
+}
+
+/** Redessine l'image sur un canvas, réduite pour tenir dans `maxSize`. */
+function drawScaled(img: HTMLImageElement, maxSize: number): HTMLCanvasElement {
+  const ratio = Math.min(1, maxSize / Math.max(img.width, img.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.width * ratio));
+  canvas.height = Math.max(1, Math.round(img.height * ratio));
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas indisponible dans ce navigateur');
+
+  // Fond blanc : les PNG transparents restent lisibles après conversion JPEG.
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+/**
+ * Convertit une image en data URL compressée, prête à être écrite
+ * directement dans un document Firestore. Réduit progressivement la
+ * définition et la qualité jusqu'à tenir dans le budget.
+ */
+export async function imageToDataUrl(
+  source: File | string,
+  budget = FIRESTORE_IMAGE_TOTAL_BUDGET
+): Promise<string> {
+  const img = await loadImageElement(source);
+  let smallest = '';
+
+  for (const step of IMAGE_STEPS) {
+    const dataUrl = drawScaled(img, step.maxSize).toDataURL('image/jpeg', step.quality);
+    if (dataUrl.length <= budget) return dataUrl;
+    smallest = dataUrl;
+  }
+
+  throw new Error(
+    `Image trop lourde même après compression (${Math.round(smallest.length / 1024)} Ko). ` +
+    `Utilisez un fichier plus léger.`
+  );
+}
+
+/**
+ * Équivalent de `resolveImageUrl`, mais sans Storage : les nouveaux fichiers
+ * et les aperçus locaux sont encodés en base64 ; les valeurs déjà
+ * enregistrées (URL Storage historique ou data URL) sont conservées telles quelles.
+ */
+export async function resolveImageData(
+  image: string | undefined,
+  file?: File | null,
+  budget = FIRESTORE_IMAGE_TOTAL_BUDGET
+): Promise<string> {
+  if (file instanceof File) return imageToDataUrl(file, budget);
+  if (image && image.startsWith('blob:')) return imageToDataUrl(image, budget);
   return image || '';
 }
 

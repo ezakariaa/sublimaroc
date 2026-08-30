@@ -4,7 +4,12 @@ import { Product, SubProduct } from '../../types';
 import { SubProductService, ProductService } from '../../services/apiService';
 import { useAuth } from '../../contexts/AuthContext';
 import CustomSelect from '../CustomSelect';
-import { LabelService, uploadImage } from '../../services/apiService';
+import {
+  LabelService,
+  imageToDataUrl,
+  FIRESTORE_IMAGE_ITEM_BUDGET,
+  FIRESTORE_IMAGE_TOTAL_BUDGET,
+} from '../../services/apiService';
 
 interface Variation {
   id: string;
@@ -716,9 +721,9 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
         return;
       }
 
-      // Téléverser dans Firebase Storage
+      // Compression puis base64, stocké dans le document Firestore
       try {
-        const storageUrl = await uploadImage(file, 'images/variations');
+        const storageUrl = await imageToDataUrl(file, FIRESTORE_IMAGE_ITEM_BUDGET);
 
         // Mettre à jour la variation avec l'image
         const updatedVariation = variations.find(v => v.id === variationId);
@@ -731,8 +736,8 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
           onAlert('success', 'Image ajoutée avec succès');
         }
       } catch (error) {
-        console.error('❌ Erreur lors du téléversement de l\'image:', error);
-        onAlert('danger', 'Erreur lors du téléversement de l\'image');
+        console.error('❌ Erreur lors de la conversion de l\'image:', error);
+        onAlert('danger', (error as Error)?.message || 'Erreur lors de la conversion de l\'image');
       }
     }
     // Réinitialiser l'input pour permettre la sélection du même fichier
@@ -782,27 +787,39 @@ const AddSubProductModal: React.FC<AddSubProductModalProps> = ({
     }
 
     try {
-      // Gestion des images multiples (Firebase Storage)
+      // Gestion des images multiples (base64 dans le document Firestore)
       let imageUrls: string[] = [];
       let mainImageUrl = '/mug.webp';
 
       // Téléverser les fichiers sélectionnés
       if (newSubProduct.imageFiles.length > 0) {
-        console.log(`🔄 Téléversement de ${newSubProduct.imageFiles.length} image(s)...`);
+        console.log(`🔄 Conversion de ${newSubProduct.imageFiles.length} image(s)...`);
 
         try {
           imageUrls = await Promise.all(
-            newSubProduct.imageFiles.map(file => uploadImage(file, 'images/sous-produits'))
+            newSubProduct.imageFiles.map(file => imageToDataUrl(file, FIRESTORE_IMAGE_ITEM_BUDGET))
           );
-          console.log(`✅ ${imageUrls.length} image(s) téléversée(s)`);
+          console.log(`✅ ${imageUrls.length} image(s) converties`);
+
+          // Firestore plafonne un document à 1 Mio : vérifier avant d'écrire.
+          const imagesWeight = imageUrls.reduce((sum, url) => sum + url.length, 0);
+          if (imagesWeight > FIRESTORE_IMAGE_TOTAL_BUDGET) {
+            onAlert(
+              'danger',
+              `Les images pèsent ${Math.round(imagesWeight / 1024)} Ko au total, pour ` +
+              `${Math.round(FIRESTORE_IMAGE_TOTAL_BUDGET / 1024)} Ko autorisés dans un document Firestore. ` +
+              `Retirez une image ou choisissez des fichiers plus légers.`
+            );
+            return;
+          }
 
           // La première image devient l'image principale
           if (imageUrls.length > 0) {
             mainImageUrl = imageUrls[0];
           }
         } catch (conversionError) {
-          console.error('❌ Erreur lors du téléversement des images:', conversionError);
-          onAlert('danger', 'Erreur lors du téléversement des images');
+          console.error('❌ Erreur lors de la conversion des images:', conversionError);
+          onAlert('danger', (conversionError as Error)?.message || 'Erreur lors de la conversion des images');
           return;
         }
       }
