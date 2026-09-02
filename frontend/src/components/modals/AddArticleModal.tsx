@@ -1,6 +1,12 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Modal, Form, Button, Row, Col, Card, Badge, Table } from 'react-bootstrap';
-import { SubProductService, ProductService, ArticleService, uploadImage } from '../../services/apiService';
+import {
+  SubProductService,
+  ProductService,
+  ArticleService,
+  imageToDataUrl,
+  FIRESTORE_IMAGE_ITEM_BUDGET,
+} from '../../services/apiService';
 import { SubProduct, Product } from '../../types';
 import CustomSelect from '../CustomSelect';
 
@@ -86,6 +92,8 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
 
   // États pour la gestion des données
   const [products, setProducts] = useState<Product[]>([]);
+  /** Sous-produits proposés dans la liste « Catégorie d'Article ». */
+  const [allSubProducts, setAllSubProducts] = useState<SubProduct[]>([]);
   const [selectedProductSubProducts, setSelectedProductSubProducts] = useState<SubProduct[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
@@ -118,10 +126,15 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     const loadProducts = async () => {
       try {
         setLoading(true);
-        console.log('🔄 Chargement des produits...');
-        const productsData = await ProductService.getAllProducts();
+        console.log('🔄 Chargement des produits et sous-produits...');
+        const [productsData, subProductsData] = await Promise.all([
+          ProductService.getAllProducts(),
+          SubProductService.getAllSubProducts(),
+        ]);
         console.log('✅ Produits chargés:', productsData.length);
+        console.log('✅ Sous-produits chargés:', subProductsData.length);
         setProducts(productsData);
+        setAllSubProducts(subProductsData);
       } catch (error) {
         console.error('❌ Erreur lors du chargement des produits:', error);
         if (onAlert) {
@@ -137,18 +150,32 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     }
   }, [show, onAlert]);
   
+  /**
+   * Article déjà initialisé dans le formulaire.
+   *
+   * Sans ce garde-fou, l'effet ci-dessous — qui dépend de
+   * `categorieArticle` — réécrivait la valeur d'origine dès qu'elle
+   * changeait : toute sélection de l'utilisateur était instantanément
+   * annulée et la liste paraissait bloquée en mode édition.
+   */
+  const initialisedArticleRef = useRef<string | null>(null);
+
   // Définir la catégorie en mode édition une fois que les produits sont chargés
   useEffect(() => {
-    if (show && isEditMode && initialArticle && initialArticle.categorieArticle && products.length > 0) {
-      // Vérifier si la catégorie n'est pas déjà définie ou si elle ne correspond pas à l'article initial
-      if (categorieArticle !== initialArticle.categorieArticle) {
-        console.log('📝 Définition de la catégorie en mode édition:', initialArticle.categorieArticle);
-        setCategorieArticle(initialArticle.categorieArticle);
-        // Mettre à jour previousCategorieArticle pour éviter la réinitialisation des tags
-        setPreviousCategorieArticle(initialArticle.categorieArticle);
-      }
+    if (!show) {
+      initialisedArticleRef.current = null;
+      return;
     }
-  }, [show, isEditMode, initialArticle, products.length, categorieArticle]);
+
+    if (isEditMode && initialArticle && initialArticle.categorieArticle && products.length > 0) {
+      if (initialisedArticleRef.current === initialArticle.id) return;
+      initialisedArticleRef.current = initialArticle.id;
+      console.log('📝 Définition de la catégorie en mode édition:', initialArticle.categorieArticle);
+      setCategorieArticle(initialArticle.categorieArticle);
+      // Aligner previousCategorieArticle pour ne pas réinitialiser les tags
+      setPreviousCategorieArticle(initialArticle.categorieArticle);
+    }
+  }, [show, isEditMode, initialArticle, products.length]);
 
   // Charger les sous-produits et le produit sélectionné quand un produit est sélectionné
   useEffect(() => {
@@ -176,31 +203,32 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
       }
 
       try {
-        // Trouver le produit sélectionné
-        const product = products.find(p => p.id === categorieArticle);
-        if (product) {
-          console.log('📦 Produit sélectionné trouvé:', product.nom);
-          setSelectedProduct(product);
-        } else {
-          console.log('⚠️ Produit sélectionné non trouvé dans la liste');
-          setSelectedProduct(null);
-        }
+        // La valeur désigne un sous-produit. Les articles enregistrés avant ce
+        // changement portent un ID de produit : on retombe alors sur l'ancien
+        // comportement pour ne pas vider leur sélection.
+        const subProduct = allSubProducts.find(sp => sp.id === categorieArticle);
 
-        console.log('🔄 Chargement des sous-produits pour le produit:', categorieArticle);
-        const subProducts = await SubProductService.getSubProductsByProductId(categorieArticle);
-        console.log('✅ Sous-produits chargés:', subProducts.length);
-        console.log('📋 Détails des sous-produits:', subProducts.map(sp => ({
-          id: sp.id,
-          nom: sp.nom,
-          type: sp.type,
-          anse: sp.anse,
-          couleurs: sp.couleurs,
-          dimensions: sp.dimensions,
-          materiau: sp.materiau,
-          capacite: sp.capacite,
-          poids: sp.poids
-        })));
-        setSelectedProductSubProducts(subProducts);
+        if (subProduct) {
+          console.log('📦 Sous-produit sélectionné:', subProduct.nom);
+          setSelectedProductSubProducts([subProduct]);
+
+          // Le produit parent reste chargé : ses caractéristiques s'ajoutent
+          // à celles du sous-produit dans la liste des tags proposés.
+          const parent = products.find(p => p.id === subProduct.productId) || null;
+          setSelectedProduct(parent);
+        } else {
+          const product = products.find(p => p.id === categorieArticle);
+          if (product) {
+            console.log('📦 Valeur héritée : produit', product.nom);
+            setSelectedProduct(product);
+            const subProducts = await SubProductService.getSubProductsByProductId(categorieArticle);
+            setSelectedProductSubProducts(subProducts);
+          } else {
+            console.log('⚠️ Sélection introuvable dans les listes chargées');
+            setSelectedProduct(null);
+            setSelectedProductSubProducts([]);
+          }
+        }
         
         // Ne réinitialiser les tags sélectionnés QUE si on change vraiment de catégorie (pas au premier chargement)
         const isCategoryChange = previousCategorieArticle !== '' && previousCategorieArticle !== categorieArticle;
@@ -244,7 +272,24 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
     };
 
     loadSubProductsForProduct();
-  }, [categorieArticle, show, products, isEditMode, initialArticle]);
+  }, [categorieArticle, show, products, allSubProducts, isEditMode, initialArticle]);
+
+  /**
+   * Quantité totale issue des variations.
+   * Null tant qu'aucune variation n'existe : la quantité reste alors saisie
+   * à la main.
+   */
+  const quantiteDesVariations =
+    variations.length > 0
+      ? variations.reduce((sum, variation) => sum + (Number(variation.quantite) || 0), 0)
+      : null;
+
+  // Dès qu'il y a des variations, la quantité de l'article en est la somme
+  useEffect(() => {
+    if (quantiteDesVariations !== null && quantiteDesVariations !== quantite) {
+      setQuantite(quantiteDesVariations);
+    }
+  }, [quantiteDesVariations, quantite]);
 
   // Calculer automatiquement le prix à payer
   useEffect(() => {
@@ -592,13 +637,13 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
       let imageBase64 = '';
       if (imageFile) {
         try {
-          console.log('🖼️ Téléversement de l\'image vers Storage...');
-          imageBase64 = await uploadImage(imageFile, 'images/articles');
-          console.log('✅ Image téléversée:', imageBase64);
+          console.log('🖼️ Conversion de l\'image...');
+          imageBase64 = await imageToDataUrl(imageFile, FIRESTORE_IMAGE_ITEM_BUDGET);
+          console.log('✅ Image convertie:', imageBase64.length, 'caractères');
         } catch (error) {
-          console.error('❌ Erreur lors du téléversement de l\'image:', error);
+          console.error('❌ Erreur lors de la conversion de l\'image:', error);
           if (onAlert) {
-            onAlert('danger', 'Erreur lors du téléversement de l\'image');
+            onAlert('danger', (error as Error)?.message || 'Erreur lors de la conversion de l\'image');
           }
           return;
         }
@@ -626,9 +671,14 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
           capacite: Array.from(selectedTags.capacite),
           poids: Array.from(selectedTags.poids)
         },
-        // Ajouter les variations si elles existent
-        variations: variations.length > 0 ? variations : undefined
       };
+
+      // Firestore rejette toute valeur `undefined` : sans variation, le champ
+      // ne doit pas être posé du tout, sinon l'écriture entière échoue et
+      // rien n'est enregistré — ni les caractéristiques, ni le reste.
+      if (variations.length > 0) {
+        articleData.variations = variations;
+      }
 
       // Ajouter l'image seulement si elle existe (nouvelle ou existante)
       if (imageBase64) {
@@ -678,11 +728,12 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
   }, [nomArticle, categorieArticle, prixUnitaire, quantite, referenceArticle, imageFile, petiteDescription, description, prixAPayer, selectedTags, variations, isEditMode, initialArticle, onAlert, onArticleAdded, onHide]);
 
   return (
-    <Modal 
-      show={show} 
+    <Modal
+      show={show}
       onHide={onHide}
-      size="lg"
+      size="xl"
       centered
+      className="form-modal"
     >
         <Modal.Header closeButton>
           <Modal.Title>
@@ -693,19 +744,15 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
       <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto' }}>
         <Form>
           {/* Référence Article */}
-            <div className="mb-4">
-              <Card className="bg-primary text-white">
-              <Card.Body style={{ paddingTop: '0.75rem', paddingBottom: '0.75rem', paddingLeft: '1.5rem', paddingRight: '1.5rem' }}>
-                  <div className="d-flex align-items-center">
-                  <i className="bi bi-tag-fill me-3" style={{ fontSize: '2rem' }}></i>
-                    <div>
-                    <h6 className="mb-1">Référence d'Article</h6>
-                    <h4 className="mb-0 font-monospace">{referenceArticle}</h4>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
+          <div className="preview-ref">
+            <div>
+              <span className="preview-ref-label">
+                <i className="bi bi-tag-fill me-1"></i>
+                Référence d'article
+              </span>
+              <p className="preview-ref-value">{referenceArticle}</p>
             </div>
+          </div>
 
           {/* Section 2: Informations Article */}
           <div className="mb-4">
@@ -736,16 +783,29 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                     required
                     disabled={loading}
                   >
-                    <option value="">Sélectionner une catégorie...</option>
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.nom || 'Sans nom'} ({product.id})
-                      </option>
-                    ))}
+                    <option value="">Sélectionner un sous-produit...</option>
+                    {allSubProducts.map((subProduct) => {
+                      const parent = products.find((p) => p.id === subProduct.productId);
+                      return (
+                        <option key={subProduct.id} value={subProduct.id}>
+                          {subProduct.nom || 'Sans nom'}
+                          {parent ? ` — ${parent.nom}` : ''}
+                        </option>
+                      );
+                    })}
+                    {/* Article enregistré avant ce changement : la valeur
+                        pointe un produit et doit rester sélectionnée. */}
+                    {categorieArticle &&
+                      !allSubProducts.some((sp) => sp.id === categorieArticle) && (
+                        <option value={categorieArticle}>
+                          {products.find((p) => p.id === categorieArticle)?.nom || categorieArticle}
+                          {' (ancienne sélection)'}
+                        </option>
+                      )}
                   </CustomSelect>
                   {loading && (
                     <Form.Text className="text-muted">
-                      Chargement des catégories...
+                      Chargement des sous-produits...
                     </Form.Text>
                   )}
                       </Form.Group>
@@ -1445,7 +1505,15 @@ const AddArticleModal: React.FC<AddArticleModalProps> = ({
                     onChange={(e) => setQuantite(parseInt(e.target.value) || 1)}
                           placeholder="1"
                     required
+                    readOnly={quantiteDesVariations !== null}
+                    className={quantiteDesVariations !== null ? 'bg-light' : undefined}
                   />
+                  {quantiteDesVariations !== null && (
+                    <Form.Text className="text-muted">
+                      Somme des {variations.length} variation
+                      {variations.length > 1 ? 's' : ''}
+                    </Form.Text>
+                  )}
                 </Form.Group>
               </Col>
               

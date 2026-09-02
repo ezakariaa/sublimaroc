@@ -114,3 +114,56 @@ export interface Order {
 
 
 
+
+/** Statuts d'une vente. Les clés restent celles déjà utilisées par la page. */
+export type VenteStatut = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+
+/** Client d'une vente, tel qu'il apparaît sur la facture. */
+export interface VenteClient {
+  nom: string;
+  telephone: string;
+  email: string;
+  adresse: string;
+  ville: string;
+}
+
+/** Nature de l'enregistrement d'où provient une ligne de vente. */
+export type VenteSourceType = 'sousproduit' | 'article';
+
+/** Ligne de facture. La désignation est figée à la vente : elle ne doit pas
+ *  changer si le sous-produit ou l'article est renommé plus tard. */
+export interface VenteLigne {
+  /** Origine de la ligne ; absent pour une saisie libre. */
+  sourceType?: VenteSourceType;
+  /** Identifiant du sous-produit ou de l'article choisi. */
+  sourceId?: string;
+  designation: string;
+  quantite: number;
+  prixUnitaire: number;
+  total: number;
+}
+
+/** Article du catalogue, tel que stocké dans la collection « Articles ». */
+export interface CatalogueArticle {
+  id: string;
+  referenceArticle: string;
+  nom: string;
+  categorieArticle?: string;
+  image?: string;
+  prixUnitaire: number;
+  quantite?: number;
+}
+
+/** Vente enregistrée dans la collection Firestore « Ventes ». */
+export interface Vente {
+  id: string;
+  referenceVente: string;
+  client: VenteClient;
+  produits: VenteLigne[];
+  total: number;
+  statut: VenteStatut;
+  dateVente: Date;
+  notes?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}

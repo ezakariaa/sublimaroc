@@ -48,11 +48,30 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    match /Ventes/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /AutresDepenses/{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
     // Profils : chacun ne lit que le sien. Les rôles se modifient
     // depuis la console Firebase, jamais depuis le client.
     match /users/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow write: if false;
+      // Lecture ouverte aux comptes connectés : la page Achats affiche la
+      // photo de profil de chaque acheteur. Un profil ne contient que nom,
+      // rôle et photo — aucune donnée secrète.
+      allow read: if isSignedIn();
+
+      // Chacun peut poser sa propre photo de profil, et rien d'autre :
+      // le rôle reste hors de portée du client, comme auparavant.
+      allow create: if isSignedIn() && request.auth.uid == userId
+                    && request.resource.data.keys().hasOnly(['photoURL']);
+      allow update: if isSignedIn() && request.auth.uid == userId
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['photoURL']);
+      allow delete: if false;
     }
 
     // Tout le reste est refusé

@@ -1,12 +1,17 @@
 /**
  * SUBLIMAROC - Tags de caractéristiques
  *
- * Rend les valeurs de caractéristiques d'un produit, d'un sous-produit ou
- * d'une variation, chacune dans la couleur de sa caractéristique
- * (voir `config/characteristics.ts`).
+ * Rend les valeurs de caractéristiques d'un produit, d'un sous-produit,
+ * d'un article ou d'une variation, chacune dans la couleur de sa
+ * caractéristique (voir `config/characteristics.ts`).
  *
- * Un seul composant pour tous les emplacements (tableaux et aperçus), afin
- * qu'une même caractéristique ait partout exactement la même couleur.
+ * Deux présentations :
+ *  - par défaut, une suite de tags (tableaux, cellules denses) ;
+ *  - `grouped`, une ligne par caractéristique : « Épaisseur : » en texte,
+ *    puis ses valeurs en tags (fiches et aperçus).
+ *
+ * Un seul composant pour tous les emplacements, afin qu'une même
+ * caractéristique ait partout exactement la même couleur.
  */
 
 import React from 'react';
@@ -14,7 +19,9 @@ import {
   BASE_CHARACTERISTIC_TYPES,
   getCharacteristicStyle,
   getCharacteristicIcon,
+  getCharacteristicColor,
 } from '../config/characteristics';
+import './CharacteristicTags.css';
 
 /** Champs d'un produit qui ne sont pas des caractéristiques. */
 const NON_CHARACTERISTIC_FIELDS = [
@@ -25,15 +32,17 @@ const NON_CHARACTERISTIC_FIELDS = [
 
 interface CharacteristicTagsProps {
   /**
-   * Produit, sous-produit, ou objet `characteristics` d'une variation.
+   * Produit, sous-produit, article, ou objet `characteristics` d'une variation.
    * Les valeurs peuvent être des tableaux (produits) ou des chaînes
    * (variations) : les deux formes sont acceptées.
    */
   source: Record<string, any> | null | undefined;
   /** Taille de police des tags. */
   fontSize?: string;
-  /** Préfixe chaque valeur du nom de sa caractéristique (« Couleurs: Rouge »). */
-  showLabel?: boolean;
+  /** Une ligne par caractéristique : nom en texte, valeurs en tags. */
+  grouped?: boolean;
+  /** Variante resserrée du mode groupé, pour les cellules de tableau. */
+  compact?: boolean;
   /** Masque les icônes, pour les contextes très denses. */
   hideIcons?: boolean;
 }
@@ -46,10 +55,17 @@ function toValues(raw: any): string[] {
   return [String(raw)];
 }
 
+interface Group {
+  key: string;
+  label: string;
+  values: string[];
+}
+
 const CharacteristicTags: React.FC<CharacteristicTagsProps> = ({
   source,
   fontSize = '0.7rem',
-  showLabel = false,
+  grouped = false,
+  compact = false,
   hideIcons = false,
 }) => {
   if (!source) return null;
@@ -61,32 +77,73 @@ const CharacteristicTags: React.FC<CharacteristicTagsProps> = ({
     (key) => !baseKeys.includes(key) && !NON_CHARACTERISTIC_FIELDS.includes(key)
   );
 
-  const tags: React.ReactNode[] = [];
+  const groups: Group[] = [
+    ...BASE_CHARACTERISTIC_TYPES,
+    ...customKeys.map((key) => ({ key, label: key })),
+  ]
+    .map((charType) => ({
+      key: charType.key,
+      label: charType.label,
+      values: toValues(source[charType.key]),
+    }))
+    .filter((group) => group.values.length > 0);
 
-  [...BASE_CHARACTERISTIC_TYPES, ...customKeys.map((key) => ({ key, label: key }))].forEach(
-    (charType) => {
-      const values = toValues(source[charType.key]);
-      if (values.length === 0) return;
+  if (groups.length === 0) return null;
 
-      values.forEach((value, index) => {
-        tags.push(
-          <span
-            key={`${charType.key}-${index}`}
-            className="badge"
-            title={`${charType.label} : ${value}`}
-            style={{ ...getCharacteristicStyle(charType.key), fontSize }}
-          >
-            {!hideIcons && <i className={`bi ${getCharacteristicIcon(charType.key)} me-1`}></i>}
-            {showLabel ? `${charType.label} : ${value}` : value}
-          </span>
-        );
-      });
-    }
+  const valueTag = (key: string, value: string, index: number) => (
+    <span
+      key={`${key}-${index}`}
+      className="badge char-tag"
+      style={{ ...getCharacteristicStyle(key), fontSize }}
+    >
+      {value}
+    </span>
   );
 
-  if (tags.length === 0) return null;
+  // Une ligne par caractéristique : « Nom : » puis les valeurs
+  if (grouped) {
+    return (
+      <div className={`char-groups${compact ? ' char-groups--compact' : ''}`}>
+        {groups.map((group) => (
+          <div className="char-group" key={group.key}>
+            <span className="char-group-label">
+              {!hideIcons && (
+                <i
+                  className={`bi ${getCharacteristicIcon(group.key)} me-1`}
+                  style={{ color: getCharacteristicColor(group.key) }}
+                ></i>
+              )}
+              {group.label} :
+            </span>
+            <span className="char-group-values">
+              {group.values.map((value, index) => valueTag(group.key, value, index))}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
-  return <>{tags}</>;
+  // Suite de tags, pour les cellules de tableau
+  return (
+    <>
+      {groups.map((group) =>
+        group.values.map((value, index) => (
+          <span
+            key={`${group.key}-${index}`}
+            className="badge char-tag"
+            title={`${group.label} : ${value}`}
+            style={{ ...getCharacteristicStyle(group.key), fontSize }}
+          >
+            {!hideIcons && (
+              <i className={`bi ${getCharacteristicIcon(group.key)} me-1`}></i>
+            )}
+            {value}
+          </span>
+        ))
+      )}
+    </>
+  );
 };
 
 export default CharacteristicTags;

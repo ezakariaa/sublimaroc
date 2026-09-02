@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Modal, Form, Button, Row, Col, Card, Badge } from 'react-bootstrap';
 import { Material } from '../../types';
 import { resolveImageData, FIRESTORE_IMAGE_TOTAL_BUDGET } from '../../services/apiService';
-import { ACHAT_VARIANTS, AchatVariant } from '../../config/achats';
+import { ACHAT_VARIANTS, AchatVariant, ACHETEURS } from '../../config/achats';
 import CustomSelect from '../CustomSelect';
 
 interface MaterialItem {
@@ -37,6 +37,7 @@ interface MaterialAchat {
 interface Achat {
   id: string;
   referenceAchat: string;
+  achetePar?: string;
   fournisseur: Fournisseur;
   materials: MaterialAchat[];
   dateAchat: Date;
@@ -105,6 +106,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   const [dateCommande, setDateCommande] = useState<Date>(new Date());
   const [dateLivraison, setDateLivraison] = useState<Date>(new Date());
   const [etat, setEtat] = useState<'Reçue' | 'En cours'>('En cours');
+  const [achetePar, setAchetePar] = useState<string>('');
 
   // Initialiser les données en mode édition
   useEffect(() => {
@@ -121,6 +123,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       setDateCommande(isNaN(commandeDate.getTime()) ? new Date() : commandeDate);
       setDateLivraison(isNaN(livraisonDate.getTime()) ? new Date() : livraisonDate);
       setEtat(initialAchat.etat || 'En cours');
+      setAchetePar(initialAchat.achetePar || '');
       
       // Initialiser les matériels
       const formattedMaterials: MaterialItem[] = initialAchat.materials.map((material, index) => ({
@@ -183,6 +186,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       setDateCommande(new Date());
       setDateLivraison(new Date());
       setEtat('En cours');
+      setAchetePar('');
     }
   }, [show, isEditMode]);
 
@@ -400,6 +404,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         dateCommande: isNaN(dateCommande.getTime()) ? new Date() : dateCommande,
         dateLivraison: isNaN(dateLivraison.getTime()) ? new Date() : dateLivraison,
         etat: etat, // Utiliser la valeur actuelle de l'état
+        achetePar: achetePar.trim(),
         totalAchat: validMaterials.reduce((sum, material) => sum + material.prixPaye, 0),
         createdAt: new Date().toISOString()
       };
@@ -455,7 +460,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'enregistrement de l\'achat';
       onAlert('danger', errorMessage);
     }
-  }, [materials, fournisseur, onAlert, onMaterialAdded, onHide, referenceAchat, isEditMode, initialAchat, dateCommande, dateLivraison, etat, config]);
+  }, [materials, fournisseur, onAlert, onMaterialAdded, onHide, referenceAchat, isEditMode, initialAchat, dateCommande, dateLivraison, etat, achetePar, config]);
 
   return (
     <Modal 
@@ -732,11 +737,40 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             </Row>
           </div>
 
-          {/* Section 3: Dates */}
+          {/* Section 3: Acheteur */}
+          <div className="mb-4">
+            <h5 className="text-primary mb-3">
+              <i className="bi bi-person-check me-2"></i>
+              Section 3: Acheté par
+            </h5>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Acheté par</Form.Label>
+                  <CustomSelect
+                    value={achetePar}
+                    onChange={(e) => setAchetePar(e.target.value)}
+                  >
+                    <option value="">Non renseigné</option>
+                    {ACHETEURS.map((personne) => (
+                      <option key={personne} value={personne}>{personne}</option>
+                    ))}
+                    {/* Acheteur enregistré hors de la liste : conservé */}
+                    {achetePar && !ACHETEURS.includes(achetePar) && (
+                      <option value={achetePar}>{achetePar}</option>
+                    )}
+                  </CustomSelect>
+                </Form.Group>
+              </Col>
+            </Row>
+          </div>
+
+          {/* Section 4: Dates */}
           <div className="mb-4">
             <h5 className="text-primary mb-3">
               <i className="bi bi-calendar-event me-2"></i>
-              Section 3: Dates et État
+              Section 4: Dates et État
             </h5>
             
             <Row>

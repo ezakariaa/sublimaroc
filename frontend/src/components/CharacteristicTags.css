@@ -1,0 +1,118 @@
+/* ────────────────────────────────────────────────────────
+   SUBLIMAROC - Tags de caractéristiques
+
+   Mode groupé : le nom de la caractéristique est en texte,
+   suivi de « : », puis ses valeurs en tags colorés.
+   Tout est aligné à gauche et l'interligne est resserré,
+   pour que la liste tienne dans le moins de hauteur possible.
+   ──────────────────────────────────────────────────────── */
+
+.char-groups {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.char-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.12rem 0;
+}
+
+.char-group + .char-group {
+  border-top: 1px dashed #f1f3f5;
+}
+
+/* Colonne des noms : largeur fixe pour que les tags démarrent tous
+   sur la même verticale, mais texte aligné à gauche. */
+.char-group-label {
+  flex: 0 0 auto;
+  min-width: 118px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #495057;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.char-group-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.char-tag {
+  font-weight: 500;
+  padding: 0.28em 0.55em;
+  line-height: 1.25;
+}
+
+/* Sous 576 px, le nom passe au-dessus de ses valeurs */
+@media (max-width: 575.98px) {
+  .char-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.25rem 0;
+  }
+
+  .char-group-label {
+    min-width: 0;
+  }
+}
+
+/* ── Variante compacte : cellules de tableau ─────────────
+   Même mise en colonnes, mais colonne de noms plus étroite
+   et typographie réduite, pour ne pas gonfler les lignes. */
+.char-groups--compact .char-group {
+  gap: 0.3rem;
+  padding: 0;
+  align-items: center;
+}
+
+.char-groups--compact .char-group-label {
+  min-width: 74px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.char-groups--compact .char-group-values {
+  gap: 0.2rem;
+}
+
+.char-groups--compact .char-tag {
+  padding: 0.14em 0.42em;
+  /* Interligne serré : c'est lui qui déterminait la hauteur de chaque ligne */
+  line-height: 1.05;
+}
+
+/* Le libellé ne doit pas être plus haut que son tag */
+.char-groups--compact .char-group-label {
+  line-height: 1.05;
+}
+
+/* Un tag qui passe à la ligne reste collé au précédent */
+.char-groups--compact .char-group-values {
+  row-gap: 0.15rem;
+}
+
+/* Le filet pointillé alourdit une cellule de tableau déjà dense.
+   Il reste en place en mode groupé normal (fiches et aperçus). */
+.char-groups--compact .char-group + .char-group {
+  border-top: none;
+}
+
+/* En cellule étroite, le nom passe au-dessus de ses valeurs */
+@media (max-width: 991.98px) {
+  .char-groups--compact .char-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+  }
+
+  .char-groups--compact .char-group-label {
+    min-width: 0;
+  }
+}

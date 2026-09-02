@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Container, Row, Col, Card } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
+import {
+  updateUserPhoto,
+  imageToDataUrl,
+  FIRESTORE_IMAGE_ITEM_BUDGET,
+} from '../services/apiService';
 import { auth } from '../firebase';
 import './Profile.css';
 
@@ -30,8 +35,57 @@ const formatDate = (value?: string | null): string | null => {
 };
 
 const Profile: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  /**
+   * Enregistre la photo choisie dans le profil Firestore.
+   *
+   * L'image est redimensionnée et encodée en base64 : le téléversement
+   * vers Storage ne fonctionne pas sur ce projet, et un avatar compressé
+   * reste très en deçà de la limite d'un document Firestore.
+   */
+  const handlePhotoSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !user) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Choisissez un fichier image (JPG, PNG ou WEBP).');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const dataUrl = await imageToDataUrl(file, FIRESTORE_IMAGE_ITEM_BUDGET);
+      await updateUserPhoto(user.id, dataUrl);
+      await refreshUser();
+      toast.success('Photo de profil mise à jour');
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'enregistrement de la photo:', error);
+      toast.error((error as Error)?.message || 'Impossible d\'enregistrer la photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!user) return;
+    setUploadingPhoto(true);
+    try {
+      await updateUserPhoto(user.id, '');
+      await refreshUser();
+      toast.success('Photo de profil retirée');
+    } catch (error) {
+      console.error('❌ Erreur lors du retrait de la photo:', error);
+      toast.error((error as Error)?.message || 'Impossible de retirer la photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
   const [copied, setCopied] = useState(false);
 
   const fbUser = auth.currentUser;
@@ -84,7 +138,49 @@ const Profile: React.FC = () => {
             <Card className="profile-hero mb-4">
               <Card.Body>
                 <div className="d-flex flex-column flex-md-row align-items-md-center gap-3 gap-md-4">
-                  <div className="profile-avatar">{getInitials(user.nom, user.email)}</div>
+                  <div
+                    className={`profile-avatar ${uploadingPhoto ? 'is-busy' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    title={user.photoURL ? 'Changer la photo de profil' : 'Ajouter une photo de profil'}
+                    onClick={() => !uploadingPhoto && fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (!uploadingPhoto) fileInputRef.current?.click();
+                      }
+                    }}
+                  >
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt={user.nom || 'Photo de profil'} />
+                    ) : (
+                      getInitials(user.nom, user.email)
+                    )}
+
+                    <span className="profile-avatar-overlay">
+                      <i className={`bi ${uploadingPhoto ? 'bi-hourglass-split' : 'bi-camera-fill'}`}></i>
+                    </span>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={handlePhotoSelected}
+                    />
+                  </div>
+
+                  {user.photoURL && (
+                    <button
+                      type="button"
+                      className="profile-avatar-remove"
+                      onClick={handleRemovePhoto}
+                      disabled={uploadingPhoto}
+                    >
+                      <i className="bi bi-trash me-1"></i>
+                      Retirer la photo
+                    </button>
+                  )}
                   <div className="flex-grow-1">
                     <div className="profile-hero-name">{user.nom || 'Utilisateur'}</div>
                     <div className="profile-hero-email">{user.email}</div>

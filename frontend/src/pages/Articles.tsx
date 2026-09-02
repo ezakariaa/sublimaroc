@@ -4,8 +4,10 @@ import { toast } from 'react-toastify';
 import { Product } from '../types';
 import { ProductService, AchatService, ArticleService, SubProductService } from '../services/apiService';
 import ConfirmModal from '../components/modals/ConfirmModal';
+import CharacteristicTags from '../components/CharacteristicTags';
 import CustomSelect from '../components/CustomSelect';
 import './Purchases.css';
+import '../styles/PreviewModal.css';
 
 // Lazy loading de la modal pour optimiser les performances
 const AddArticleModal = React.lazy(() => import('../components/modals/AddArticleModal'));
@@ -94,6 +96,8 @@ const Articles: React.FC = () => {
   const [showAddArticleModal, setShowAddArticleModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [selectedAchat, setSelectedAchat] = useState<Achat | null>(null);
+  const [showArticlePreview, setShowArticlePreview] = useState(false);
+  const [articleToPreview, setArticleToPreview] = useState<Article | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [newPurchase, setNewPurchase] = useState({
@@ -147,7 +151,11 @@ const Articles: React.FC = () => {
           quantite: article.quantite || 0,
           prixAPayer: article.prixAPayer || (article.prixUnitaire || 0) * (article.quantite || 0),
           dateCreation: article.dateCreation?.toDate ? article.dateCreation.toDate() : new Date(article.dateCreation || new Date()),
-          dateModification: article.dateModification?.toDate ? article.dateModification.toDate() : new Date(article.dateModification || new Date())
+          dateModification: article.dateModification?.toDate ? article.dateModification.toDate() : new Date(article.dateModification || new Date()),
+          // Sans ces deux champs, les caractéristiques enregistrées seraient
+          // perdues à l'affichage comme à la réouverture de la modale.
+          selectedTags: article.selectedTags,
+          variations: article.variations
         }));
         
         setArticles(formattedArticles);
@@ -262,7 +270,9 @@ const Articles: React.FC = () => {
         quantite: article.quantite || 0,
         prixAPayer: article.prixAPayer || (article.prixUnitaire || 0) * (article.quantite || 0),
         dateCreation: article.dateCreation?.toDate ? article.dateCreation.toDate() : new Date(article.dateCreation || new Date()),
-        dateModification: article.dateModification?.toDate ? article.dateModification.toDate() : new Date(article.dateModification || new Date())
+        dateModification: article.dateModification?.toDate ? article.dateModification.toDate() : new Date(article.dateModification || new Date()),
+        selectedTags: article.selectedTags,
+        variations: article.variations
       }));
       setArticles(formattedArticles);
     } catch (error) {
@@ -526,13 +536,14 @@ const Articles: React.FC = () => {
               </Card.Header>
               
               <Card.Body className="p-0">
-                <div className="table-responsive">
+                <div className="table-responsive articles-table-container">
                   <Table hover className="mb-0">
-                     <thead className="table-header">
+                     <thead className="table-light">
                        <tr>
                          <th>Nom de l'Article</th>
                          <th>Image</th>
                          <th>Petite Description</th>
+                         <th>Caractéristiques</th>
                          <th>Quantité</th>
                          <th>Prix Unitaire</th>
                          <th>Actions</th>
@@ -548,16 +559,11 @@ const Articles: React.FC = () => {
                             </td>
                             <td>
                               {article.image ? (
-                                <img 
-                                  src={article.image} 
+                                <img
+                                  src={article.image}
                                   alt={article.nom}
-                                  style={{ 
-                                    width: '60px', 
-                                    height: '60px', 
-                                    objectFit: 'cover',
-                                    borderRadius: '6px',
-                                    border: '1px solid #dee2e6'
-                                  }}
+                                  className="article-thumb"
+                                  loading="lazy"
                                   title={article.nom}
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
@@ -565,20 +571,11 @@ const Articles: React.FC = () => {
                                   }}
                                 />
                               ) : (
-                                <div 
-                                  style={{ 
-                                    width: '60px', 
-                                    height: '60px', 
-                                    backgroundColor: '#f8f9fa',
-                                    border: '1px solid #dee2e6',
-                                    borderRadius: '6px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                  }}
+                                <div
+                                  className="article-thumb article-thumb-empty"
                                   title={`${article.nom} - Aucune image`}
                                 >
-                                  <i className="bi bi-image text-muted" style={{ fontSize: '16px' }}></i>
+                                  <i className="bi bi-image"></i>
                                 </div>
                               )}
                             </td>
@@ -586,6 +583,23 @@ const Articles: React.FC = () => {
                               <div className="text-muted">
                                 {article.petiteDescription || <span className="text-muted fst-italic">Aucune description</span>}
                               </div>
+                            </td>
+                            <td>
+                              {article.selectedTags &&
+                              Object.values(article.selectedTags).some(
+                                (v) => Array.isArray(v) && v.length > 0
+                              ) ? (
+                                <CharacteristicTags
+                                  source={article.selectedTags}
+                                  fontSize="0.7rem"
+                                  grouped
+                                  compact
+                                />
+                              ) : (
+                                <span className="text-muted fst-italic" style={{ fontSize: '0.72rem' }}>
+                                  Aucune caractéristique
+                                </span>
+                              )}
                             </td>
                             <td>
                               <span className="fw-bold">{article.quantite}</span>
@@ -603,8 +617,8 @@ const Articles: React.FC = () => {
                                   className="me-1"
                                   title="Aperçu"
                                   onClick={() => {
-                                    // TODO: Implémenter l'aperçu de l'article
-                                    console.log('Aperçu article:', article);
+                                    setArticleToPreview(article);
+                                    setShowArticlePreview(true);
                                   }}
                                 >
                                   <i className="bi bi-eye"></i>
@@ -687,76 +701,319 @@ const Articles: React.FC = () => {
       </Suspense>
 
       {/* Modal d'aperçu de l'achat d'articles */}
-      <Modal show={showPreviewModal} onHide={() => setShowPreviewModal(false)} size="lg">
+      <Modal
+        show={showPreviewModal}
+        onHide={() => setShowPreviewModal(false)}
+        size="lg"
+        centered
+        className="preview-modal"
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             <i className="bi bi-eye me-2"></i>
             Aperçu de l'Achat d'Articles
           </Modal.Title>
         </Modal.Header>
+
         <Modal.Body>
           {selectedAchat && (
-            <div>
-              <Row className="mb-3">
-                <Col md={12}>
-                  <div className="alert alert-primary">
-                    <h6 className="mb-1"><i className="bi bi-tag-fill me-2"></i>Référence d'Achat</h6>
-                    <h4 className="mb-0 font-monospace">{selectedAchat.referenceAchat}</h4>
+            <>
+              <div className="preview-ref">
+                <div>
+                  <span className="preview-ref-label">
+                    <i className="bi bi-tag-fill me-1"></i>
+                    Référence d'achat
+                  </span>
+                  <p className="preview-ref-value">{selectedAchat.referenceAchat}</p>
+                </div>
+              </div>
+
+              <Row className="g-3">
+                <Col md={6}>
+                  <div className="preview-card">
+                    <div className="preview-card-title">
+                      <i className="bi bi-building"></i>
+                      Fournisseur
+                    </div>
+                    <dl className="mb-0">
+                      <div className="preview-row">
+                        <dt>Nom</dt>
+                        <dd className={selectedAchat.fournisseur.nom ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.nom || 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Téléphone</dt>
+                        <dd className={selectedAchat.fournisseur.telephone ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.telephone || 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Email</dt>
+                        <dd className={selectedAchat.fournisseur.email ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.email || 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Ville</dt>
+                        <dd className={selectedAchat.fournisseur.ville ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.ville || 'Non renseignée'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </Col>
+
+                <Col md={6}>
+                  <div className="preview-card">
+                    <div className="preview-card-title">
+                      <i className="bi bi-calendar-event"></i>
+                      Achat
+                    </div>
+                    <dl className="mb-0">
+                      <div className="preview-row">
+                        <dt>Date d'achat</dt>
+                        <dd>{formatDate(selectedAchat.dateAchat)}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Lignes</dt>
+                        <dd>{selectedAchat.articles.length}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Total</dt>
+                        <dd>{formatPrice(selectedAchat.totalAchat)}</dd>
+                      </div>
+                    </dl>
                   </div>
                 </Col>
               </Row>
-              <Row className="mb-3">
-                <Col md={6}>
-                  <h6>Informations Fournisseur</h6>
-                  <p><strong>Nom:</strong> {selectedAchat.fournisseur.nom}</p>
-                  <p><strong>Téléphone:</strong> {selectedAchat.fournisseur.telephone || 'Non renseigné'}</p>
-                  <p><strong>Email:</strong> {selectedAchat.fournisseur.email || 'Non renseigné'}</p>
-                  <p><strong>Ville:</strong> {selectedAchat.fournisseur.ville || 'Non renseigné'}</p>
-                </Col>
-                <Col md={6}>
-                  <h6>Informations Achat</h6>
-                  <p><strong>ID:</strong> {selectedAchat.id}</p>
-                  <p><strong>Date d'achat:</strong> {formatDate(selectedAchat.dateAchat)}</p>
-                  <p><strong>Total:</strong> {formatPrice(selectedAchat.totalAchat)}</p>
-                </Col>
-              </Row>
-              
-              <h6>Articles Achetés</h6>
-              <div className="table-responsive">
-                <Table striped bordered hover size="sm">
+
+              <div className="preview-section-title">
+                <i className="bi bi-box-seam"></i>
+                Articles achetés
+              </div>
+
+              <div className="preview-table-wrapper">
+                <table className="preview-table">
                   <thead>
                     <tr>
-                      <th>Nom</th>
-                      <th>Référence</th>
-                      <th>Quantité</th>
-                      <th>Prix Unitaire</th>
-                      <th>Total</th>
+                      <th style={{ width: '58px' }}>Image</th>
+                      <th style={{ width: '32%' }}>Nom</th>
+                      <th style={{ width: '22%' }}>Référence</th>
+                      <th style={{ width: '9%' }} className="center">Qté</th>
+                      <th style={{ width: '14%' }} className="num">Prix unitaire</th>
+                      <th style={{ width: '14%' }} className="num">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedAchat.articles.map((article, index) => (
                       <tr key={index}>
-                        <td>{article.nom}</td>
-                        <td>{article.referenceFournisseur || 'N/A'}</td>
-                        <td>{article.quantite}</td>
-                        <td>{formatPrice(article.prixUnitaire)}</td>
-                        <td>{formatPrice(article.prixPaye)}</td>
+                        <td>
+                          {article.image &&
+                          article.image !== '/mug.webp' &&
+                          article.image !== '/placeholder-product.jpg' &&
+                          !article.image.startsWith('blob:') ? (
+                            <img
+                              src={article.image}
+                              alt={article.nom}
+                              title={article.nom}
+                              className="preview-thumb"
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/mug.webp';
+                              }}
+                            />
+                          ) : (
+                            <span className="muted" title="Aucune image">
+                              <i className="bi bi-image"></i>
+                            </span>
+                          )}
+                        </td>
+                        <td className="line-name">{article.nom}</td>
+                        <td className={article.referenceFournisseur ? '' : 'muted'}>
+                          {article.referenceFournisseur || 'Aucune'}
+                        </td>
+                        <td className="center">{article.quantite}</td>
+                        <td className="num">{formatPrice(article.prixUnitaire)}</td>
+                        <td className="num">{formatPrice(article.prixPaye)}</td>
                       </tr>
                     ))}
                   </tbody>
-                </Table>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={5}>Total de l'achat</td>
+                      <td className="num">{formatPrice(selectedAchat.totalAchat)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
-            </div>
+            </>
           )}
         </Modal.Body>
+
         <Modal.Footer>
+          {selectedAchat && (
+            <span className="preview-total">
+              Total<strong>{formatPrice(selectedAchat.totalAchat)}</strong>
+            </span>
+          )}
           <Button variant="secondary" onClick={() => setShowPreviewModal(false)}>
+            <i className="bi bi-x-circle me-2"></i>
             Fermer
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Modale de confirmation de suppression d'achat */}
+      {/* Aperçu d'un article */}
+      <Modal
+        show={showArticlePreview}
+        onHide={() => setShowArticlePreview(false)}
+        size="lg"
+        centered
+        className="preview-modal"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            <i className="bi bi-eye me-2"></i>
+            Aperçu de l'Article
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          {articleToPreview && (
+            <>
+              <div className="preview-ref">
+                <div>
+                  <span className="preview-ref-label">
+                    <i className="bi bi-upc-scan me-1"></i>
+                    Référence article
+                  </span>
+                  <p className="preview-ref-value">{articleToPreview.referenceArticle}</p>
+                </div>
+                {articleToPreview.categorieArticle && (
+                  <Badge bg="light" text="dark">{articleToPreview.categorieArticle}</Badge>
+                )}
+              </div>
+
+              <Row className="g-3">
+                <Col md={5}>
+                  <div className="preview-card text-center">
+                    <div className="preview-card-title">
+                      <i className="bi bi-image"></i>
+                      Image
+                    </div>
+                    {articleToPreview.image ? (
+                      <img
+                        src={articleToPreview.image}
+                        alt={articleToPreview.nom}
+                        className="preview-image"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/mug.webp';
+                        }}
+                      />
+                    ) : (
+                      <div className="preview-image preview-image-empty">
+                        <div>
+                          <i className="bi bi-image d-block mb-1"></i>
+                          Aucune image
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Col>
+
+                <Col md={7}>
+                  <div className="preview-card">
+                    <div className="preview-card-title">
+                      <i className="bi bi-info-circle"></i>
+                      Informations
+                    </div>
+                    <dl className="mb-0">
+                      <div className="preview-row">
+                        <dt>Nom</dt>
+                        <dd>{articleToPreview.nom}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Catégorie</dt>
+                        <dd className={articleToPreview.categorieArticle ? '' : 'is-empty'}>
+                          {articleToPreview.categorieArticle || 'Non renseignée'}
+                        </dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Quantité</dt>
+                        <dd>{articleToPreview.quantite}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Prix unitaire</dt>
+                        <dd>{formatPrice(articleToPreview.prixUnitaire)}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Prix total</dt>
+                        <dd>{formatPrice(articleToPreview.prixAPayer)}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Créé le</dt>
+                        <dd>{formatDate(articleToPreview.dateCreation)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </Col>
+              </Row>
+
+              {(articleToPreview.petiteDescription || articleToPreview.description) && (
+                <>
+                  <div className="preview-section-title">
+                    <i className="bi bi-card-text"></i>
+                    Description
+                  </div>
+                  <div className="preview-card">
+                    {articleToPreview.petiteDescription && (
+                      <p className="mb-2 fw-semibold" style={{ fontSize: '0.85rem' }}>
+                        {articleToPreview.petiteDescription}
+                      </p>
+                    )}
+                    {articleToPreview.description && (
+                      <p className="mb-0 text-muted" style={{ fontSize: '0.82rem' }}>
+                        {articleToPreview.description}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {articleToPreview.selectedTags && (
+                <>
+                  <div className="preview-section-title">
+                    <i className="bi bi-tags"></i>
+                    Caractéristiques
+                  </div>
+                  <div className="preview-card">
+                    <CharacteristicTags
+                      source={articleToPreview.selectedTags}
+                      fontSize="0.75rem"
+                      grouped
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </Modal.Body>
+
+        <Modal.Footer>
+          {articleToPreview && (
+            <span className="preview-total">
+              Total<strong>{formatPrice(articleToPreview.prixAPayer)}</strong>
+            </span>
+          )}
+          <Button variant="secondary" onClick={() => setShowArticlePreview(false)}>
+            <i className="bi bi-x-circle me-2"></i>
+            Fermer
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       <ConfirmModal
         show={showConfirmDeleteAchat}
         onHide={() => {

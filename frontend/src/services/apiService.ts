@@ -42,6 +42,8 @@ const COL_ARTICLES        = 'Articles';
 const COL_ACHATS          = 'Achats';
 const COL_ACHATS_ARTICLES = 'AchatsArticles';
 const COL_CONSOMMABLES    = 'Consommables';
+const COL_VENTES          = 'Ventes';
+const COL_AUTRES_DEPENSES = 'AutresDepenses';
 const COL_SETTINGS        = 'Settings';
 const COL_USERS           = 'users';
 
@@ -106,6 +108,25 @@ function generateProductId(nom: string): string {
     .slice(0, 3)
     .toUpperCase();
   return `GRA-${letters || 'XXX'}`;
+}
+
+/**
+ * Identifiant d'un sous-produit : celui du produit parent, un tiret,
+ * puis 5 chiffres aléatoires — par exemple « GRA-MUG-04812 ».
+ *
+ * L'unicité est vérifiée avant écriture : un tirage déjà pris est rejoué.
+ */
+async function generateSubProductId(productId: string): Promise<string> {
+  const draw = () => String(Math.floor(Math.random() * 100000)).padStart(5, '0');
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = `${productId}-${draw()}`;
+    const existing = await getDoc(doc(db, COL_SOUS_PRODUITS, candidate));
+    if (!existing.exists()) return candidate;
+  }
+
+  // Cinq collisions d'affilée : repli sur l'horloge, qui ne se répète pas.
+  return `${productId}-${Date.now().toString().slice(-5)}`;
 }
 
 // ── Products ──────────────────────────────────────────────
@@ -187,6 +208,12 @@ export class ProductService {
 
 export class SubProductService {
 
+  /** Tous les sous-produits, en une seule requête (sans boucler sur les produits). */
+  static async getAllSubProducts(): Promise<SubProduct[]> {
+    const snap = await getDocs(collection(db, COL_SOUS_PRODUITS));
+    return sortByDateDesc(snap.docs.map(withId)) as SubProduct[];
+  }
+
   static async getSubProductsByProductId(productId: string): Promise<SubProduct[]> {
     const snap = await getDocs(
       query(collection(db, COL_SOUS_PRODUITS), where('productId', '==', productId))
@@ -215,6 +242,15 @@ export class SubProductService {
       await setDoc(doc(db, COL_SOUS_PRODUITS, data.id), payload);
       return data.id;
     }
+
+    // Identifiant lisible dérivé du produit parent, plutôt qu'un ID Firestore
+    if (data.productId) {
+      const newId = await generateSubProductId(data.productId);
+      await setDoc(doc(db, COL_SOUS_PRODUITS, newId), { ...payload, id: newId });
+      return newId;
+    }
+
+    // Sans produit parent, on retombe sur l'identifiant généré par Firestore
     const created = await addDoc(collection(db, COL_SOUS_PRODUITS), payload);
     await updateDoc(created, { id: created.id });
     return created.id;
@@ -233,6 +269,99 @@ export class SubProductService {
   }
 
   static async migrateSubProductIds(_oldProductId: string, _newProductId: string): Promise<void> {}
+}
+
+// ── Migration des identifiants de sous-produits ───────────
+
+/** Résultat d'une migration, pour affichage dans l'interface. */
+export interface SubProductIdMigrationReport {
+  scanned: number;
+  migrated: Array<{ oldId: string; newId: string; nom: string }>;
+  articlesUpdated: number;
+  ventesUpdated: number;
+  errors: string[];
+}
+
+/** Un identifiant conforme est « <productId>-<5 chiffres> ». */
+function hasExpectedSubProductId(id: string, productId: string): boolean {
+  return new RegExp(`^${productId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d{5}$`).test(id);
+}
+
+/**
+ * Renomme les sous-produits dont l'identifiant ne suit pas le format
+ * « <productId>-<5 chiffres> ».
+ *
+ * Un identifiant de document Firestore est immuable : chaque sous-produit est
+ * donc recréé sous son nouvel identifiant, les références qui le désignent
+ * sont reportées, et l'ancien document n'est supprimé qu'en dernier — si une
+ * étape échoue, rien n'est perdu.
+ */
+export async function migrateSubProductIdFormat(): Promise<SubProductIdMigrationReport> {
+  const report: SubProductIdMigrationReport = {
+    scanned: 0,
+    migrated: [],
+    articlesUpdated: 0,
+    ventesUpdated: 0,
+    errors: [],
+  };
+
+  const snap = await getDocs(collection(db, COL_SOUS_PRODUITS));
+  report.scanned = snap.docs.length;
+
+  for (const docSnap of snap.docs) {
+    const oldId = docSnap.id;
+    const data = docSnap.data() as DocumentData;
+    const productId = data.productId as string | undefined;
+
+    if (!productId) {
+      report.errors.push(`${oldId} : aucun produit parent, ignoré`);
+      continue;
+    }
+    if (hasExpectedSubProductId(oldId, productId)) continue;
+
+    try {
+      const newId = await generateSubProductId(productId);
+
+      // 1. Recréer le document sous son nouvel identifiant
+      await setDoc(doc(db, COL_SOUS_PRODUITS, newId), { ...data, id: newId });
+
+      // 2. Reporter la référence dans les articles
+      const articles = await getDocs(
+        query(collection(db, COL_ARTICLES), where('categorieArticle', '==', oldId))
+      );
+      for (const article of articles.docs) {
+        await updateDoc(article.ref, { categorieArticle: newId, dateModification: new Date() });
+        report.articlesUpdated += 1;
+      }
+
+      // 3. Reporter la référence dans les lignes de vente
+      const ventes = await getDocs(collection(db, COL_VENTES));
+      for (const vente of ventes.docs) {
+        const lignes = (vente.data().produits || []) as any[];
+        const concerned = lignes.some(
+          (l) => l.sourceType === 'sousproduit' && l.sourceId === oldId
+        );
+        if (!concerned) continue;
+
+        await updateDoc(vente.ref, {
+          produits: lignes.map((l) =>
+            l.sourceType === 'sousproduit' && l.sourceId === oldId ? { ...l, sourceId: newId } : l
+          ),
+          updatedAt: new Date(),
+        });
+        report.ventesUpdated += 1;
+      }
+
+      // 4. Supprimer l'ancien document, une fois tout le reste en place
+      await deleteDoc(docSnap.ref);
+
+      report.migrated.push({ oldId, newId, nom: (data.nom as string) || '' });
+    } catch (error) {
+      report.errors.push(`${oldId} : ${(error as Error)?.message || 'erreur inconnue'}`);
+    }
+  }
+
+  return report;
 }
 
 // ── Images (Firebase Storage) ─────────────────────────────
@@ -482,6 +611,41 @@ export class ConsommableService {
   }
 }
 
+// ── Autres dépenses ─────────────────────────
+
+/**
+ * Même structure que les achats de matériel, dans la collection
+ * « AutresDepenses » : loyer, électricité, internet, produits d'entretien…
+ */
+export class AutreDepenseService {
+
+  static async getAllAutresDepenses(): Promise<any[]> {
+    const snap = await getDocs(collection(db, COL_AUTRES_DEPENSES));
+    return sortByDateDesc(snap.docs.map(withId), 'createdAt');
+  }
+
+  static async createAutreDepense(data: any): Promise<string> {
+    const created = await addDoc(collection(db, COL_AUTRES_DEPENSES), {
+      ...data,
+      createdAt: data.createdAt ?? new Date(),
+      updatedAt: new Date(),
+    });
+    return created.id;
+  }
+
+  static async updateAutreDepense(id: string, data: any): Promise<void> {
+    const ref = await resolveRef(COL_AUTRES_DEPENSES, id);
+    if (!ref) throw new Error(`Dépense introuvable : ${id}`);
+    await updateDoc(ref, { ...data, updatedAt: new Date() });
+  }
+
+  static async deleteAutreDepense(id: string): Promise<void> {
+    const ref = await resolveRef(COL_AUTRES_DEPENSES, id);
+    if (!ref) return;
+    await deleteDoc(ref);
+  }
+}
+
 // ── Articles ──────────────────────────────────────────────
 
 export class ArticleService {
@@ -520,6 +684,37 @@ export class ArticleService {
   }
 }
 
+// ── Ventes ────────────────────────────────────
+
+export class VenteService {
+
+  static async getAllVentes(): Promise<any[]> {
+    const snap = await getDocs(collection(db, COL_VENTES));
+    return sortByDateDesc(snap.docs.map(withId), 'createdAt');
+  }
+
+  static async createVente(data: any): Promise<string> {
+    const created = await addDoc(collection(db, COL_VENTES), {
+      ...data,
+      createdAt: data.createdAt ?? new Date(),
+      updatedAt: new Date(),
+    });
+    return created.id;
+  }
+
+  static async updateVente(id: string, data: any): Promise<void> {
+    const ref = await resolveRef(COL_VENTES, id, ['id', 'referenceVente']);
+    if (!ref) throw new Error(`Vente introuvable : ${id}`);
+    await updateDoc(ref, { ...data, updatedAt: new Date() });
+  }
+
+  static async deleteVente(id: string): Promise<void> {
+    const ref = await resolveRef(COL_VENTES, id, ['id', 'referenceVente']);
+    if (!ref) return;
+    await deleteDoc(ref);
+  }
+}
+
 // ── Libellés des caractéristiques ─────────────────────────
 
 export class LabelService {
@@ -549,6 +744,8 @@ export interface ApiUser {
   email: string;
   nom: string;
   role: 'admin' | 'user';
+  /** Photo de profil, stockée en base64 dans `users/{uid}`. */
+  photoURL?: string;
 }
 
 /**
@@ -559,6 +756,7 @@ export interface ApiUser {
 export async function buildApiUser(fbUser: FirebaseUser): Promise<ApiUser> {
   let nom = fbUser.displayName || fbUser.email?.split('@')[0] || 'Utilisateur';
   let role: 'admin' | 'user' = 'admin';
+  let photoURL: string | undefined;
 
   try {
     const profile = await getDoc(doc(db, COL_USERS, fbUser.uid));
@@ -566,12 +764,13 @@ export async function buildApiUser(fbUser: FirebaseUser): Promise<ApiUser> {
       const data = profile.data();
       if (data.nom) nom = data.nom;
       if (data.role === 'admin' || data.role === 'user') role = data.role;
+      if (data.photoURL) photoURL = data.photoURL;
     }
   } catch {
     /* profil absent ou lecture refusée : on garde les valeurs par défaut */
   }
 
-  return { id: fbUser.uid, email: fbUser.email || '', nom, role };
+  return { id: fbUser.uid, email: fbUser.email || '', nom, role, photoURL };
 }
 
 /** Messages d'erreur Firebase traduits pour l'interface. */
@@ -592,6 +791,51 @@ function authErrorMessage(code: string): string {
     default:
       return 'Connexion impossible. Réessayez.';
   }
+}
+
+/**
+ * Enregistre la photo de profil d'un utilisateur dans `users/{uid}`.
+ *
+ * L'image est compressée en base64 : le téléversement vers Storage ne
+ * fonctionne pas sur ce projet, et une photo d'avatar reste très en deçà
+ * de la limite d'un document Firestore. Passer une chaîne vide retire
+ * la photo.
+ *
+ * `merge: true` est indispensable : le document porte aussi le rôle et le
+ * nom, qu'une écriture complète effacerait.
+ */
+export async function updateUserPhoto(uid: string, photoURL: string): Promise<void> {
+  await setDoc(doc(db, COL_USERS, uid), { photoURL }, { merge: true });
+}
+
+/**
+ * Photos de profil de plusieurs comptes, indexées par identifiant.
+ *
+ * Un profil illisible ou absent est simplement omis : l'appelant retombe
+ * alors sur son affichage par défaut.
+ */
+export async function getUserPhotos(uids: string[]): Promise<Record<string, string>> {
+  const photos: Record<string, string> = {};
+
+  await Promise.all(
+    uids.map(async (uid) => {
+      try {
+        const snap = await getDoc(doc(db, COL_USERS, uid));
+        if (!snap.exists()) {
+          console.warn(`⚠️ Profil absent pour ${uid} : aucune photo à afficher`);
+          return;
+        }
+        const photoURL = (snap.data() as any).photoURL;
+        if (photoURL) photos[uid] = photoURL;
+        else console.warn(`⚠️ Profil ${uid} sans champ photoURL`);
+      } catch (error) {
+        // Sans cette trace, un profil illisible restait indétectable.
+        console.warn(`⚠️ Profil ${uid} illisible :`, (error as Error)?.message);
+      }
+    })
+  );
+
+  return photos;
 }
 
 export class AuthService {

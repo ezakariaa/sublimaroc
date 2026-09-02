@@ -11,6 +11,8 @@ interface AuthContextType {
   loading: boolean;
   login: (userData: User) => void;
   logout: () => Promise<void>;
+  /** Relit le profil Firestore : l'avatar se met à jour sans rechargement. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,8 +62,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    if (!auth.currentUser) return;
+    try {
+      setUser(await buildApiUser(auth.currentUser));
+    } catch {
+      /* profil illisible : on garde l'utilisateur en place */
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

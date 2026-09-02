@@ -1,0 +1,318 @@
+/* ────────────────────────────────────────────────────────
+   SUBLIMAROC - Modales d'aperçu
+
+   Présentation commune aux aperçus d'achat (Matériels,
+   Consommables, Articles) et de vente : bandeau de référence,
+   blocs d'informations, tableau des lignes, total.
+
+   Les tailles de police reprennent celles des tableaux
+   (0,78 rem pour les en-têtes, 0,82 rem pour les cellules)
+   pour que l'aperçu et la liste se lisent de la même façon.
+   ──────────────────────────────────────────────────────── */
+
+/* En-tête : même bande que les en-têtes de cartes de l'application */
+.preview-modal .modal-header,
+.form-modal .modal-header {
+  background-color: #424272;
+  border-bottom: none;
+  padding: 1rem 1.5rem;
+}
+
+.preview-modal .modal-header .modal-title,
+.form-modal .modal-header .modal-title {
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.preview-modal .modal-header .btn-close,
+.form-modal .modal-header .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+  opacity: 0.85;
+}
+
+.preview-modal .modal-body,
+.form-modal .modal-body {
+  background-color: #f8f9fb;
+  padding: 1.25rem;
+}
+
+.preview-modal .modal-content,
+.form-modal .modal-content {
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ── Bandeau de référence ───────────────────────────── */
+.preview-ref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: linear-gradient(135deg, #424272, #5a5a91);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 0.9rem 1.15rem;
+  margin-bottom: 1rem;
+}
+
+.preview-ref-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+  margin-bottom: 0.15rem;
+}
+
+.preview-ref-value {
+  font-family: 'Courier New', monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0;
+  word-break: break-all;
+}
+
+/* ── Blocs d'informations ───────────────────────────── */
+.preview-card {
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  height: 100%;
+}
+
+.preview-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #424272;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+/* Une information : libellé à gauche, valeur à droite */
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.28rem 0;
+  font-size: 0.82rem;
+}
+
+.preview-row + .preview-row {
+  border-top: 1px dashed #f1f3f5;
+}
+
+.preview-row dt {
+  color: #6c757d;
+  font-weight: 500;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.preview-row dd {
+  margin: 0;
+  color: #212529;
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+.preview-row dd.is-empty {
+  color: #adb5bd;
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* ── Titre de section ───────────────────────────────── */
+.preview-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #424272;
+  margin: 1.1rem 0 0.55rem;
+}
+
+/* ── Tableau des lignes ─────────────────────────────── */
+.preview-table-wrapper {
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+
+.preview-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.preview-table thead th {
+  background-color: #f8f9fb;
+  color: #495057;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+  white-space: nowrap;
+}
+
+.preview-table tbody td {
+  font-size: 0.82rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #f1f3f5;
+  vertical-align: middle;
+  color: #212529;
+}
+
+.preview-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.preview-table tbody tr:hover {
+  background-color: #fbfcfd;
+}
+
+.preview-table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.preview-table .center {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.preview-table .muted {
+  color: #adb5bd;
+  font-style: italic;
+}
+
+.preview-table .line-name {
+  font-weight: 600;
+}
+
+/* Ligne de total, dans le pied du tableau */
+.preview-table tfoot td {
+  background-color: #f8f9fb;
+  border-top: 2px solid #e9ecef;
+  padding: 0.7rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #424272;
+}
+
+/* ── Pied de la modale ──────────────────────────────── */
+.preview-modal .modal-footer,
+.form-modal .modal-footer {
+  background-color: #ffffff;
+  border-top: 1px solid #e9ecef;
+  padding: 0.85rem 1.25rem;
+}
+
+.preview-total {
+  margin-right: auto;
+  font-size: 0.95rem;
+  color: #6c757d;
+}
+
+.preview-total strong {
+  color: #424272;
+  font-size: 1.15rem;
+  margin-left: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 576px) {
+  .preview-ref-value {
+    font-size: 1rem;
+  }
+  .preview-row {
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .preview-row dd {
+    text-align: left;
+  }
+}
+
+/* ── Image d'aperçu (fiche article) ─────────────────── */
+.preview-image {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  background-color: #fff;
+}
+
+.preview-image-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  border-style: dashed;
+  background-color: #f8f9fb;
+  color: #adb5bd;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.preview-image-empty i {
+  font-size: 1.75rem;
+}
+
+/* Vignette secondaire : galerie d'images et lignes de variation */
+.preview-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  background-color: #fff;
+}
+
+/* ── Modales de saisie ──────────────────────────────────
+   Les sections d'un formulaire reprennent la couleur des
+   titres de section des aperçus. */
+.form-modal .modal-body h5.text-primary {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #424272 !important;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Les blocs du formulaire se détachent du fond gris */
+.form-modal .modal-body > form > .mb-4 {
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+}
+
+.form-modal .modal-body .form-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #495057;
+}

@@ -327,3 +327,202 @@
     max-width: 125px !important;
   }
 }
+
+/* ────────────────────────────────────────────────────────
+   Alignement sur le design du tableau des Ventes
+   (mêmes tailles de police, mêmes vignettes, mêmes boutons).
+   Sert les deux variantes : Matériels et Consommables.
+   ──────────────────────────────────────────────────────── */
+
+/* `.purchases-page .table-responsive { overflow: hidden }` coupait les
+   dernières colonnes sans permettre d'y accéder. Défilement rétabli. */
+.purchases-page .achats-table-container {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
+/* En-têtes */
+.achats-table-container thead th,
+.achats-table-container .table-header th,
+.achats-table-container .table th:nth-child(1),
+.achats-table-container .table th:nth-child(2),
+.achats-table-container .table th:nth-child(3),
+.achats-table-container .table th:nth-child(4),
+.achats-table-container .table th:nth-child(5),
+.achats-table-container .table th:nth-child(6),
+.achats-table-container .table th:nth-child(7) {
+  font-size: 0.78rem !important;
+  padding: 0.7rem 0.5rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Cellules */
+.achats-table-container .table td:nth-child(1),
+.achats-table-container .table td:nth-child(2),
+.achats-table-container .table td:nth-child(3),
+.achats-table-container .table td:nth-child(4),
+.achats-table-container .table td:nth-child(5),
+.achats-table-container .table td:nth-child(6),
+.achats-table-container .table td:nth-child(7) {
+  font-size: 0.82rem !important;
+  padding: 0.6rem 0.5rem !important;
+}
+
+.achats-table-container .table tbody td {
+  padding: 0.6rem 0.5rem;
+}
+
+.achats-table-container .product-name {
+  font-size: 0.82rem;
+  margin-bottom: 0.1rem;
+  line-height: 1.3;
+}
+
+.achats-table-container .product-item small {
+  font-size: 0.72rem;
+}
+
+.achats-table-container .purchase-total,
+.achats-table-container .date-info {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.achats-table-container .date-info {
+  font-size: 0.82rem;
+}
+
+/* Vignettes : même gabarit que le tableau des Ventes */
+.achats-table-container .product-item {
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.achats-table-container .product-item img,
+.achats-table-container .product-thumb-placeholder {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px;
+  border-width: 1px !important;
+  border-radius: 6px !important;
+}
+
+.achats-table-container .product-thumb-placeholder {
+  font-size: 1rem;
+}
+
+/* Boutons d'action : jamais de retour à la ligne */
+.achats-table-container .action-buttons {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.achats-table-container .action-buttons .btn {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.78rem;
+}
+
+/* ── Tri sur les colonnes de date ─────────────────────────
+   L'icône indique l'état : double flèche quand la colonne n'est
+   pas active, flèche orientée selon le sens quand elle l'est. */
+.achats-table-container .table th.achats-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.achats-table-container .table th.achats-sortable:hover {
+  color: #424272 !important;
+}
+
+.achats-table-container .table th.achats-sortable i {
+  font-size: 0.72rem;
+  opacity: 0.55;
+}
+
+.achats-table-container .table th.achats-sortable:hover i {
+  opacity: 1;
+}
+
+/* ── Ligne de total, en pied de tableau ──────────────────── */
+.achats-table-container .table tfoot .achats-total-row td {
+  background-color: #f8f9fb;
+  border-top: 2px solid #e9ecef;
+  padding: 0.7rem 0.5rem !important;
+  font-size: 0.85rem !important;
+  font-weight: 700;
+  color: #424272;
+  white-space: nowrap;
+}
+
+/* ── En-tête identique à celui du tableau des produits (Stock) ──
+   Les réglages d'origine étaient plus légers (graisse 600, interlettrage
+   de 0,5 px, gris #2c3e50) : la barre de titres n'avait pas le même
+   rendu d'une page à l'autre. */
+.achats-table-container thead th,
+.achats-table-container .table-header th,
+.achats-table-container .table th {
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
+  border-bottom: 1px solid #e9ecef !important;
+  border-top: none !important;
+}
+
+/* ── Colonne Total : en-tête et valeurs sur le même bord ──────
+   L'en-tête était aligné à gauche et les montants centrés ; ils ne
+   tombaient donc jamais au même endroit. Les montants passent à
+   droite, alignement naturel pour comparer des nombres. */
+.achats-table-container .table th:nth-child(3),
+.achats-table-container .table td:nth-child(3) {
+  text-align: right !important;
+  padding-right: 0.75rem !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* La ligne de total suit la même colonne */
+.achats-table-container .table tfoot .achats-total-row td:nth-child(2) {
+  text-align: right !important;
+  padding-right: 0.75rem !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Police des titres identique à celle des cellules ─────
+   Les `th` forçaient `font-family: 'Inter' !important`, d'une
+   spécificité supérieure à la règle globale `*` qui impose
+   Montserrat : la ligne de titres était donc dans une autre
+   police que le reste du tableau. */
+.achats-table-container thead th,
+.achats-table-container .table-header th,
+.achats-table-container .table th {
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+/* ── Colonne Date Commande un peu plus large ────────────── */
+.achats-table-container .table th:nth-child(4),
+.achats-table-container .table td:nth-child(4) {
+  width: 145px !important;
+  min-width: 145px !important;
+  max-width: 155px !important;
+}
+
+/* Photo de profil de l'acheteur : mêmes dimensions, même ombre et même
+   espacement que l'icône ronde des autres tuiles (`.stat-icon`), pour que
+   les deux tuiles se ressemblent exactement.
+   La marge est nulle : l'écart vient du `gap` de `.stat-card-body`, et une
+   marge s'y serait ajoutée. */
+.acheteur-avatar {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  flex: 0 0 56px;
+  margin: 0 !important;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #f8f9fa;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+}

@@ -131,12 +131,13 @@ const Header: React.FC = () => {
                   className="user-dropdown"
                 >
                   <NavDropdown.Item as={Link} to="/profile">Mon Profil</NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/stock">État du Stock</NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/achats">Matériels</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/stock">Produits en Stock</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/achats">Achat Matériels</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/consommables">Consommables</NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/articles">Articles</NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/sales">Ventes</NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/stats">Stats</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/autres-depenses">Autres Dépenses</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/articles">Articles en Vente</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/sales">Ventes & Factures</NavDropdown.Item>
+                  <NavDropdown.Item as={Link} to="/stats">Statistiques</NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/settings">Paramètres</NavDropdown.Item>
                   <NavDropdown.Divider />
                   <NavDropdown.Item onClick={handleLogout}>Se déconnecter</NavDropdown.Item>

@@ -14,6 +14,7 @@ import Products from './pages/Products';
 import Stock from './pages/Stock';
 import Achats from './pages/Achats';
 import Consommables from './pages/Consommables';
+import AutresDepenses from './pages/AutresDepenses';
 import Articles from './pages/Articles';
 import Sales from './pages/Sales';
 import Profile from './pages/Profile';
@@ -57,6 +58,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Consommables />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/autres-depenses" 
+                element={
+                  <ProtectedRoute>
+                    <AutresDepenses />
                   </ProtectedRoute>
                 } 
               />

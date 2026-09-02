@@ -2,12 +2,18 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Container, Row, Col, Card, Table, Badge, Button, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
 import { toast } from 'react-toastify';
 import { Product } from '../types';
-import { ProductService } from '../services/apiService';
-import { ACHAT_VARIANTS, AchatVariant } from '../config/achats';
+import { ProductService, getUserPhotos } from '../services/apiService';
+import {
+  ACHAT_VARIANTS,
+  AchatVariant,
+  ACHETEURS,
+  ACHETEUR_COMPTES,
+} from '../config/achats';
 import ConfirmModal from '../components/modals/ConfirmModal';
 import CustomSelect from '../components/CustomSelect';
 import './Purchases.css';
 import './AchatsTable.css';
+import '../styles/PreviewModal.css';
 
 // Lazy loading de la modal pour optimiser les performances
 const AddMaterialModal = React.lazy(() => import('../components/modals/AddMaterialModal'));
@@ -32,6 +38,7 @@ interface Fournisseur {
 interface Achat {
   id: string;
   referenceAchat: string;
+  achetePar?: string;
   fournisseur: Fournisseur;
   materials: MaterialAchat[];
   dateAchat: Date;
@@ -76,6 +83,39 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
   const [achatToDelete, setAchatToDelete] = useState<Achat | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  /** Photos de profil des acheteurs, indexées par identifiant de compte. */
+  const [acheteurPhotos, setAcheteurPhotos] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    getUserPhotos(Object.values(ACHETEUR_COMPTES))
+      .then(setAcheteurPhotos)
+      .catch(() => setAcheteurPhotos({}));
+  }, []);
+
+  /** Colonne de tri active et son sens. */
+  const [sortField, setSortField] = useState<'dateCommande' | 'dateLivraison' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  /**
+   * Un clic trie la colonne du plus récent au plus ancien ; un second
+   * inverse le sens ; un troisième revient à l'ordre d'origine.
+   */
+  const handleSort = (field: 'dateCommande' | 'dateLivraison') => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDirection('desc');
+    } else if (sortDirection === 'desc') {
+      setSortDirection('asc');
+    } else {
+      setSortField(null);
+    }
+  };
+
+  const sortIcon = (field: 'dateCommande' | 'dateLivraison') => {
+    if (sortField !== field) return 'bi-arrow-down-up';
+    return sortDirection === 'desc' ? 'bi-sort-down' : 'bi-sort-up';
+  };
+
   // Chargement des données
   useEffect(() => {
     const loadData = async () => {
@@ -101,6 +141,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
           dateCommande: achat.dateCommande?.toDate ? achat.dateCommande.toDate() : new Date(achat.dateCommande || new Date()),
           dateLivraison: achat.dateLivraison?.toDate ? achat.dateLivraison.toDate() : new Date(achat.dateLivraison || new Date()),
           etat: achat.etat || 'En cours',
+          achetePar: achat.achetePar || '',
           totalAchat: achat.totalAchat,
           createdAt: achat.createdAt,
           updatedAt: achat.updatedAt
@@ -155,6 +196,46 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
     return matchesSearch && matchesStatus && matchesYear && matchesMonth;
   });
 
+  /**
+   * Montant dépensé par chaque acheteur, sur l'ensemble des achats affichés.
+   *
+   * Les achats sans acheteur renseigné sont regroupés à part, pour que la
+   * somme des tuiles corresponde toujours au montant total.
+   */
+  const depensesParAcheteur = ACHETEURS.map((personne) => ({
+    personne,
+    total: achats
+      .filter((achat) => achat.achetePar === personne)
+      .reduce((sum, achat) => sum + (achat.totalAchat || 0), 0),
+  }));
+
+  /** Chaque tuile d'acheteur couvre une part égale des 12 colonnes. */
+  const largeurTuileAcheteur = Math.max(
+    3,
+    Math.floor(12 / Math.max(depensesParAcheteur.length, 1))
+  );
+
+  /** Achats affichés : filtrés, puis triés si une colonne est active. */
+  const sortedPurchases = React.useMemo(() => {
+    if (!sortField) return filteredPurchases;
+
+    const time = (value: any) => {
+      const date = value instanceof Date ? value : new Date(value);
+      return isNaN(date.getTime()) ? 0 : date.getTime();
+    };
+
+    return [...filteredPurchases].sort((a, b) => {
+      const diff = time(a[sortField]) - time(b[sortField]);
+      return sortDirection === 'asc' ? diff : -diff;
+    });
+  }, [filteredPurchases, sortField, sortDirection]);
+
+  /** Somme des achats affichés, pour la ligne de total du tableau. */
+  const totalAffiche = sortedPurchases.reduce(
+    (sum, purchase) => sum + (purchase.totalAchat || 0),
+    0
+  );
+
   const getTotalPurchases = () => {
     return achats.reduce((total, achat) => total + achat.totalAchat, 0);
   };
@@ -206,6 +287,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
         dateCommande: achat.dateCommande?.toDate ? achat.dateCommande.toDate() : new Date(achat.dateCommande || new Date()),
         dateLivraison: achat.dateLivraison?.toDate ? achat.dateLivraison.toDate() : new Date(achat.dateLivraison || new Date()),
         etat: achat.etat || 'En cours',
+        achetePar: achat.achetePar || '',
         totalAchat: achat.totalAchat,
         createdAt: achat.createdAt,
         updatedAt: achat.updatedAt
@@ -395,6 +477,34 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
           </Col>
         </Row>
 
+        {/* Dépenses par acheteur */}
+        <Row className="mb-4 purchases-stats-row">
+          {depensesParAcheteur.map(({ personne, total }) => (
+            <Col md={largeurTuileAcheteur} key={personne}>
+              <Card className="stat-card">
+                <Card.Body className="stat-card-body d-flex align-items-center">
+                  {acheteurPhotos[ACHETEUR_COMPTES[personne]] ? (
+                    <img
+                      src={acheteurPhotos[ACHETEUR_COMPTES[personne]]}
+                      alt={personne}
+                      title={personne}
+                      className="acheteur-avatar"
+                    />
+                  ) : (
+                    <div className="stat-icon">
+                      <i className="bi bi-person-check"></i>
+                    </div>
+                  )}
+                  <div className="stat-card-content">
+                    <h3 className="stat-number">{formatPrice(total)}</h3>
+                    <p className="stat-label">Dépensé par {personne}</p>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+
         {/* Espace entre les cartes et les filtres */}
         <div className="purchases-spacer" style={{ height: '3rem', width: '100%', display: 'block' }}></div>
 
@@ -493,14 +603,28 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                          <th>Référence Achat / {config.singular}</th>
                          <th>Produits / {config.plural}</th>
                          <th>Total</th>
-                         <th>Date Commande</th>
-                         <th>Date Livraison</th>
+                         <th
+                           className="achats-sortable"
+                           onClick={() => handleSort('dateCommande')}
+                           title="Trier par date de commande"
+                         >
+                           Date Commande
+                           <i className={`bi ${sortIcon('dateCommande')} ms-1`}></i>
+                         </th>
+                         <th
+                           className="achats-sortable"
+                           onClick={() => handleSort('dateLivraison')}
+                           title="Trier par date de livraison"
+                         >
+                           Date Livraison
+                           <i className={`bi ${sortIcon('dateLivraison')} ms-1`}></i>
+                         </th>
                          <th>État</th>
                          <th>Actions</th>
                        </tr>
                      </thead>
                     <tbody>
-                      {filteredPurchases.map((purchase) => (
+                      {sortedPurchases.map((purchase) => (
                         <tr key={purchase.id}>
                           <td>
                             <div>
@@ -538,12 +662,8 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                                       }}
                                     />
                                   ) : (
-                                    <div 
+                                    <div
                                       className="product-thumb-placeholder"
-                                      style={{ 
-                                        width: '60px', 
-                                        height: '60px'
-                                      }}
                                       title={`${material.nom} - Aucune image`}
                                     >
                                       <i className="bi bi-image"></i>
@@ -619,6 +739,18 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                         </tr>
                       ))}
                     </tbody>
+                    {sortedPurchases.length > 0 && (
+                      <tfoot>
+                        <tr className="achats-total-row">
+                          <td colSpan={2}>
+                            Total ({sortedPurchases.length} achat
+                            {sortedPurchases.length > 1 ? 's' : ''})
+                          </td>
+                          <td>{formatPrice(totalAffiche)}</td>
+                          <td colSpan={4}></td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </Table>
                 </div>
               </Card.Body>
@@ -719,71 +851,179 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
         />
       </Suspense>
 
-      {/* Modal d'aperçu de l'achat de matériel */}
-      <Modal show={showPreviewModal} onHide={() => setShowPreviewModal(false)} size="lg">
+      {/* Modal d'aperçu de l'achat */}
+      <Modal
+        show={showPreviewModal}
+        onHide={() => setShowPreviewModal(false)}
+        size="lg"
+        centered
+        className="preview-modal"
+      >
         <Modal.Header closeButton>
           <Modal.Title>
             <i className="bi bi-eye me-2"></i>
             Aperçu de l'Achat de {config.singular}
           </Modal.Title>
         </Modal.Header>
+
         <Modal.Body>
           {selectedAchat && (
-            <div>
-              <Row className="mb-3">
-                <Col md={12}>
-                  <div className="alert alert-primary">
-                    <h6 className="mb-1"><i className="bi bi-tag-fill me-2"></i>Référence d'Achat</h6>
-                    <h4 className="mb-0 font-monospace">{selectedAchat.referenceAchat}</h4>
+            <>
+              {/* Référence et état */}
+              <div className="preview-ref">
+                <div>
+                  <span className="preview-ref-label">
+                    <i className="bi bi-tag-fill me-1"></i>
+                    Référence d'achat
+                  </span>
+                  <p className="preview-ref-value">{selectedAchat.referenceAchat}</p>
+                </div>
+                <Badge bg={selectedAchat.etat === 'Reçue' ? 'success' : 'warning'}>
+                  {selectedAchat.etat}
+                </Badge>
+              </div>
+
+              <Row className="g-3">
+                <Col md={6}>
+                  <div className="preview-card">
+                    <div className="preview-card-title">
+                      <i className="bi bi-building"></i>
+                      Fournisseur
+                    </div>
+                    <dl className="mb-0">
+                      <div className="preview-row">
+                        <dt>Nom</dt>
+                        <dd className={selectedAchat.fournisseur.nom ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.nom || 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Téléphone</dt>
+                        <dd className={selectedAchat.fournisseur.telephone ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.telephone || 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Email</dt>
+                        <dd className={selectedAchat.fournisseur.email ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.email || 'Non renseigné'}
+                        </dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Ville</dt>
+                        <dd className={selectedAchat.fournisseur.ville ? '' : 'is-empty'}>
+                          {selectedAchat.fournisseur.ville || 'Non renseignée'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </Col>
+
+                <Col md={6}>
+                  <div className="preview-card">
+                    <div className="preview-card-title">
+                      <i className="bi bi-calendar-event"></i>
+                      Achat
+                    </div>
+                    <dl className="mb-0">
+                      <div className="preview-row">
+                        <dt>Date d'achat</dt>
+                        <dd>{formatDate(selectedAchat.dateAchat)}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Date de commande</dt>
+                        <dd>{formatDate(selectedAchat.dateCommande)}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Date de livraison</dt>
+                        <dd>{formatDate(selectedAchat.dateLivraison)}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Lignes</dt>
+                        <dd>{selectedAchat.materials.length}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Acheté par</dt>
+                        <dd className={selectedAchat.achetePar ? '' : 'is-empty'}>
+                          {selectedAchat.achetePar || 'Non renseigné'}
+                        </dd>
+                      </div>
+                    </dl>
                   </div>
                 </Col>
               </Row>
-              <Row className="mb-3">
-                <Col md={6}>
-                  <h6 className="modal-section-title">Informations Fournisseur</h6>
-                  <p><strong>Nom:</strong> {selectedAchat.fournisseur.nom}</p>
-                  <p><strong>Téléphone:</strong> {selectedAchat.fournisseur.telephone || 'Non renseigné'}</p>
-                  <p><strong>Email:</strong> {selectedAchat.fournisseur.email || 'Non renseigné'}</p>
-                  <p><strong>Ville:</strong> {selectedAchat.fournisseur.ville || 'Non renseigné'}</p>
-                </Col>
-                <Col md={6}>
-                  <h6 className="modal-section-title">Informations Achat</h6>
-                  <p><strong>ID:</strong> {selectedAchat.id}</p>
-                  <p><strong>Date d'achat:</strong> {formatDate(selectedAchat.dateAchat)}</p>
-                  <p><strong>Total:</strong> {formatPrice(selectedAchat.totalAchat)}</p>
-                </Col>
-              </Row>
-              
-              <h6 className="modal-section-title">{config.plural} Achetés</h6>
-              <div className="table-responsive">
-                <Table striped bordered hover size="sm" className="materials-preview-table">
+
+              <div className="preview-section-title">
+                <i className="bi bi-box-seam"></i>
+                {config.plural} achetés
+              </div>
+
+              <div className="preview-table-wrapper">
+                <table className="preview-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '35%' }}>Nom</th>
-                      <th style={{ width: '25%' }}>Référence</th>
-                      <th style={{ width: '8%' }}>Quantité</th>
-                      <th style={{ width: '16%' }}>Prix Unitaire</th>
-                      <th style={{ width: '16%' }}>Total</th>
+                      <th style={{ width: '58px' }}>Image</th>
+                      <th style={{ width: '32%' }}>Nom</th>
+                      <th style={{ width: '22%' }}>Référence</th>
+                      <th style={{ width: '9%' }} className="center">Qté</th>
+                      <th style={{ width: '14%' }} className="num">Prix unitaire</th>
+                      <th style={{ width: '14%' }} className="num">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedAchat.materials.map((material, index) => (
                       <tr key={index}>
-                        <td>{material.nom}</td>
-                        <td>{material.referenceFournisseur || 'N/A'}</td>
-                        <td className="text-center">{material.quantite}</td>
-                        <td className="text-end">{formatPrice(material.prixUnitaire)}</td>
-                        <td className="text-end">{formatPrice(material.prixPaye)}</td>
+                        <td>
+                          {material.image &&
+                          material.image !== '/mug.webp' &&
+                          material.image !== '/placeholder-product.jpg' &&
+                          !material.image.startsWith('blob:') ? (
+                            <img
+                              src={material.image}
+                              alt={material.nom}
+                              title={material.nom}
+                              className="preview-thumb"
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/mug.webp';
+                              }}
+                            />
+                          ) : (
+                            <span className="muted" title="Aucune image">
+                              <i className="bi bi-image"></i>
+                            </span>
+                          )}
+                        </td>
+                        <td className="line-name">{material.nom}</td>
+                        <td className={material.referenceFournisseur ? '' : 'muted'}>
+                          {material.referenceFournisseur || 'Aucune'}
+                        </td>
+                        <td className="center">{material.quantite}</td>
+                        <td className="num">{formatPrice(material.prixUnitaire)}</td>
+                        <td className="num">{formatPrice(material.prixPaye)}</td>
                       </tr>
                     ))}
                   </tbody>
-                </Table>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={5}>Total de l'achat</td>
+                      <td className="num">{formatPrice(selectedAchat.totalAchat)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
-            </div>
+            </>
           )}
         </Modal.Body>
+
         <Modal.Footer>
+          {selectedAchat && (
+            <span className="preview-total">
+              Total<strong>{formatPrice(selectedAchat.totalAchat)}</strong>
+            </span>
+          )}
           <Button variant="secondary" onClick={() => setShowPreviewModal(false)}>
+            <i className="bi bi-x-circle me-2"></i>
             Fermer
           </Button>
         </Modal.Footer>

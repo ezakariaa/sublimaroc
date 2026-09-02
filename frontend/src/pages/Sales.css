@@ -331,6 +331,110 @@
   cursor: not-allowed;
 }
 
+/* ────────────────────────────────────────────────────────
+   Tableau des ventes : lisibilité et accès aux colonnes
+   ──────────────────────────────────────────────────────── */
 
+/* La règle globale `.table-responsive { overflow: hidden }` coupait les
+   dernières colonnes (Facture, Actions) sans permettre d'y accéder.
+   Le défilement horizontal est rétabli ici, sur cette page uniquement. */
+.sales-page .table-responsive {
+  overflow-x: auto;
+  overflow-y: visible;
+}
 
+.sales-page .table {
+  table-layout: fixed;
+  min-width: 1080px;
+}
 
+.sales-page .table-light th,
+.sales-page .table th {
+  font-size: 0.78rem !important;
+  padding: 0.7rem 0.5rem !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
+
+.sales-page .table tbody td {
+  font-size: 0.82rem;
+  padding: 0.6rem 0.5rem;
+}
+
+/* Référence, total et date : ne jamais couper au milieu */
+.sales-page .table tbody td strong.text-primary,
+.sales-page .order-total,
+.sales-page .date-info {
+  white-space: nowrap;
+}
+
+.sales-page .order-total {
+  font-size: 0.9rem;
+}
+
+.sales-page .customer-name {
+  font-size: 0.82rem;
+  margin-bottom: 0.1rem;
+}
+
+.sales-page .products-info {
+  max-width: none;
+}
+
+/* Une ligne de produit : vignette à gauche, texte à droite */
+.sales-page .product-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  padding: 0.15rem 0;
+}
+
+.sales-page .product-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sales-page .product-name {
+  font-size: 0.82rem;
+  margin-bottom: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sales-page .product-item small {
+  font-size: 0.72rem;
+}
+
+.vente-thumb {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  background-color: #fff;
+}
+
+.vente-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #adb5bd;
+  border-style: dashed;
+  font-size: 1rem;
+}
+
+/* Boutons Facture et Actions : jamais de retour à la ligne */
+.sales-page .action-buttons,
+.sales-page .table tbody td .d-flex.gap-1 {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.sales-page .table tbody td .btn-sm {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.78rem;
+}

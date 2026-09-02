@@ -212,18 +212,17 @@
 }
 
 .stock-page .table tbody td {
-  vertical-align: middle;
+  vertical-align: top;
   padding: 0.55rem 0.75rem;
   border-top: 1px solid #e9ecef;
 }
 
-/* Centrer les images dans leurs cellules - Tableau principal des produits uniquement */
+/* Cellule image du tableau principal des produits */
 .stock-page .table:not(.sub-products-table) td.product-image-cell,
 .stock-page .table:not(.sub-products-table) td:nth-child(2) {
   text-align: left !important;
-  padding: 0.55rem 0.75rem !important;
-  width: 8% !important;
-  vertical-align: middle !important;
+  padding: 0.7rem 0.75rem !important;
+  vertical-align: top !important;
 }
 
 /* Centrer le wrapper d'image */
@@ -369,60 +368,24 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
 }
 
-/* Amélioration de la largeur des colonnes du tableau principal */
-.table th:nth-child(1) { width: 16% !important; min-width: 200px; } /* Nom du produit - agrandi */
-.table th:nth-child(2) { width: 10% !important; min-width: 90px; } /* Image - ajustée pour les 70px */
-.table th:nth-child(3) { width: 44% !important; } /* Caractéristiques - réduite pour équilibrer */
-.table th:nth-child(4) { width: 10% !important; } /* Stock - légèrement agrandi */
-.table th:nth-child(5) { width: 12% !important; } /* État - légèrement agrandi */
-.table th:nth-child(6) { width: 10% !important; } /* Actions - ajusté */
+/* ────────────────────────────────────────────────────────
+   Largeurs des colonnes
 
-/* Forcer aussi les cellules du tableau */
-.table td:nth-child(1) { width: 16% !important; min-width: 200px; }
-.table td:nth-child(2) { width: 10% !important; min-width: 90px; }
-.table td:nth-child(3) { width: 44% !important; }
-.table td:nth-child(4) { width: 12% !important; }
-.table td:nth-child(5) { width: 12% !important; }
-.table td:nth-child(6) { width: 10% !important; }
+   Les anciennes règles `.table th:nth-child(n)` n'étaient pas
+   scopées : avec `!important`, elles s'appliquaient à TOUS les
+   tableaux de l'application. Et celles du tableau des sous-produits
+   décrivaient une version à 9 colonnes (avec « Catégorie Parent »
+   et « Total ») ; le tableau n'en a plus que 7, si bien que chaque
+   largeur tombait sur la mauvaise colonne — la colonne
+   Caractéristiques héritait des 6 % prévus pour l'image et son
+   contenu débordait par-dessus la colonne voisine.
 
-/* Forcer le tableau à respecter les largeurs fixées */
-.table {
-  table-layout: fixed !important;
-  width: 100% !important;
-}
-
-/* Amélioration de la largeur des colonnes du tableau des sous-produits */
-.sub-products-table th:nth-child(1), /* Nom du Sous-Produit */
-.sub-products-table td:nth-child(1) { width: 10% !important; max-width: 130px; }
-
-.sub-products-table th:nth-child(2), /* Catégorie Parent */
-.sub-products-table td:nth-child(2) { width: 8% !important; }
-
-.sub-products-table th:nth-child(3), /* Image */
-.sub-products-table td:nth-child(3) { width: 6% !important; min-width: 80px; }
-
-.sub-products-table th:nth-child(4), /* Caractéristiques */
-.sub-products-table td:nth-child(4) { width: 30% !important; }
-
-.sub-products-table th:nth-child(5), /* Prix Unitaire */
-.sub-products-table td:nth-child(5) { width: 7% !important; }
-
-.sub-products-table th:nth-child(6), /* Quantité */
-.sub-products-table td:nth-child(6) { width: 6% !important; }
-
-.sub-products-table th:nth-child(7), /* Total */
-.sub-products-table td:nth-child(7) { width: 10% !important; }
-
-.sub-products-table th:nth-child(8), /* État du Stock */
-.sub-products-table td:nth-child(8) { width: 10% !important; }
-
-.sub-products-table th:nth-child(9), /* Actions */
-.sub-products-table td:nth-child(9) { width: 8% !important; min-width: 100px; }
-
-/* Forcer le tableau des sous-produits à respecter les largeurs */
-.sub-products-table {
-  table-layout: fixed !important;
-  width: 100% !important;
+   Les largeurs sont désormais déclarées une seule fois, dans le
+   `<thead>` de chaque tableau, et ne valent que pour cette page.
+   ──────────────────────────────────────────────────────── */
+.stock-page .table {
+  table-layout: fixed;
+  width: 100%;
 }
 
 /* Bordures verticales supprimées pour les cellules du tableau des sous-produits */
@@ -494,7 +457,7 @@
 .stock-page .table:not(.sub-products-table) td:nth-child(5), /* État du Stock */
 .stock-page .table:not(.sub-products-table) td:nth-child(6) { /* Actions */
   text-align: center;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 /* Style pour la colonne Stock - uniquement dans stock-page */
@@ -523,44 +486,24 @@
   gap: 0.25rem;
 }
 
-/* Styles spécifiques pour le tableau des sous-produits */
-.sub-products-table th:nth-child(1), /* Nom du Sous-Produit */
-.sub-products-table th:nth-child(2), /* Catégorie Parent */
-.sub-products-table th:nth-child(3), /* Image */
-.sub-products-table th:nth-child(4), /* Caractéristiques */
-.sub-products-table th:nth-child(5), /* Prix Unitaire */
-.sub-products-table th:nth-child(6), /* Quantité */
-.sub-products-table th:nth-child(7), /* Total */
-.sub-products-table th:nth-child(8), /* État du Stock */
-.sub-products-table th:nth-child(9) { /* Actions */
+/* Tableau des sous-produits.
+   Ces règles énuméraient 9 colonnes (« Catégorie Parent » et « Total »
+   ont depuis disparu) et plafonnaient la première à 150 px, ce qui
+   entrait en conflit avec la largeur déclarée dans le `<thead>`. */
+.stock-page .sub-products-table th {
   text-align: left !important;
   font-weight: bold !important;
   color: #2c3e50;
-  padding: 0.35rem 0.5rem;
 }
 
-.sub-products-table td:nth-child(1), /* Nom du Sous-Produit */
-.sub-products-table td:nth-child(2), /* Catégorie Parent */
-.sub-products-table td:nth-child(3), /* Image */
-.sub-products-table td:nth-child(4), /* Caractéristiques */
-.sub-products-table td:nth-child(5), /* Prix Unitaire */
-.sub-products-table td:nth-child(6), /* Quantité */
-.sub-products-table td:nth-child(7), /* Total */
-.sub-products-table td:nth-child(8), /* État du Stock */
-.sub-products-table td:nth-child(9) { /* Actions */
-  vertical-align: middle;
-  padding: 0.35rem 0.5rem;
+.stock-page .sub-products-table td {
+  vertical-align: top;
 }
 
-/* Style pour la colonne Nom du Sous-Produit */
-.sub-products-table td:nth-child(1) {
+.stock-page .sub-products-table td:first-child {
   text-align: left;
   font-weight: 600;
   color: #2c3e50;
-  max-width: 150px;
-  word-wrap: break-word;
-  word-break: break-word;
-  white-space: normal;
   line-height: 1.4;
 }
 
@@ -600,14 +543,12 @@
   min-width: 140px;
 }
 
-/* Style pour la colonne Catégorie Parent */
+/* Colonne Image (la 2e depuis la fusion nom + catégorie) */
 .sub-products-table td:nth-child(2) {
   text-align: left;
   padding-left: 0.5rem !important;
   padding-right: 0.5rem !important;
-  vertical-align: middle;
-  position: relative;
-  z-index: 1;
+  vertical-align: top;
 }
 
 .sub-products-table td:nth-child(2) .badge {
@@ -618,12 +559,12 @@
   text-overflow: ellipsis;
 }
 
-/* Style pour la colonne Image */
+/* Colonne Caractéristiques (la 3e depuis la fusion nom + catégorie) */
 .sub-products-table td:nth-child(3) {
-  text-align: center !important;
+  text-align: left !important;
   padding-left: 0.75rem !important;
   padding-right: 0.75rem !important;
-  vertical-align: middle;
+  vertical-align: top;
   position: relative;
   z-index: 2;
 }
@@ -1044,4 +985,345 @@
 .sub-products-table tbody td:nth-child(8) {
   width: 100px;
   max-width: 100px;
+}
+
+/* ────────────────────────────────────────────────────────
+   Tableau des sous-produits : une seule colonne d'identité
+   (nom, identifiant, puis catégorie), pour libérer de la
+   largeur au profit des caractéristiques.
+   ──────────────────────────────────────────────────────── */
+.subproduct-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.subproduct-name {
+  font-weight: 700;
+  color: #2c3e50;
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+/* L'identifiant est long : il reste sur une ligne et se tronque */
+.subproduct-id {
+  color: #FF33FF;
+  font-size: 0.7rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subproduct-category {
+  background-color: #eef0f5;
+  color: #424272;
+  border: 1px solid #dfe3ec;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25em 0.5em;
+}
+
+/* ────────────────────────────────────────────────────────
+   Tableaux Produits et Sous-Produits : même design que
+   les tableaux Ventes, Achats et Articles.
+   ──────────────────────────────────────────────────────── */
+
+/* `.table-responsive { overflow: hidden }` ci-dessus coupait la colonne
+   Actions sans permettre d'y accéder. Défilement rétabli. */
+.stock-page .table-responsive {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+}
+
+.stock-page .table {
+  min-width: 940px;
+}
+
+.stock-page .table.sub-products-table {
+  min-width: 1040px;
+}
+
+/* En-têtes */
+.stock-page .table-light th,
+.stock-page .table th {
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  padding: 0.7rem 0.5rem !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+  background-color: #f8f9fa;
+  color: #212529;
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Cellules */
+.stock-page .table tbody td {
+  font-size: 0.82rem;
+  padding: 0.6rem 0.5rem;
+}
+
+.stock-page .product-name {
+  font-size: 0.85rem;
+  margin-bottom: 0.15rem;
+}
+
+.stock-page .table tbody td small {
+  font-size: 0.72rem;
+}
+
+/* Valeurs courtes : jamais de retour à la ligne */
+.stock-page .table tbody td .badge,
+.stock-page .table td:nth-last-child(-n + 4) .fw-bold {
+  white-space: nowrap;
+}
+
+/* Vignettes : même gabarit que les autres tableaux (38 px) */
+.stock-page .table .product-thumb,
+.stock-page .table .product-thumb-placeholder,
+.stock-page .table:not(.sub-products-table) .stock-product-thumb,
+.stock-page .table:not(.sub-products-table) .stock-product-thumb-placeholder {
+  width: 38px !important;
+  height: 38px !important;
+  border-width: 1px !important;
+  border-radius: 6px !important;
+}
+
+.stock-page .table:not(.sub-products-table) .stock-product-thumb-placeholder i,
+.stock-page .table .product-thumb-placeholder i {
+  font-size: 0.9rem !important;
+}
+
+/* Le survol ne doit plus agrandir : cela décalait les lignes */
+.stock-page .table .product-thumb:hover,
+.stock-page .table .product-thumb-placeholder:hover,
+.stock-page .table .product-image-wrapper:hover .product-thumb {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Boutons d'action compacts, sur une seule ligne */
+.stock-page .table .action-buttons,
+.stock-page .table td .d-flex {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.stock-page .table .action-btn,
+.stock-page .table .btn-sm {
+  width: auto;
+  height: auto;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.78rem;
+}
+
+.stock-page .table .action-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Correctifs de largeur et de vignettes ─────────────── */
+
+/* Les caractéristiques débordaient de leur cellule et se peignaient
+   par-dessus la colonne P.U : le contenu reste désormais dans sa cellule. */
+.stock-page .table td .char-groups {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.stock-page .table td .char-group-values {
+  min-width: 0;
+}
+
+/* Colonnes courtes : valeur toujours sur une seule ligne */
+.stock-page .table.sub-products-table td:nth-child(4),
+.stock-page .table.sub-products-table td:nth-child(5),
+.stock-page .table.sub-products-table th:nth-child(4),
+.stock-page .table.sub-products-table th:nth-child(5) {
+  white-space: nowrap;
+}
+
+/* Image plus grande dans le tableau des produits principaux */
+.stock-page .table:not(.sub-products-table) .product-thumb,
+.stock-page .table:not(.sub-products-table) .product-thumb-placeholder,
+.stock-page .table:not(.sub-products-table) .stock-product-thumb,
+.stock-page .table:not(.sub-products-table) .stock-product-thumb-placeholder {
+  width: 60px !important;
+  height: 60px !important;
+  border-radius: 8px !important;
+}
+
+.stock-page .table:not(.sub-products-table) .product-thumb-placeholder i,
+.stock-page .table:not(.sub-products-table) .stock-product-thumb-placeholder i {
+  font-size: 1.2rem !important;
+}
+
+/* ────────────────────────────────────────────────────────
+   Sous-produits : une ligne par sous-produit, ses variations
+   dépliables en dessous.
+   ──────────────────────────────────────────────────────── */
+
+/* Toute la ligne est cliquable quand il y a des variations */
+.stock-page .sub-products-table tr.is-expandable {
+  cursor: pointer;
+}
+
+.stock-page .sub-products-table tr.is-expandable:hover {
+  background-color: #f4f6fa;
+}
+
+/* Chevron d'ouverture, aligné avec le nom */
+.subproduct-toggle {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin-top: 0.1rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dfe3ec;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #424272;
+  font-size: 0.7rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.subproduct-toggle:hover {
+  background-color: #424272;
+  border-color: #424272;
+  color: #ffffff;
+}
+
+/* Réserve la même gouttière quand il n'y a pas de variation */
+.subproduct-toggle-placeholder {
+  flex: 0 0 22px;
+  width: 22px;
+}
+
+/* Compteur de variations, à côté du nom */
+.subproduct-variation-count {
+  background-color: #eef0f5;
+  color: #424272;
+  border: 1px solid #dfe3ec;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.2em 0.45em;
+  vertical-align: middle;
+}
+
+/* Lignes de variation : en retrait et sur fond légèrement teinté */
+.stock-page .sub-products-table tr.variation-row > td {
+  background-color: #fbfcfd;
+  border-top: 1px dashed #e9ecef;
+}
+
+.variation-label {
+  padding-left: 30px;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+/* Vignettes du tableau des sous-produits */
+.subproduct-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6 !important;
+}
+
+.subproduct-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #adb5bd;
+  border-style: dashed !important;
+  font-size: 1.1rem;
+}
+
+.subproduct-image-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #424272;
+  color: #ffffff;
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+/* ── Sous-produits : mise au propre de la ligne ────────────
+   Les caractéristiques groupées rendent la ligne haute ; tout
+   centrer verticalement dispersait prix, quantité et état au
+   milieu du vide. Le contenu est donc aligné en haut. */
+.stock-page .sub-products-table tbody td {
+  vertical-align: top;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+/* L'image et les boutons restent lisibles alignés en haut */
+.stock-page .sub-products-table tbody td .subproduct-thumb {
+  margin-top: 0.1rem;
+}
+
+.stock-page .sub-products-table .subproduct-qty-note {
+  font-size: 0.66rem;
+  line-height: 1.1;
+  margin-top: 0.1rem;
+}
+
+
+/* Vignette un peu plus petite : la ligne est déjà haute */
+.stock-page .sub-products-table .subproduct-thumb {
+  width: 52px;
+  height: 52px;
+}
+
+/* Boutons d'action groupés, sans retour à la ligne */
+.stock-page .sub-products-table td .d-flex.gap-2 {
+  gap: 0.25rem !important;
+  flex-wrap: nowrap;
+}
+
+/* ── Contenu des lignes aligné en haut, dans les deux tableaux ──
+   Les caractéristiques groupées rendent les lignes hautes ; centrer
+   verticalement éloignait le prix, la quantité et l'état du nom
+   resté en haut à gauche. */
+.stock-page .table tbody td {
+  vertical-align: top;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+/* Les vignettes restent alignées avec la première ligne de texte */
+.stock-page .table tbody td .product-thumb,
+.stock-page .table tbody td .product-thumb-placeholder,
+.stock-page .table tbody td .stock-product-thumb,
+.stock-page .table tbody td .stock-product-thumb-placeholder {
+  margin-top: 0.1rem;
+}
+
+/* ── Colonnes Quantité, État et Actions : contenu sous son titre ──
+   Ces cellules étaient centrées alors que leurs en-têtes sont alignés
+   à gauche : les icônes d'action se retrouvaient décalées par rapport
+   au mot « Actions ». */
+.stock-page .table:not(.sub-products-table) td:nth-child(4),
+.stock-page .table:not(.sub-products-table) td:nth-child(5),
+.stock-page .table:not(.sub-products-table) td:nth-child(6) {
+  text-align: left;
+}
+
+.stock-page .table:not(.sub-products-table) td:nth-child(6) .action-buttons {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
 }

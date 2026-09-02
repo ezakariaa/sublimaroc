@@ -60,12 +60,12 @@ export const BASE_CHARACTERISTIC_TYPES: CharacteristicType[] = [
   { key: 'anse',       label: 'Anse',       icon: 'bi-handbag' },
   { key: 'couleurs',   label: 'Couleurs',   icon: 'bi-palette' },
   { key: 'dimensions', label: 'Dimensions', icon: 'bi-rulers' },
-  { key: 'materiau',   label: 'Matière',    icon: 'bi-gear' },
+  { key: 'materiau',   label: 'Matière',    icon: 'bi-layers' },
   { key: 'capacite',   label: 'Capacité',   icon: 'bi-cup' },
   { key: 'poids',      label: 'Poids',      icon: 'bi-speedometer2' },
   { key: 'qualite',    label: 'Qualité',    icon: 'bi-award' },
   { key: 'manches',    label: 'Manches',    icon: 'bi-person-arms-up' },
-  { key: 'col',        label: 'Col',        icon: 'bi-person' },
+  { key: 'col',        label: 'Col',        icon: 'bi-person-bounding-box' },
 ];
 
 /** Slot fixe de chaque type d'origine : la couleur ne bouge jamais. */
@@ -143,3 +143,13 @@ export function getCharacteristicColor(key: string): string {
 export function getCharacteristicIcon(key: string): string {
   return BASE_CHARACTERISTIC_TYPES.find((c) => c.key === key)?.icon || 'bi-tag';
 }
+
+/** Catégories proposées pour un produit, dans l'ordre du menu. */
+export const PRODUCT_CATEGORIES = [
+  'Carterie',
+  'Papeterie',
+  'Textile',
+  'Supports',
+  'Packaging',
+  'Accessoires',
+];

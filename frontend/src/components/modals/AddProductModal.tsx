@@ -4,6 +4,8 @@ import { Product } from '../../types';
 import { ProductService } from '../../services/apiService';
 import AddTagModal from './AddTagModal';
 import { LabelService, uploadBlobUrl } from '../../services/apiService';
+import CustomSelect from '../CustomSelect';
+import { PRODUCT_CATEGORIES } from '../../config/characteristics';
 
 interface AddProductModalProps {
   show: boolean;
@@ -931,6 +933,23 @@ const AddProductModal: React.FC<AddProductModalProps> = ({
                       placeholder="Ex: Mug Premium"
                       required
                     />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3">
+                    <Form.Label>Catégorie du produit</Form.Label>
+                    <CustomSelect
+                      value={newProduct.categorie}
+                      onChange={(e) => setNewProduct(prev => ({ ...prev, categorie: e.target.value }))}
+                    >
+                      <option value="">Aucune catégorie</option>
+                      {PRODUCT_CATEGORIES.map((categorie) => (
+                        <option key={categorie} value={categorie}>{categorie}</option>
+                      ))}
+                      {/* Catégorie déjà enregistrée hors de la liste : conservée */}
+                      {newProduct.categorie && !PRODUCT_CATEGORIES.includes(newProduct.categorie) && (
+                        <option value={newProduct.categorie}>{newProduct.categorie}</option>
+                      )}
+                    </CustomSelect>
                   </Form.Group>
                   
                   <Form.Group className="mb-3">

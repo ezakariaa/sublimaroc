@@ -7,6 +7,7 @@ import ImageCarousel from '../components/ImageCarousel';
 import CharacteristicTags from '../components/CharacteristicTags';
 import { toast } from 'react-toastify';
 import './Stock.css';
+import '../styles/PreviewModal.css';
 
 // Lazy loading des modales pour optimiser les performances
 const AddProductModal = React.lazy(() => import('../components/modals/AddProductModal'));
@@ -38,6 +39,17 @@ const Stock: React.FC = () => {
 
   // Défilement d'images au hover
   const [hoverImageIndex, setHoverImageIndex] = useState<Record<string, number>>({});
+  /** Sous-produits dont les variations sont dépliées. */
+  const [expandedSubProducts, setExpandedSubProducts] = useState<Set<string>>(new Set());
+
+  const toggleSubProductExpansion = (subProductId: string) => {
+    setExpandedSubProducts((prev) => {
+      const next = new Set(prev);
+      if (next.has(subProductId)) next.delete(subProductId);
+      else next.add(subProductId);
+      return next;
+    });
+  };
   const hoverIntervals = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   const handleProductImageMouseEnter = (productId: string, images: string[]) => {
@@ -675,21 +687,30 @@ const Stock: React.FC = () => {
                     <table className="table table-hover align-middle">
                       <thead className="table-light">
                         <tr>
-                          <th style={{ width: '15%' }}>Produit</th>
-                          <th style={{ width: '10%' }}>Image</th>
-                          <th style={{ width: '35%' }}>Caractéristiques</th>
-                          <th style={{ width: '10%' }}>Quantité</th>
-                          <th style={{ width: '10%' }}>État du Stock</th>
-                          <th style={{ width: '20%' }}>Actions</th>
+                          <th style={{ width: '22%' }}>Produit</th>
+                          <th style={{ width: '9%' }}>Image</th>
+                          <th style={{ width: '36%' }}>Caractéristiques</th>
+                          <th style={{ width: '8%' }}>Quantité</th>
+                          <th style={{ width: '12%' }}>État du Stock</th>
+                          <th style={{ width: '13%' }}>Actions</th>
                         </tr>
                       </thead>
                     <tbody>
                         {paginatedProducts.map((product) => (
                           <tr key={product.id}>
-                            {/* Nom du Produit */}
+                            {/* Produit : nom, identifiant, puis catégorie */}
                             <td>
-                              <div className="fw-bold text-dark">{product.nom}</div>
-                              <small style={{ color: '#FF33FF' }}>ID: {product.id}</small>
+                              <div className="subproduct-cell">
+                                <div className="subproduct-name">{product.nom}</div>
+                                <small className="subproduct-id" title={product.id}>
+                                  ID&nbsp;: {product.id}
+                                </small>
+                                {product.categorie && (
+                                  <span className="badge subproduct-category">
+                                    {product.categorie}
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Image du Produit */}
@@ -771,12 +792,6 @@ const Stock: React.FC = () => {
                             {/* Caractéristiques - Tags */}
                             <td>
                               <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '100%' }}>
-                                {product.categorie && (
-                                  <span className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#6f42c1', color: '#ffffff' }}>
-                                    <i className="bi bi-tag me-1"></i>
-                                    {product.categorie}
-                                  </span>
-                                )}
                                 {product.fournisseur?.nom && (
                                   <span className="badge" style={{ fontSize: '0.7rem', backgroundColor: '#6610f2', color: '#ffffff' }}>
                                     <i className="bi bi-building me-1"></i>
@@ -795,7 +810,7 @@ const Stock: React.FC = () => {
                                     {product.prix} MAD
                                   </span>
                                 )}
-                                <CharacteristicTags source={product} fontSize="0.7rem" />
+                                <CharacteristicTags source={product} fontSize="0.7rem" grouped compact />
                               </div>
                             </td>
 
@@ -938,339 +953,242 @@ const Stock: React.FC = () => {
                     <table className="table table-hover align-middle sub-products-table">
                       <thead className="table-light">
                         <tr>
-                          <th>Sous-Produit</th>
-                          <th style={{ width: '90px' }}>Catégorie</th>
-                          <th>Image</th>
-                          <th>Caractéristiques</th>
-                          <th>P.U</th>
-                          <th>Qté</th>
-                          <th style={{ width: '110px' }}>État du Stock</th>
-                          <th style={{ width: '100px' }}>Actions</th>
+                          <th style={{ width: '19%' }}>Sous-Produit</th>
+                          <th style={{ width: '8%' }}>Image</th>
+                          <th style={{ width: '36%' }}>Caractéristiques</th>
+                          <th style={{ width: '9%' }} className="text-end">P.U</th>
+                          <th style={{ width: '7%' }} className="text-center">Qté</th>
+                          <th style={{ width: '11%' }}>État du Stock</th>
+                          <th style={{ width: '10%' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {subProducts.flatMap((subProduct) => {
-                          const variationsArray = subProduct.variations && Array.isArray(subProduct.variations) && subProduct.variations.length > 0 
-                            ? subProduct.variations 
-                            : [];
-                          
-                          const parentProduct = products.find(p => p.id === subProduct.productId);
-                          const images = subProduct.images && subProduct.images.length > 0 
-                            ? subProduct.images 
-                            : (subProduct.image && subProduct.image !== '/mug.webp' ? [subProduct.image] : []);
-                          
-                          // Si le sous-produit a des variations, créer une ligne pour chaque variation
-                          if (variationsArray.length > 0) {
-                            return variationsArray.map((variation, varIndex) => {
-                              const char = variation.characteristics || {};
-                              const variationQuantite = variation.quantite || 0;
-                              const variationPrix = variation.prixUnitaire || subProduct.prix;
-                              
-                              return (
-                                <tr key={`${subProduct.id}-var-${varIndex}`} style={{ backgroundColor: varIndex > 0 ? '#f8f9fa' : 'transparent' }}>
-                            {/* Nom du Sous-Produit */}
-                            <td>
-                                    {varIndex === 0 ? (
-                                      <>
-                              <div className="fw-bold text-dark">{subProduct.nom}</div>
-                              <small style={{ color: '#FF33FF' }}>ID: {subProduct.id}</small>
-                                      </>
-                                    ) : (
-                                      <div className="text-muted" style={{ fontSize: '0.85rem', fontStyle: 'italic' }}>
-                                        ↳ Variation {varIndex + 1}
-                                      </div>
-                                    )}
-                            </td>
+                          const variationsArray =
+                            subProduct.variations && Array.isArray(subProduct.variations)
+                              ? subProduct.variations
+                              : [];
+                          const hasVariations = variationsArray.length > 0;
+                          const isExpanded = expandedSubProducts.has(subProduct.id);
 
-                            {/* Catégorie Parent */}
-                                  <td style={{ width: '90px' }}>
-                                    {varIndex === 0 && (
-                                      <span className="badge bg-secondary" style={{ fontSize: '0.65rem', padding: '0.15em 0.3em' }}>
-                                        {parentProduct?.nom || 'Catégorie inconnue'}
-                              </span>
-                                    )}
-                            </td>
+                          const parentProduct = products.find((p) => p.id === subProduct.productId);
+                          const images =
+                            subProduct.images && subProduct.images.length > 0
+                              ? subProduct.images
+                              : subProduct.image && subProduct.image !== '/mug.webp'
+                              ? [subProduct.image]
+                              : [];
 
-                            {/* Images */}
-                            <td>
-                                    {(() => {
-                                      // Pour les variations, prioriser l'image de la variation si elle existe
-                                      const variationImage = variation.image;
-                                      const imageToDisplay = varIndex > 0 && variationImage 
-                                        ? variationImage 
-                                        : (images.length > 0 ? images[0] : null);
-                                      
-                                      return imageToDisplay ? (
-                                        <div className="d-flex align-items-center gap-1">
-                                          <img
-                                            src={imageToDisplay}
-                                            alt={varIndex > 0 ? `Variation ${varIndex + 1}` : subProduct.nom}
-                                            className="rounded border"
-                                            style={{ 
-                                              width: '70px', 
-                                              height: '70px', 
-                                              objectFit: 'cover',
-                                              backgroundColor: '#f8f9fa',
-                                              border: '2px solid #dee2e6',
-                                              cursor: 'pointer',
-                                              transition: 'all 0.2s ease'
-                                            }}
-                                            loading="lazy"
-                                            onError={(e) => {
-                                              const target = e.target as HTMLImageElement;
-                                              target.src = '/mug.webp';
-                                            }}
-                                          />
-                                          {varIndex === 0 && images.length > 1 && (
-                                            <div 
-                                              className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                                              style={{ 
-                                                width: '20px', 
-                                                height: '20px', 
-                                                fontSize: '0.6rem',
-                                                fontWeight: 'bold'
-                                              }}
-                                              title={`${images.length} images`}
-                                            >
-                                              +{images.length - 1}
-                                            </div>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div 
-                                          className="rounded border d-flex align-items-center justify-content-center text-muted"
-                                          style={{ 
-                                            width: '70px', 
-                                            height: '70px', 
-                                            backgroundColor: '#f8f9fa',
-                                            fontSize: '0.7rem',
-                                            textAlign: 'center',
-                                            border: '2px dashed #dee2e6',
-                                            cursor: 'pointer'
-                                          }}
-                                          title="Aucune image"
-                                        >
-                                          <div>
-                                            <i className="bi bi-image d-block mb-1" style={{ fontSize: '1.2rem' }}></i>
-                                            {varIndex > 0 ? `Var ${varIndex + 1}` : subProduct.nom.substring(0, 6)}
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
-                            </td>
+                          // Quantité du sous-produit : somme de ses variations
+                          const quantiteTotale = hasVariations
+                            ? variationsArray.reduce((sum, v) => sum + (Number(v.quantite) || 0), 0)
+                            : Number(subProduct.stock) || 0;
 
-                                  {/* Caractéristiques - Tags de la variation */}
-                            <td>
-                              <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '100%' }}>
-                                      <CharacteristicTags source={char} fontSize="0.7rem" />
-                                      {Object.values(char).every((v) => !v) && (
-                                        <span className="text-muted" style={{ fontSize: '0.7rem' }}>
-                                          <i className="bi bi-dash-circle me-1"></i>
-                                          Aucune caractéristique
+                          /**
+                           * Prix affiché : celui du sous-produit, ou l'étendue
+                           * des prix de ses variations s'il n'en porte pas.
+                           */
+                          const prixVariations = variationsArray
+                            .map((v) => Number(v.prixUnitaire) || 0)
+                            .filter((v) => v > 0);
+                          const prixAffiche =
+                            Number(subProduct.prix) > 0 || prixVariations.length === 0
+                              ? `${subProduct.prix} MAD`
+                              : Math.min(...prixVariations) === Math.max(...prixVariations)
+                              ? `${prixVariations[0]} MAD`
+                              : `${Math.min(...prixVariations)} – ${Math.max(...prixVariations)} MAD`;
+
+                          const etatBadge = (quantite: number) => (
+                            <span
+                              className={`badge ${
+                                quantite === 0 ? 'bg-danger' : quantite < 10 ? 'bg-warning' : 'bg-success'
+                              }`}
+                            >
+                              {quantite === 0 ? 'Rupture' : quantite < 10 ? 'Stock faible' : 'Disponible'}
+                            </span>
+                          );
+
+                          const vignette = (src: string | null, alt: string) =>
+                            src ? (
+                              <img
+                                src={src}
+                                alt={alt}
+                                title={alt}
+                                className="rounded border subproduct-thumb"
+                                loading="lazy"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/mug.webp';
+                                }}
+                              />
+                            ) : (
+                              <div className="rounded border subproduct-thumb subproduct-thumb-empty">
+                                <i className="bi bi-image"></i>
+                              </div>
+                            );
+
+                          const rows: React.ReactNode[] = [
+                            <tr
+                              key={subProduct.id}
+                              className={hasVariations ? 'subproduct-row is-expandable' : 'subproduct-row'}
+                              onClick={hasVariations ? () => toggleSubProductExpansion(subProduct.id) : undefined}
+                            >
+                              {/* Sous-Produit : nom, identifiant, puis catégorie */}
+                              <td>
+                                <div className="d-flex align-items-start gap-2">
+                                  {hasVariations ? (
+                                    <button
+                                      type="button"
+                                      className="subproduct-toggle"
+                                      aria-expanded={isExpanded}
+                                      title={
+                                        isExpanded
+                                          ? 'Masquer les variations'
+                                          : `Afficher les ${variationsArray.length} variation${
+                                              variationsArray.length > 1 ? 's' : ''
+                                            }`
+                                      }
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSubProductExpansion(subProduct.id);
+                                      }}
+                                    >
+                                      <i className={`bi ${isExpanded ? 'bi-chevron-down' : 'bi-chevron-right'}`}></i>
+                                    </button>
+                                  ) : (
+                                    <span className="subproduct-toggle-placeholder" />
+                                  )}
+
+                                  <div className="subproduct-cell">
+                                    <div className="subproduct-name">
+                                      {subProduct.nom}
+                                      {hasVariations && (
+                                        <span className="badge subproduct-variation-count ms-2">
+                                          {variationsArray.length} var.
                                         </span>
                                       )}
                                     </div>
-                                  </td>
-
-                                  {/* Prix Unitaire */}
-                                  <td>
-                                    <div className="fw-bold text-primary">{variationPrix} MAD</div>
-                                  </td>
-
-                                  {/* Quantité */}
-                                  <td>
-                                    <div className="fw-bold">{variationQuantite}</div>
-                                  </td>
-
-                                  {/* État du Stock */}
-                                  <td style={{ width: '110px' }}>
-                                    <span className={`badge ${
-                                      variationQuantite === 0 ? 'bg-danger' : 
-                                      variationQuantite < 10 ? 'bg-warning' : 'bg-success'
-                                    }`} style={{ fontSize: '0.75rem' }}>
-                                      {variationQuantite === 0 ? 'Rupture' : 
-                                       variationQuantite < 10 ? 'Stock faible' : 'Disponible'}
+                                    <small className="subproduct-id" title={subProduct.id}>
+                                      ID&nbsp;: {subProduct.id}
+                                    </small>
+                                    <span className="badge subproduct-category">
+                                      {parentProduct?.nom || 'Catégorie inconnue'}
                                     </span>
-                                  </td>
+                                  </div>
+                                </div>
+                              </td>
 
-                                  {/* Actions */}
-                                  <td style={{ width: '100px' }}>
-                                    {varIndex === 0 && (
-                                      <div className="d-flex gap-2">
-                                        <Button
-                                          variant="outline-primary"
-                                          size="sm"
-                                          className="rounded-3"
-                                          title="Voir les détails"
-                                          onClick={() => handleViewSubProduct(subProduct)}
-                                        >
-                                          <i className="bi bi-eye"></i>
-                                        </Button>
-                                        <Button
-                                          variant="outline-success"
-                                          size="sm"
-                                          className="rounded-3"
-                                          title="Modifier"
-                                          onClick={() => handleEditSubProduct(subProduct)}
-                                        >
-                                          <i className="bi bi-pencil"></i>
-                                        </Button>
-                                        <Button
-                                          variant="outline-danger"
-                                          size="sm"
-                                          className="rounded-3"
-                                          title="Supprimer"
-                                          onClick={() => handleDeleteSubProduct(subProduct)}
-                                        >
-                                          <i className="bi bi-trash"></i>
-                                        </Button>
-                                      </div>
+                              {/* Image */}
+                              <td>
+                                <div className="d-flex align-items-center gap-1">
+                                  {vignette(images.length > 0 ? images[0] : null, subProduct.nom)}
+                                  {images.length > 1 && (
+                                    <span className="subproduct-image-count" title={`${images.length} images`}>
+                                      +{images.length - 1}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Caractéristiques du sous-produit */}
+                              <td>
+                                <CharacteristicTags source={subProduct} fontSize="0.7rem" grouped compact />
+                              </td>
+
+                              {/* Prix unitaire */}
+                              <td className="text-end">
+                                <div className="fw-bold text-primary">{prixAffiche}</div>
+                              </td>
+
+                              {/* Quantité */}
+                              <td className="text-center">
+                                <div className="fw-bold">{quantiteTotale}</div>
+                                {hasVariations && (
+                                  <small className="text-muted d-block subproduct-qty-note">cumul</small>
+                                )}
+                              </td>
+
+                              {/* État du stock */}
+                              <td>{etatBadge(quantiteTotale)}</td>
+
+                              {/* Actions */}
+                              <td>
+                                <div className="d-flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    className="rounded-3"
+                                    title="Voir les détails"
+                                    onClick={() => handleViewSubProduct(subProduct)}
+                                  >
+                                    <i className="bi bi-eye"></i>
+                                  </Button>
+                                  <Button
+                                    variant="outline-success"
+                                    size="sm"
+                                    className="rounded-3"
+                                    title="Modifier"
+                                    onClick={() => handleEditSubProduct(subProduct)}
+                                  >
+                                    <i className="bi bi-pencil"></i>
+                                  </Button>
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    className="rounded-3"
+                                    title="Supprimer"
+                                    onClick={() => handleDeleteSubProduct(subProduct)}
+                                  >
+                                    <i className="bi bi-trash"></i>
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>,
+                          ];
+
+                          // Variations, une ligne chacune, visibles une fois dépliées
+                          if (hasVariations && isExpanded) {
+                            variationsArray.forEach((variation, varIndex) => {
+                              const char = variation.characteristics || {};
+                              const quantite = Number(variation.quantite) || 0;
+                              const prix = variation.prixUnitaire ?? subProduct.prix;
+
+                              rows.push(
+                                <tr key={`${subProduct.id}-var-${varIndex}`} className="variation-row">
+                                  <td>
+                                    <div className="variation-label">
+                                      <i className="bi bi-arrow-return-right me-1"></i>
+                                      Variation {varIndex + 1}
+                                    </div>
+                                  </td>
+                                  <td>
+                                    {vignette(
+                                      variation.image || (images.length > 0 ? images[0] : null),
+                                      `Variation ${varIndex + 1}`
                                     )}
                                   </td>
+                                  <td>
+                                    {Object.values(char).some((v) => v) ? (
+                                      <CharacteristicTags source={char} fontSize="0.7rem" grouped compact />
+                                    ) : (
+                                      <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+                                        Aucune caractéristique
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="text-end">
+                                    <div className="fw-bold text-primary">{prix} MAD</div>
+                                  </td>
+                                  <td className="text-center">
+                                    <div className="fw-bold">{quantite}</div>
+                                  </td>
+                                  <td>{etatBadge(quantite)}</td>
+                                  <td></td>
                                 </tr>
                               );
                             });
-                          } else {
-                            // Si pas de variations, afficher une ligne normale avec les données du sous-produit
-                            return (
-                              <tr key={subProduct.id}>
-                                {/* Nom du Sous-Produit */}
-                                <td>
-                                  <div className="fw-bold text-dark">{subProduct.nom}</div>
-                                  <small style={{ color: '#FF33FF' }}>ID: {subProduct.id}</small>
-                                </td>
-
-                                {/* Catégorie Parent */}
-                                <td style={{ width: '70px' }}>
-                                  <span className="badge bg-secondary" style={{ fontSize: '0.8rem', padding: '0.15em 0.3em' }}>
-                                    {parentProduct?.nom || 'Catégorie inconnue'}
-                                    </span>
-                                </td>
-
-                                {/* Images */}
-                                <td>
-                                  {images.length > 0 ? (
-                                    <div className="d-flex align-items-center gap-1">
-                                      <img
-                                        src={images[0]}
-                                        alt={subProduct.nom}
-                                        className="rounded border"
-                                        style={{ 
-                                          width: '70px', 
-                                          height: '70px', 
-                                          objectFit: 'cover',
-                                          backgroundColor: '#f8f9fa',
-                                          border: '2px solid #dee2e6',
-                                          cursor: 'pointer',
-                                          transition: 'all 0.2s ease'
-                                        }}
-                                        loading="lazy"
-                                        onError={(e) => {
-                                          const target = e.target as HTMLImageElement;
-                                          target.src = '/mug.webp';
-                                        }}
-                                      />
-                                      {images.length > 1 && (
-                                        <div 
-                                          className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-                                          style={{ 
-                                            width: '20px', 
-                                            height: '20px', 
-                                            fontSize: '0.6rem',
-                                            fontWeight: 'bold'
-                                          }}
-                                          title={`${images.length} images`}
-                                        >
-                                          +{images.length - 1}
-                              </div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div 
-                                      className="rounded border d-flex align-items-center justify-content-center text-muted"
-                                      style={{ 
-                                        width: '70px', 
-                                        height: '70px', 
-                                        backgroundColor: '#f8f9fa',
-                                        fontSize: '0.7rem',
-                                        textAlign: 'center',
-                                        border: '2px dashed #dee2e6',
-                                        cursor: 'pointer'
-                                      }}
-                                      title="Aucune image"
-                                    >
-                                      <div>
-                                        <i className="bi bi-image d-block mb-1" style={{ fontSize: '1.2rem' }}></i>
-                                        {subProduct.nom.substring(0, 6)}
-                                      </div>
-                                    </div>
-                                  )}
-                                </td>
-
-                                {/* Caractéristiques */}
-                                <td>
-                                  <span className="text-muted" style={{ fontSize: '0.7rem' }}>
-                                    <i className="bi bi-info-circle me-1"></i>
-                                    Aucune variation
-                                    </span>
-                            </td>
-
-                            {/* Prix Unitaire */}
-                            <td>
-                              <div className="fw-bold text-primary">{subProduct.prix} MAD</div>
-                            </td>
-
-                            {/* Quantité */}
-                            <td>
-                              <div className="fw-bold">{subProduct.stock}</div>
-                            </td>
-
-                            {/* État du Stock */}
-                            <td style={{ width: '110px' }}>
-                              <span className={`badge ${
-                                subProduct.stock === 0 ? 'bg-danger' : 
-                                subProduct.stock < 10 ? 'bg-warning' : 'bg-success'
-                              }`} style={{ fontSize: '0.75rem' }}>
-                                {subProduct.stock === 0 ? 'Rupture' : 
-                                 subProduct.stock < 10 ? 'Stock faible' : 'Disponible'}
-                              </span>
-                            </td>
-
-                            {/* Actions */}
-                            <td style={{ width: '100px' }}>
-                              <div className="d-flex gap-2">
-                                <Button
-                                  variant="outline-primary"
-                                  size="sm"
-                                  className="rounded-3"
-                                  title="Voir les détails"
-                                  onClick={() => handleViewSubProduct(subProduct)}
-                                >
-                                  <i className="bi bi-eye"></i>
-                                </Button>
-                                <Button
-                                  variant="outline-success"
-                                  size="sm"
-                                  className="rounded-3"
-                                  title="Modifier"
-                                  onClick={() => handleEditSubProduct(subProduct)}
-                                >
-                                  <i className="bi bi-pencil"></i>
-                                </Button>
-                                <Button
-                                  variant="outline-danger"
-                                  size="sm"
-                                  className="rounded-3"
-                                  title="Supprimer"
-                                  onClick={() => handleDeleteSubProduct(subProduct)}
-                                >
-                                  <i className="bi bi-trash"></i>
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                            );
                           }
+
+                          return rows;
                         })}
                     </tbody>
                     </table>
@@ -1332,11 +1250,12 @@ const Stock: React.FC = () => {
 
         {/* Modale d'aperçu du produit */}
         {showProductPreviewModal && productToPreview && (
-          <Modal 
-            show={showProductPreviewModal} 
+          <Modal
+            show={showProductPreviewModal}
             onHide={() => setShowProductPreviewModal(false)}
             size="lg"
             centered
+            className="preview-modal"
           >
             <Modal.Header closeButton>
               <Modal.Title>
@@ -1344,133 +1263,131 @@ const Stock: React.FC = () => {
                 Aperçu du Produit
               </Modal.Title>
             </Modal.Header>
+
             <Modal.Body>
-              <Row>
-                {/* Colonne 1: Image du produit */}
-                <Col md={6}>
-                  <div className="text-center">
-                    <h6 className="mb-3 text-primary">
-                      <i className="bi bi-image me-2"></i>
-                      Image du Produit
-                    </h6>
-                    {productToPreview.image && productToPreview.image !== '/placeholder-product.jpg' && productToPreview.image !== '/mug.webp' ? (
+              <div className="preview-ref">
+                <div>
+                  <span className="preview-ref-label">
+                    <i className="bi bi-box me-1"></i>
+                    Référence produit
+                  </span>
+                  <p className="preview-ref-value">{productToPreview.id}</p>
+                </div>
+                <span
+                  className={`badge ${
+                    productToPreview.stock === 0
+                      ? 'bg-danger'
+                      : productToPreview.stock < 10
+                      ? 'bg-warning'
+                      : 'bg-success'
+                  }`}
+                >
+                  {productToPreview.stock === 0
+                    ? 'Rupture'
+                    : productToPreview.stock < 10
+                    ? 'Stock faible'
+                    : 'Disponible'}
+                </span>
+              </div>
+
+              <Row className="g-3">
+                <Col md={5}>
+                  <div className="preview-card text-center">
+                    <div className="preview-card-title">
+                      <i className="bi bi-image"></i>
+                      Image
+                    </div>
+                    {productToPreview.image &&
+                    productToPreview.image !== '/placeholder-product.jpg' &&
+                    productToPreview.image !== '/mug.webp' ? (
                       <img
                         src={productToPreview.image}
                         alt={productToPreview.nom}
-                        className="img-fluid rounded border shadow-sm"
-                        style={{ 
-                          maxWidth: '100%', 
-                          maxHeight: '300px', 
-                          objectFit: 'cover'
-                        }}
+                        className="preview-image"
                         onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/mug.webp';
+                          (e.target as HTMLImageElement).src = '/mug.webp';
                         }}
                       />
                     ) : (
-                      <div 
-                        className="rounded border d-flex align-items-center justify-content-center text-muted"
-                        style={{ 
-                          width: '100%', 
-                          height: '200px', 
-                          backgroundColor: '#f8f9fa',
-                          border: '2px dashed #dee2e6'
-                        }}
-                      >
-                        <div className="text-center">
-                          <i className="bi bi-image display-4 mb-2"></i>
-                          <p className="mb-0">Aucune image disponible</p>
+                      <div className="preview-image preview-image-empty">
+                        <div>
+                          <i className="bi bi-image d-block mb-1"></i>
+                          Aucune image
                         </div>
                       </div>
                     )}
                   </div>
                 </Col>
 
-                {/* Colonne 2: Détails du produit */}
-                <Col md={6}>
-                  <div>
-                    <h6 className="mb-3 text-primary">
-                      <i className="bi bi-info-circle me-2"></i>
-                      Détails du Produit
-                    </h6>
-                    
-                    {/* Nom du produit */}
-                    <div className="mb-3">
-                      <h5 className="fw-bold text-dark mb-1">{productToPreview.nom}</h5>
-                      <small style={{ color: '#FF33FF' }}>ID: {productToPreview.id}</small>
+                <Col md={7}>
+                  <div className="preview-card">
+                    <div className="preview-card-title">
+                      <i className="bi bi-info-circle"></i>
+                      Informations
                     </div>
-
-                    {/* Description */}
-                    {productToPreview.description && (
-                      <div className="mb-3">
-                        <h6 className="text-secondary mb-2">Description</h6>
-                        <p className="text-muted">{productToPreview.description}</p>
+                    <dl className="mb-0">
+                      <div className="preview-row">
+                        <dt>Nom</dt>
+                        <dd>{productToPreview.nom}</dd>
                       </div>
-                    )}
-
-                    {/* Caractéristiques */}
-                    <div className="mb-3">
-                      <h6 className="text-secondary mb-2">Caractéristiques</h6>
-                      <div className="d-flex flex-wrap gap-1">
-                        {/* Tag Catégorie */}
-                        {productToPreview.categorie && (
-                          <span className="badge" style={{ backgroundColor: '#6f42c1', color: 'white' }}>
-                            <i className="bi bi-tag me-1"></i>
-                            {productToPreview.categorie}
-                          </span>
-                        )}
-
-                        <CharacteristicTags source={productToPreview} fontSize="0.75rem" />
-
-                        {/* Tag Fournisseur */}
-                        {productToPreview.fournisseur && productToPreview.fournisseur.nom && (
-                          <span className="badge" style={{ backgroundColor: '#6610f2', color: 'white' }}>
-                            <i className="bi bi-building me-1"></i>
-                            {productToPreview.fournisseur.nom}
-                          </span>
-                        )}
-
-                        {/* Tag Ville du Fournisseur */}
-                        {productToPreview.fournisseur && productToPreview.fournisseur.ville && (
-                          <span className="badge" style={{ backgroundColor: '#20c997', color: 'white' }}>
-                            <i className="bi bi-geo-alt me-1"></i>
-                            {productToPreview.fournisseur.ville}
-                          </span>
-                        )}
-
-                        {/* Tag Prix */}
-                        {productToPreview.prix > 0 && (
-                          <span className="badge" style={{ backgroundColor: '#fd7e14', color: 'white' }}>
-                            <i className="bi bi-currency-exchange me-1"></i>
-                            {productToPreview.prix} MAD
-                          </span>
-                        )}
+                      <div className="preview-row">
+                        <dt>Catégorie</dt>
+                        <dd className={productToPreview.categorie ? '' : 'is-empty'}>
+                          {productToPreview.categorie || 'Non renseignée'}
+                        </dd>
                       </div>
-                    </div>
-
-                    {/* Quantité et État du stock */}
-                    <div className="row">
-                      <div className="col-6">
-                        <h6 className="text-secondary mb-2">Quantité en Stock</h6>
-                        <div className="fw-bold fs-4 text-primary">{productToPreview.stock}</div>
+                      <div className="preview-row">
+                        <dt>Prix</dt>
+                        <dd>{productToPreview.prix} MAD</dd>
                       </div>
-                      <div className="col-6">
-                        <h6 className="text-secondary mb-2">État du Stock</h6>
-                        <span className={`badge fs-6 ${
-                          productToPreview.stock === 0 ? 'bg-danger' : 
-                          productToPreview.stock < 10 ? 'bg-warning' : 'bg-success'
-                        }`}>
-                          {productToPreview.stock === 0 ? 'Rupture' : 
-                           productToPreview.stock < 10 ? 'Stock faible' : 'Disponible'}
-                        </span>
+                      <div className="preview-row">
+                        <dt>Stock</dt>
+                        <dd>{productToPreview.stock}</dd>
                       </div>
-                    </div>
+                      {productToPreview.fournisseur?.nom && (
+                        <div className="preview-row">
+                          <dt>Fournisseur</dt>
+                          <dd>{productToPreview.fournisseur.nom}</dd>
+                        </div>
+                      )}
+                      {productToPreview.fournisseur?.ville && (
+                        <div className="preview-row">
+                          <dt>Ville</dt>
+                          <dd>{productToPreview.fournisseur.ville}</dd>
+                        </div>
+                      )}
+                    </dl>
                   </div>
                 </Col>
               </Row>
+
+              {productToPreview.description && (
+                <>
+                  <div className="preview-section-title">
+                    <i className="bi bi-card-text"></i>
+                    Description
+                  </div>
+                  <div className="preview-card">
+                    <p className="mb-0 text-muted" style={{ fontSize: '0.82rem' }}>
+                      {productToPreview.description}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className="preview-section-title">
+                <i className="bi bi-tags"></i>
+                Caractéristiques
+              </div>
+              <div className="preview-card">
+                <CharacteristicTags source={productToPreview} fontSize="0.75rem" grouped />
+              </div>
             </Modal.Body>
+
             <Modal.Footer>
+              <span className="preview-total">
+                Prix<strong>{productToPreview.prix} MAD</strong>
+              </span>
               <Button variant="secondary" onClick={() => setShowProductPreviewModal(false)}>
                 <i className="bi bi-x-circle me-2"></i>
                 Fermer
@@ -1482,13 +1399,16 @@ const Stock: React.FC = () => {
         {/* Aperçu d'un sous-produit */}
         {showSubProductPreviewModal && subProductToPreview && (() => {
           const sp = subProductToPreview;
-          const parent = products.find(p => p.id === sp.productId);
-          const gallery = (Array.isArray(sp.images) ? sp.images : [])
-            .filter(img => img && img !== '/placeholder-product.jpg' && img !== '/mug.webp');
-          const mainImage = gallery[0]
-            || (sp.image && sp.image !== '/placeholder-product.jpg' && sp.image !== '/mug.webp' ? sp.image : '');
+          const parent = products.find((p) => p.id === sp.productId);
+          const gallery = (Array.isArray(sp.images) ? sp.images : []).filter(
+            (img) => img && img !== '/placeholder-product.jpg' && img !== '/mug.webp'
+          );
+          const mainImage =
+            gallery[0] ||
+            (sp.image && sp.image !== '/placeholder-product.jpg' && sp.image !== '/mug.webp'
+              ? sp.image
+              : '');
           const variations = Array.isArray(sp.variations) ? sp.variations : [];
-
 
           return (
             <Modal
@@ -1496,6 +1416,7 @@ const Stock: React.FC = () => {
               onHide={() => setShowSubProductPreviewModal(false)}
               size="lg"
               centered
+              className="preview-modal"
             >
               <Modal.Header closeButton>
                 <Modal.Title>
@@ -1503,56 +1424,60 @@ const Stock: React.FC = () => {
                   Aperçu du Sous-Produit
                 </Modal.Title>
               </Modal.Header>
+
               <Modal.Body>
-                <Row>
-                  {/* Colonne 1: Images */}
-                  <Col md={6}>
-                    <div className="text-center">
-                      <h6 className="mb-3 text-primary">
-                        <i className="bi bi-image me-2"></i>
-                        Images du Sous-Produit
-                      </h6>
+                <div className="preview-ref">
+                  <div>
+                    <span className="preview-ref-label">
+                      <i className="bi bi-boxes me-1"></i>
+                      Référence sous-produit
+                    </span>
+                    <p className="preview-ref-value">{sp.id}</p>
+                  </div>
+                  <span
+                    className={`badge ${
+                      sp.stock === 0 ? 'bg-danger' : sp.stock < 10 ? 'bg-warning' : 'bg-success'
+                    }`}
+                  >
+                    {sp.stock === 0 ? 'Rupture' : sp.stock < 10 ? 'Stock faible' : 'Disponible'}
+                  </span>
+                </div>
+
+                <Row className="g-3">
+                  <Col md={5}>
+                    <div className="preview-card text-center">
+                      <div className="preview-card-title">
+                        <i className="bi bi-image"></i>
+                        Images
+                      </div>
                       {mainImage ? (
                         <img
                           src={mainImage}
                           alt={sp.nom}
-                          className="img-fluid rounded border shadow-sm"
-                          style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'cover' }}
+                          className="preview-image"
                           onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/mug.webp';
+                            (e.target as HTMLImageElement).src = '/mug.webp';
                           }}
                         />
                       ) : (
-                        <div
-                          className="rounded border d-flex align-items-center justify-content-center text-muted"
-                          style={{
-                            width: '100%',
-                            height: '200px',
-                            backgroundColor: '#f8f9fa',
-                            border: '2px dashed #dee2e6'
-                          }}
-                        >
-                          <div className="text-center">
-                            <i className="bi bi-image display-4 mb-2"></i>
-                            <p className="mb-0">Aucune image disponible</p>
+                        <div className="preview-image preview-image-empty">
+                          <div>
+                            <i className="bi bi-image d-block mb-1"></i>
+                            Aucune image
                           </div>
                         </div>
                       )}
 
-                      {/* Vignettes des images supplémentaires */}
                       {gallery.length > 1 && (
-                        <div className="d-flex flex-wrap gap-2 justify-content-center mt-3">
+                        <div className="d-flex flex-wrap gap-2 justify-content-center mt-2">
                           {gallery.slice(1).map((img, index) => (
                             <img
                               key={index}
                               src={img}
                               alt={`${sp.nom} ${index + 2}`}
-                              className="rounded border"
-                              style={{ width: '60px', height: '60px', objectFit: 'cover' }}
+                              className="preview-thumb"
                               onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = '/mug.webp';
+                                (e.target as HTMLImageElement).src = '/mug.webp';
                               }}
                             />
                           ))}
@@ -1561,128 +1486,129 @@ const Stock: React.FC = () => {
                     </div>
                   </Col>
 
-                  {/* Colonne 2: Détails */}
-                  <Col md={6}>
-                    <div>
-                      <h6 className="mb-3 text-primary">
-                        <i className="bi bi-info-circle me-2"></i>
-                        Détails du Sous-Produit
-                      </h6>
-
-                      <div className="mb-3">
-                        <h5 className="fw-bold text-dark mb-1">{sp.nom}</h5>
-                        <small style={{ color: '#FF33FF' }}>ID: {sp.id}</small>
+                  <Col md={7}>
+                    <div className="preview-card">
+                      <div className="preview-card-title">
+                        <i className="bi bi-info-circle"></i>
+                        Informations
                       </div>
-
-                      <div className="mb-3">
-                        <h6 className="text-secondary mb-2">Produit Parent</h6>
-                        <p className="text-muted mb-0">{parent ? parent.nom : sp.productId}</p>
-                      </div>
-
-                      {sp.description && (
-                        <div className="mb-3">
-                          <h6 className="text-secondary mb-2">Description</h6>
-                          <p className="text-muted">{sp.description}</p>
+                      <dl className="mb-0">
+                        <div className="preview-row">
+                          <dt>Nom</dt>
+                          <dd>{sp.nom}</dd>
                         </div>
-                      )}
-
-                      <div className="mb-3">
-                        <h6 className="text-secondary mb-2">Caractéristiques</h6>
-                        <div className="d-flex flex-wrap gap-1">
-                          <CharacteristicTags source={sp} fontSize="0.75rem" showLabel />
+                        <div className="preview-row">
+                          <dt>Produit parent</dt>
+                          <dd className={parent ? '' : 'is-empty'}>
+                            {parent ? parent.nom : sp.productId || 'Inconnu'}
+                          </dd>
                         </div>
-                      </div>
-
-                      <div className="row">
-                        <div className="col-6">
-                          <h6 className="text-secondary mb-2">Prix</h6>
-                          <div className="fw-bold fs-5 text-dark">{sp.prix} DH</div>
+                        <div className="preview-row">
+                          <dt>Prix</dt>
+                          <dd>{sp.prix} MAD</dd>
                         </div>
-                        <div className="col-6">
-                          <h6 className="text-secondary mb-2">Quantité en Stock</h6>
-                          <div className="fw-bold fs-4 text-primary">{sp.stock}</div>
+                        <div className="preview-row">
+                          <dt>Stock</dt>
+                          <dd>{sp.stock}</dd>
                         </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <h6 className="text-secondary mb-2">État du Stock</h6>
-                        <span className={`badge fs-6 ${
-                          sp.stock === 0 ? 'bg-danger' :
-                          sp.stock < 10 ? 'bg-warning' : 'bg-success'
-                        }`}>
-                          {sp.stock === 0 ? 'Rupture' :
-                           sp.stock < 10 ? 'Stock faible' : 'Disponible'}
-                        </span>
-                      </div>
+                        <div className="preview-row">
+                          <dt>Variations</dt>
+                          <dd>{variations.length}</dd>
+                        </div>
+                      </dl>
                     </div>
                   </Col>
                 </Row>
 
-                {/* Variations */}
+                {sp.description && (
+                  <>
+                    <div className="preview-section-title">
+                      <i className="bi bi-card-text"></i>
+                      Description
+                    </div>
+                    <div className="preview-card">
+                      <p className="mb-0 text-muted" style={{ fontSize: '0.82rem' }}>
+                        {sp.description}
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                <div className="preview-section-title">
+                  <i className="bi bi-tags"></i>
+                  Caractéristiques
+                </div>
+                <div className="preview-card">
+                  <CharacteristicTags source={sp} fontSize="0.75rem" grouped />
+                </div>
+
                 {variations.length > 0 && (
-                  <Row className="mt-4">
-                    <Col md={12}>
-                      <h6 className="mb-3 text-primary">
-                        <i className="bi bi-diagram-3 me-2"></i>
-                        Variations ({variations.length})
-                      </h6>
-                      <div className="table-responsive">
-                        <table className="table table-sm table-bordered align-middle mb-0">
-                          <thead className="table-light">
-                            <tr>
-                              <th style={{ width: '70px' }}>Image</th>
-                              <th>Caractéristiques</th>
-                              <th style={{ width: '110px' }}>Prix Unitaire</th>
-                              <th style={{ width: '90px' }}>Quantité</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {variations.map((variation, index) => {
-                              const characteristics = Object.entries(variation.characteristics || {})
-                                .filter(([, value]) => value);
-                              return (
-                                <tr key={variation.id || index}>
-                                  <td>
-                                    {variation.image ? (
-                                      <img
-                                        src={variation.image}
-                                        alt={`Variation ${index + 1}`}
-                                        className="rounded border"
-                                        style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                                        onError={(e) => {
-                                          const target = e.target as HTMLImageElement;
-                                          target.src = '/mug.webp';
-                                        }}
+                  <>
+                    <div className="preview-section-title">
+                      <i className="bi bi-diagram-3"></i>
+                      Variations ({variations.length})
+                    </div>
+                    <div className="preview-table-wrapper">
+                      <table className="preview-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '70px' }}>Image</th>
+                            <th>Caractéristiques</th>
+                            <th style={{ width: '18%' }} className="num">Prix unitaire</th>
+                            <th style={{ width: '12%' }} className="center">Qté</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {variations.map((variation, index) => {
+                            const hasChars = Object.values(variation.characteristics || {}).some(
+                              (v) => v
+                            );
+                            return (
+                              <tr key={variation.id || index}>
+                                <td>
+                                  {variation.image ? (
+                                    <img
+                                      src={variation.image}
+                                      alt={`Variation ${index + 1}`}
+                                      className="preview-thumb"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src = '/mug.webp';
+                                      }}
+                                    />
+                                  ) : (
+                                    <span className="muted">
+                                      <i className="bi bi-image"></i>
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  {hasChars ? (
+                                    <div className="d-flex flex-wrap gap-1">
+                                      <CharacteristicTags
+                                        source={variation.characteristics}
+                                        fontSize="0.7rem"
                                       />
-                                    ) : (
-                                      <span className="text-muted"><i className="bi bi-image"></i></span>
-                                    )}
-                                  </td>
-                                  <td>
-                                    {characteristics.length > 0 ? (
-                                      <div className="d-flex flex-wrap gap-1">
-                                        <CharacteristicTags
-                                          source={variation.characteristics}
-                                          fontSize="0.7rem"
-                                        />
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted">Aucune</span>
-                                    )}
-                                  </td>
-                                  <td>{variation.prixUnitaire ?? sp.prix} DH</td>
-                                  <td>{variation.quantite ?? 0}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Col>
-                  </Row>
+                                    </div>
+                                  ) : (
+                                    <span className="muted">Aucune</span>
+                                  )}
+                                </td>
+                                <td className="num">{variation.prixUnitaire ?? sp.prix} MAD</td>
+                                <td className="center">{variation.quantite ?? 0}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </Modal.Body>
+
               <Modal.Footer>
+                <span className="preview-total">
+                  Prix<strong>{sp.prix} MAD</strong>
+                </span>
                 <Button variant="secondary" onClick={() => setShowSubProductPreviewModal(false)}>
                   <i className="bi bi-x-circle me-2"></i>
                   Fermer
