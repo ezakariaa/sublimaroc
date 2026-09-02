@@ -373,23 +373,43 @@
   cursor: progress;
 }
 
-.profile-avatar-remove {
-  align-self: center;
-  margin-top: 0.4rem;
-  padding: 0.2rem 0.6rem;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  background-color: transparent;
-  color: #6c757d;
-  font-size: 0.72rem;
-  transition: color 0.15s ease, border-color 0.15s ease;
+
+/* L'avatar et son bouton forment une colonne : le bouton se place
+   sous la photo au lieu de s'aligner à côté dans la rangée du bandeau. */
+.profile-avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.5rem;
 }
 
-.profile-avatar-remove:hover:not(:disabled) {
-  color: #dc3545;
-  border-color: #dc3545;
+/* Les deux actions du voile : changer et retirer la photo. */
+.profile-avatar-overlay {
+  gap: 0.5rem;
 }
 
-.profile-avatar-remove:disabled {
-  opacity: 0.55;
+.profile-avatar-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  font-size: 0.95rem;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.profile-avatar-action:hover {
+  background-color: rgba(255, 255, 255, 0.32);
+  transform: scale(1.08);
+}
+
+/* La suppression se distingue de la simple modification */
+.profile-avatar-action:last-child:hover {
+  background-color: rgba(220, 53, 69, 0.85);
 }

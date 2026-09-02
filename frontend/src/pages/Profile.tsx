@@ -138,6 +138,7 @@ const Profile: React.FC = () => {
             <Card className="profile-hero mb-4">
               <Card.Body>
                 <div className="d-flex flex-column flex-md-row align-items-md-center gap-3 gap-md-4">
+                  <div className="profile-avatar-block">
                   <div
                     className={`profile-avatar ${uploadingPhoto ? 'is-busy' : ''}`}
                     role="button"
@@ -158,7 +159,37 @@ const Profile: React.FC = () => {
                     )}
 
                     <span className="profile-avatar-overlay">
-                      <i className={`bi ${uploadingPhoto ? 'bi-hourglass-split' : 'bi-camera-fill'}`}></i>
+                      {uploadingPhoto ? (
+                        <i className="bi bi-hourglass-split"></i>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="profile-avatar-action"
+                            title={user.photoURL ? 'Changer la photo' : 'Ajouter une photo'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fileInputRef.current?.click();
+                            }}
+                          >
+                            <i className="bi bi-camera-fill"></i>
+                          </button>
+
+                          {user.photoURL && (
+                            <button
+                              type="button"
+                              className="profile-avatar-action"
+                              title="Retirer la photo"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemovePhoto();
+                              }}
+                            >
+                              <i className="bi bi-trash-fill"></i>
+                            </button>
+                          )}
+                        </>
+                      )}
                     </span>
 
                     <input
@@ -170,17 +201,8 @@ const Profile: React.FC = () => {
                     />
                   </div>
 
-                  {user.photoURL && (
-                    <button
-                      type="button"
-                      className="profile-avatar-remove"
-                      onClick={handleRemovePhoto}
-                      disabled={uploadingPhoto}
-                    >
-                      <i className="bi bi-trash me-1"></i>
-                      Retirer la photo
-                    </button>
-                  )}
+                  </div>
+
                   <div className="flex-grow-1">
                     <div className="profile-hero-name">{user.nom || 'Utilisateur'}</div>
                     <div className="profile-hero-email">{user.email}</div>

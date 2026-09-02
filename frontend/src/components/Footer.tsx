@@ -31,9 +31,9 @@ const Footer: React.FC = () => {
           <Col md={4}>
             <h6 className="footer-subtitle">Contact</h6>
             <div className="footer-contact">
-              <p><i className="bi bi-geo-alt me-2"></i>Casablanca, Maroc</p>
-              <p><i className="bi bi-telephone me-2"></i>+212 5XX XXX XXX</p>
-              <p><i className="bi bi-envelope me-2"></i>contact@sublimaroc.ma</p>
+              <p><i className="bi bi-geo-alt me-2"></i>Bouskoura, Casablanca, Maroc</p>
+              <p><i className="bi bi-telephone me-2"></i>+212 664170000</p>
+              <p><i className="bi bi-envelope me-2"></i>infos@sublimaroc.net</p>
             </div>
           </Col>
         </Row>

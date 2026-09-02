@@ -439,10 +439,13 @@ const Sales: React.FC = () => {
                           <td>
                             <div className="products-info">
                               {vente.produits.map((ligne, index) => {
+                                // L'image saisie sur la ligne prime ; à défaut,
+                                // celle du catalogue via son enregistrement d'origine.
                                 const image =
-                                  ligne.sourceType && ligne.sourceId
+                                  ligne.image ||
+                                  (ligne.sourceType && ligne.sourceId
                                     ? imageBySource.get(`${ligne.sourceType}:${ligne.sourceId}`)
-                                    : '';
+                                    : '');
                                 return (
                                   <div key={index} className="product-item">
                                     {image ? (
@@ -659,7 +662,7 @@ const Sales: React.FC = () => {
                         <dd>{getStatusBadge(selectedVente.statut)}</dd>
                       </div>
                       <div className="preview-row">
-                        <dt>Lignes</dt>
+                        <dt>Ventes</dt>
                         <dd>{selectedVente.produits.length}</dd>
                       </div>
                       <div className="preview-row">

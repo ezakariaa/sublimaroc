@@ -308,7 +308,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   const handleSavePurchases = useCallback(async () => {
     try {
       // Validation des champs obligatoires
-      if (!fournisseur.nom.trim()) {
+      if (config.showFournisseur && !fournisseur.nom.trim()) {
         onAlert('danger', 'Le nom du fournisseur est obligatoire');
         return;
       }
@@ -463,33 +463,31 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
   }, [materials, fournisseur, onAlert, onMaterialAdded, onHide, referenceAchat, isEditMode, initialAchat, dateCommande, dateLivraison, etat, achetePar, config]);
 
   return (
-    <Modal 
-      show={show} 
+    <Modal
+      show={show}
       onHide={onHide}
       size="xl"
+      centered
+      className="form-modal"
     >
         <Modal.Header closeButton>
           <Modal.Title>
             <i className={`bi ${isEditMode ? 'bi-pencil-square' : 'bi-plus-circle'} me-2`}></i>
-            {isEditMode ? `Modifier l'Achat de ${config.singular}` : `Nouveau ${config.singular} Acheté`}
+            {isEditMode ? config.modalTitleEdit : config.modalTitleNew}
           </Modal.Title>
         </Modal.Header>
       <Modal.Body style={{ maxHeight: '80vh', overflowY: 'auto', padding: '1.5rem' }}>
         <Form>
           {/* Référence d'Achat */}
           {referenceAchat && (
-            <div className="mb-4">
-              <Card className="bg-primary text-white" style={{ marginBottom: '1rem' }}>
-                <Card.Body className="py-3" style={{ paddingLeft: '1.25rem', paddingRight: '1.25rem' }}>
-                  <div className="d-flex align-items-center">
-                    <i className="bi bi-tag-fill me-2" style={{ fontSize: '1.2rem' }}></i>
-                    <div>
-                      <h6 className="mb-1">Référence d'Achat</h6>
-                      <h4 className="mb-0 font-monospace">{referenceAchat}</h4>
-                    </div>
-                  </div>
-                </Card.Body>
-              </Card>
+            <div className="preview-ref">
+              <div>
+                <span className="preview-ref-label">
+                  <i className="bi bi-tag-fill me-1"></i>
+                  Référence
+                </span>
+                <p className="preview-ref-value">{referenceAchat}</p>
+              </div>
             </div>
           )}
 
@@ -497,7 +495,7 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           <div className="mb-4">
             <h5 className="text-primary mb-3">
               <i className="bi bi-box me-2"></i>
-              Section 1: Informations {config.singular}
+              Section 1 : Informations {config.singular}
             </h5>
             
             {materials.map((material, index) => (
@@ -682,11 +680,12 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Fournisseur */}
+          {/* Section 2 : Fournisseur — sans objet pour les autres dépenses */}
+          {config.showFournisseur && (
           <div className="mb-4">
             <h5 className="text-primary mb-3">
               <i className="bi bi-building me-2"></i>
-              Section 2: Informations Fournisseur
+              Section 2 : Informations Fournisseur
             </h5>
             
             <Row>
@@ -737,17 +736,19 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             </Row>
           </div>
 
-          {/* Section 3: Acheteur */}
+          )}
+
+          {/* Section suivante : la personne */}
           <div className="mb-4">
             <h5 className="text-primary mb-3">
               <i className="bi bi-person-check me-2"></i>
-              Section 3: Acheté par
+              Section {config.showFournisseur ? 3 : 2} : {config.payeurLabel}
             </h5>
 
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Acheté par</Form.Label>
+                  <Form.Label>{config.payeurLabel}</Form.Label>
                   <CustomSelect
                     value={achetePar}
                     onChange={(e) => setAchetePar(e.target.value)}
@@ -766,11 +767,11 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
             </Row>
           </div>
 
-          {/* Section 4: Dates */}
+          {/* Dates et état */}
           <div className="mb-4">
             <h5 className="text-primary mb-3">
               <i className="bi bi-calendar-event me-2"></i>
-              Section 4: Dates et État
+              Section {config.showFournisseur ? 4 : 3} : Dates et État
             </h5>
             
             <Row>
@@ -811,8 +812,8 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
                     }}
                     required
                   >
-                    <option value="En cours">En cours</option>
-                    <option value="Reçue">Reçue</option>
+                    <option value="En cours">{config.etatEnCoursLabel}</option>
+                    <option value="Reçue">{config.etatRecueLabel}</option>
                   </CustomSelect>
                 </Form.Group>
               </Col>
@@ -838,14 +839,18 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
           <div className="mb-4">
             <h5 className="text-success mb-3">
               <i className="bi bi-calculator me-2"></i>
-              Résumé de l'Achat
+              {config.resumeTitle}
             </h5>
             <Card className="bg-light" style={{ marginTop: '1rem' }}>
               <Card.Body style={{ padding: '1.25rem' }}>
                 <Row>
                   <Col md={6}>
                     <p><strong>Nombre de {config.pluralLower}:</strong> {materials.filter(m => m.nom.trim()).length}</p>
-                    <p><strong>Fournisseur:</strong> {fournisseur.nom || 'Non renseigné'}</p>
+                    {config.showFournisseur ? (
+                      <p><strong>Fournisseur :</strong> {fournisseur.nom || 'Non renseigné'}</p>
+                    ) : (
+                      <p><strong>Payeur :</strong> {achetePar || 'Non renseigné'}</p>
+                    )}
                   </Col>
                   <Col md={6}>
                     <p><strong>Total à payer:</strong> 
@@ -868,7 +873,10 @@ const AddMaterialModal: React.FC<AddMaterialModalProps> = ({
         <Button 
           variant="success" 
           onClick={handleSavePurchases}
-          disabled={!fournisseur.nom.trim() || materials.filter(m => m.nom.trim()).length === 0}
+          disabled={
+            (config.showFournisseur && !fournisseur.nom.trim()) ||
+            materials.filter((m) => m.nom.trim()).length === 0
+          }
         >
           <i className="bi bi-check-circle me-2"></i>
           {isEditMode ? 'Mettre à jour l\'Achat' : 'Enregistrer l\'Achat'}

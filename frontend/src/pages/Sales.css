@@ -438,3 +438,24 @@
   padding: 0.2rem 0.45rem;
   font-size: 0.78rem;
 }
+
+/* Vignette d'une ligne de vente, dans la modale de saisie */
+.vente-ligne-thumb {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  background-color: #fff;
+}
+
+.vente-ligne-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #adb5bd;
+  border-style: dashed;
+  background-color: #f8f9fb;
+  font-size: 1.3rem;
+}

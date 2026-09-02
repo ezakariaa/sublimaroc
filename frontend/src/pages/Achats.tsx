@@ -164,6 +164,10 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
   }, [config]);
 
 
+  /** Libellé d'un état selon la variante ; la valeur stockée ne change pas. */
+  const etatLabel = (etat: string) =>
+    etat === 'Reçue' ? config.etatRecueLabel : config.etatEnCoursLabel;
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-MA', {
       style: 'decimal',
@@ -182,7 +186,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
   // Filtrer seulement les achats de matériel
   const filteredPurchases = achats.filter(achat => {
     const matchesSearch = achat.referenceAchat.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         achat.fournisseur.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (achat.fournisseur?.nom || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          achat.materials.some(m => m.nom.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = !statusFilter || achat.etat === statusFilter;
@@ -456,7 +460,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                 </div>
                 <div className="stat-card-content">
                   <h3 className="stat-number">{getPurchasesByStatus('pending')}</h3>
-                  <p className="stat-label">En Cours</p>
+                  <p className="stat-label">{config.etatEnCoursLabel}</p>
                 </div>
               </Card.Body>
             </Card>
@@ -470,7 +474,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                 </div>
                 <div className="stat-card-content">
                   <h3 className="stat-number">{getPurchasesByStatus('received')}</h3>
-                  <p className="stat-label">Reçus</p>
+                  <p className="stat-label">{config.etatRecueLabel}</p>
                 </div>
               </Card.Body>
             </Card>
@@ -530,8 +534,8 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">Tous les états</option>
-              <option value="En cours">En cours</option>
-              <option value="Reçue">Reçue</option>
+              <option value="En cours">{config.etatEnCoursLabel}</option>
+              <option value="Reçue">{config.etatRecueLabel}</option>
             </CustomSelect>
           </Col>
 
@@ -703,7 +707,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                           </td>
                           <td>
                             <Badge bg={purchase.etat === 'Reçue' ? 'success' : 'warning'}>
-                              {purchase.etat}
+                              {etatLabel(purchase.etat)}
                             </Badge>
                           </td>
                           <td>
@@ -879,11 +883,12 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                   <p className="preview-ref-value">{selectedAchat.referenceAchat}</p>
                 </div>
                 <Badge bg={selectedAchat.etat === 'Reçue' ? 'success' : 'warning'}>
-                  {selectedAchat.etat}
+                  {etatLabel(selectedAchat.etat)}
                 </Badge>
               </div>
 
               <Row className="g-3">
+                {config.showFournisseur && (
                 <Col md={6}>
                   <div className="preview-card">
                     <div className="preview-card-title">
@@ -918,12 +923,13 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                     </dl>
                   </div>
                 </Col>
+                )}
 
-                <Col md={6}>
+                <Col md={config.showFournisseur ? 6 : 12}>
                   <div className="preview-card">
                     <div className="preview-card-title">
                       <i className="bi bi-calendar-event"></i>
-                      Achat
+                      {config.showFournisseur ? 'Achat' : 'Dépense'}
                     </div>
                     <dl className="mb-0">
                       <div className="preview-row">
@@ -943,7 +949,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
                         <dd>{selectedAchat.materials.length}</dd>
                       </div>
                       <div className="preview-row">
-                        <dt>Acheté par</dt>
+                        <dt>{config.payeurLabel}</dt>
                         <dd className={selectedAchat.achetePar ? '' : 'is-empty'}>
                           {selectedAchat.achetePar || 'Non renseigné'}
                         </dd>
@@ -1040,7 +1046,7 @@ const Achats: React.FC<AchatsProps> = ({ variant = 'materiel' }) => {
         title="Confirmer la suppression"
         message={achatToDelete ? `Êtes-vous sûr de vouloir supprimer cet achat de ${config.singularLower} ?\n\n` +
           `${config.singular}(s): ${achatToDelete.materials.map((m: any) => m.nom).join(', ')}\n` +
-          `Fournisseur: ${achatToDelete.fournisseur.nom}\n` +
+          (config.showFournisseur ? `Fournisseur: ${achatToDelete.fournisseur?.nom || 'Non renseigné'}\n` : '') +
           `Total: ${formatPrice(achatToDelete.totalAchat)}\n\n` +
           `Cette action est irréversible et supprimera définitivement l'achat de Firebase.` : ''}
         confirmText="Supprimer"

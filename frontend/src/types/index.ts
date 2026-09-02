@@ -133,6 +133,8 @@ export type VenteSourceType = 'sousproduit' | 'article';
 /** Ligne de facture. La désignation est figée à la vente : elle ne doit pas
  *  changer si le sous-produit ou l'article est renommé plus tard. */
 export interface VenteLigne {
+  /** Image propre à la ligne, en base64 ; absente si non renseignée. */
+  image?: string;
   /** Origine de la ligne ; absent pour une saisie libre. */
   sourceType?: VenteSourceType;
   /** Identifiant du sous-produit ou de l'article choisi. */

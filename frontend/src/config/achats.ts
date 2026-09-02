@@ -39,6 +39,22 @@ export interface AchatVariantConfig {
 
   /** Préfixe des références générées : SUB-ACH-… / SUB-CON-… */
   referencePrefix: string;
+  /** Affiche la section Fournisseur du formulaire. */
+  showFournisseur: boolean;
+  /** Libellé de la personne : « Acheté par » ou « Payé par ». */
+  payeurLabel: string;
+  /** Titre de la modale de saisie et de modification. */
+  modalTitleNew: string;
+  modalTitleEdit: string;
+  /** Titre du bloc de récapitulation du formulaire. */
+  resumeTitle: string;
+  /**
+   * Libellés des deux états. Les valeurs stockées restent « En cours » et
+   * « Reçue » pour toutes les variantes : seul l'affichage change, afin que
+   * les enregistrements existants et les filtres continuent de fonctionner.
+   */
+  etatEnCoursLabel: string;
+  etatRecueLabel: string;
 
   // Accès Firestore
   getAll: () => Promise<any[]>;
@@ -62,6 +78,13 @@ export const ACHAT_VARIANTS: Record<AchatVariant, AchatVariantConfig> = {
     loadingLabel: 'Chargement des articles...',
     badgeLabel: 'Matériel',
     referencePrefix: 'SUB-ACH',
+    showFournisseur: true,
+    payeurLabel: 'Acheté par',
+    modalTitleNew: 'Nouveau Matériel Acheté',
+    modalTitleEdit: "Modifier l'Achat de Matériel",
+    resumeTitle: "Résumé de l'Achat",
+    etatEnCoursLabel: 'En cours',
+    etatRecueLabel: 'Reçue',
     getAll: () => AchatService.getAllAchats(),
     create: (data) => AchatService.createAchat(data),
     update: (id, data) => AchatService.updateAchat(id, data),
@@ -82,6 +105,13 @@ export const ACHAT_VARIANTS: Record<AchatVariant, AchatVariantConfig> = {
     loadingLabel: 'Chargement des consommables...',
     badgeLabel: 'Consommable',
     referencePrefix: 'SUB-CON',
+    showFournisseur: true,
+    payeurLabel: 'Acheté par',
+    modalTitleNew: 'Nouveau Consommable Acheté',
+    modalTitleEdit: "Modifier l'Achat de Consommable",
+    resumeTitle: "Résumé de l'Achat",
+    etatEnCoursLabel: 'En cours',
+    etatRecueLabel: 'Reçue',
     getAll: () => ConsommableService.getAllConsommables(),
     create: (data) => ConsommableService.createConsommable(data),
     update: (id, data) => ConsommableService.updateConsommable(id, data),
@@ -103,6 +133,13 @@ export const ACHAT_VARIANTS: Record<AchatVariant, AchatVariantConfig> = {
     loadingLabel: 'Chargement des dépenses...',
     badgeLabel: 'Dépense',
     referencePrefix: 'SUB-DEP',
+    showFournisseur: false,
+    payeurLabel: 'Payé par',
+    modalTitleNew: 'Nouvelle Dépense',
+    modalTitleEdit: 'Modifier la Dépense',
+    resumeTitle: 'Résumé',
+    etatEnCoursLabel: 'Impayé',
+    etatRecueLabel: 'Payé',
     getAll: () => AutreDepenseService.getAllAutresDepenses(),
     create: (data) => AutreDepenseService.createAutreDepense(data),
     update: (id, data) => AutreDepenseService.updateAutreDepense(id, data),

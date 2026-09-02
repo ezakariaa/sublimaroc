@@ -18,12 +18,19 @@ import {
   VenteSourceType,
   VenteStatut,
 } from '../../types';
-import { VenteService } from '../../services/apiService';
+import {
+  VenteService,
+  imageToDataUrl,
+  FIRESTORE_IMAGE_ITEM_BUDGET,
+  FIRESTORE_IMAGE_TOTAL_BUDGET,
+} from '../../services/apiService';
 import CustomSelect from '../CustomSelect';
 
 interface LigneSaisie extends VenteLigne {
   /** Identifiant local de la ligne dans le formulaire. */
   ligneId: string;
+  /** Fichier choisi, converti en base64 seulement à l'enregistrement. */
+  imageFile: File | null;
 }
 
 interface AddVenteModalProps {
@@ -49,6 +56,8 @@ const EMPTY_CLIENT: VenteClient = {
 
 const emptyLigne = (index: number): LigneSaisie => ({
   ligneId: String(index),
+  image: '',
+  imageFile: null,
   sourceType: undefined,
   sourceId: '',
   designation: '',
@@ -94,6 +103,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
         (initialVente.produits || []).map((ligne, index) => ({
           ...ligne,
           ligneId: String(index + 1),
+          imageFile: null,
         }))
       );
       setStatut(initialVente.statut || 'pending');
@@ -148,6 +158,37 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
     );
   }, [subProducts, articles]);
 
+  /** Aperçu local immédiat ; la conversion en base64 attend l'enregistrement. */
+  const handleImageSelected = useCallback(
+    (ligneId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        onAlert('danger', 'Choisissez un fichier image (JPG, PNG ou WEBP).');
+        return;
+      }
+
+      setLignes((prev) =>
+        prev.map((ligne) =>
+          ligne.ligneId === ligneId
+            ? { ...ligne, imageFile: file, image: URL.createObjectURL(file) }
+            : ligne
+        )
+      );
+    },
+    [onAlert]
+  );
+
+  const removeImage = useCallback((ligneId: string) => {
+    setLignes((prev) =>
+      prev.map((ligne) =>
+        ligne.ligneId === ligneId ? { ...ligne, imageFile: null, image: '' } : ligne
+      )
+    );
+  }, []);
+
   const addLigne = useCallback(() => {
     setLignes((prev) => [...prev, emptyLigne(prev.length + 1)]);
   }, []);
@@ -166,7 +207,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
 
     const lignesValides = lignes.filter((l) => l.designation.trim());
     if (lignesValides.length === 0) {
-      onAlert('danger', 'Au moins une ligne avec une désignation est requise');
+      onAlert('danger', 'Au moins une vente avec une désignation est requise');
       return;
     }
     for (const ligne of lignesValides) {
@@ -178,6 +219,37 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
         onAlert('danger', `Le prix unitaire doit être supérieur à 0 (${ligne.designation})`);
         return;
       }
+    }
+
+    // Les images sont converties ici seulement : une conversion à chaque
+    // frappe aurait été inutilement coûteuse.
+    const imagesParLigne: Record<string, string> = {};
+    for (const ligne of lignesValides) {
+      if (ligne.imageFile) {
+      imagesParLigne[ligne.ligneId] = await imageToDataUrl(
+        ligne.imageFile,
+        FIRESTORE_IMAGE_ITEM_BUDGET
+      );
+      } else if (ligne.image && !ligne.image.startsWith('blob:')) {
+      // Image déjà enregistrée, conservée telle quelle
+      imagesParLigne[ligne.ligneId] = ligne.image;
+      }
+    }
+
+    // Firestore plafonne un document à 1 Mio : vérifier avant d'écrire.
+    const poidsImages = Object.values(imagesParLigne).reduce(
+      (sum, url) => sum + url.length,
+      0
+    );
+    if (poidsImages > FIRESTORE_IMAGE_TOTAL_BUDGET) {
+      onAlert(
+      'danger',
+      `Les images pèsent ${Math.round(poidsImages / 1024)} Ko au total, pour ` +
+      `${Math.round(FIRESTORE_IMAGE_TOTAL_BUDGET / 1024)} Ko autorisés dans un document Firestore. ` +
+      `Retirez une image ou choisissez des fichiers plus légers.`
+      );
+      setSaving(false);
+      return;
     }
 
     const venteData = {
@@ -198,9 +270,12 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
           prixUnitaire: ligne.prixUnitaire,
           total: ligne.prixUnitaire * ligne.quantite,
         };
+        const image = imagesParLigne[ligne.ligneId];
+        const avecImage = image ? { ...base, image } : base;
+
         return ligne.sourceType && ligne.sourceId
-          ? { ...base, sourceType: ligne.sourceType, sourceId: ligne.sourceId }
-          : base;
+          ? { ...avecImage, sourceType: ligne.sourceType, sourceId: ligne.sourceId }
+          : avecImage;
       }),
       total: lignesValides.reduce((sum, l) => sum + l.prixUnitaire * l.quantite, 0),
       statut,
@@ -210,6 +285,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
 
     setSaving(true);
     try {
+
       if (isEditMode && initialVente) {
         await VenteService.updateVente(initialVente.id, venteData);
         onAlert('success', `Vente modifiée ! Total : ${venteData.total.toFixed(2)} DH`);
@@ -328,7 +404,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
                 >
                   <h6 className="mb-0" style={{ color: '#ffffff' }}>
                     <i className="bi bi-box-seam me-2"></i>
-                    Ligne {index + 1}
+                    Vente {index + 1}
                   </h6>
                   {lignes.length > 1 && (
                     <Button variant="outline-danger" size="sm" onClick={() => removeLigne(ligne.ligneId)}>
@@ -443,6 +519,61 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
                       </Row>
                     </Col>
                   </Row>
+
+                  {/* Image de la vente */}
+                  <Row>
+                    <Col md={12}>
+                      <Form.Group className="mb-0">
+                        <Form.Label>Image</Form.Label>
+                        <div className="d-flex align-items-center gap-3">
+                          {ligne.image ? (
+                            <img
+                              src={ligne.image}
+                              alt={ligne.designation || `Vente ${index + 1}`}
+                              className="vente-ligne-thumb"
+                            />
+                          ) : (
+                            <div className="vente-ligne-thumb vente-ligne-thumb-empty">
+                              <i className="bi bi-image"></i>
+                            </div>
+                          )}
+
+                          <div className="d-flex gap-2">
+                            <Form.Control
+                              type="file"
+                              accept="image/*"
+                              id={`vente-image-${ligne.ligneId}`}
+                              style={{ display: 'none' }}
+                              onChange={(e) =>
+                                handleImageSelected(
+                                  ligne.ligneId,
+                                  e as React.ChangeEvent<HTMLInputElement>
+                                )
+                              }
+                            />
+                            <Form.Label
+                              htmlFor={`vente-image-${ligne.ligneId}`}
+                              className="btn btn-outline-primary btn-sm mb-0"
+                            >
+                              <i className="bi bi-upload me-1"></i>
+                              {ligne.image ? 'Changer' : 'Choisir une image'}
+                            </Form.Label>
+
+                            {ligne.image && (
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => removeImage(ligne.ligneId)}
+                              >
+                                <i className="bi bi-trash me-1"></i>
+                                Retirer
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </Form.Group>
+                    </Col>
+                  </Row>
                 </Card.Body>
               </Card>
             ))}
@@ -450,7 +581,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
             <div className="text-center">
               <Button variant="outline-primary" onClick={addLigne} className="mb-3">
                 <i className="bi bi-plus-circle me-2"></i>
-                Ajouter une ligne
+                Ajouter une vente
               </Button>
             </div>
           </div>
@@ -518,7 +649,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
                 <Row>
                   <Col md={6}>
                     <p className="mb-1"><strong>Client :</strong> {client.nom || 'Non renseigné'}</p>
-                    <p className="mb-0"><strong>Lignes :</strong> {lignes.filter((l) => l.designation.trim()).length}</p>
+                    <p className="mb-0"><strong>Ventes :</strong> {lignes.filter((l) => l.designation.trim()).length}</p>
                   </Col>
                   <Col md={6}>
                     <p className="mb-0">
