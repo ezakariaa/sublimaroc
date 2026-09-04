@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Container, Row, Col, Card, Badge, Button, Form, InputGroup, Spinner, Alert, Modal } from 'react-bootstrap';
 import { toast } from 'react-toastify';
-import { SubProduct, CatalogueArticle, Vente, VenteStatut } from '../types';
+import {
+  SubProduct,
+  CatalogueArticle,
+  Vente,
+  VenteStatut,
+  VentePaiement,
+} from '../types';
 import { SubProductService, ArticleService, VenteService } from '../services/apiService';
 import { downloadInvoice, invoiceObjectUrl } from '../services/invoiceService';
 import ConfirmModal from '../components/modals/ConfirmModal';
@@ -63,6 +69,7 @@ const Sales: React.FC = () => {
       produits: Array.isArray(vente.produits) ? vente.produits : [],
       total: vente.total || 0,
       statut: (vente.statut || 'pending') as VenteStatut,
+      paiement: (vente.paiement || 'impaye') as VentePaiement,
       dateVente: toDate(vente.dateVente),
       notes: vente.notes || '',
       createdAt: vente.createdAt,
@@ -128,6 +135,13 @@ const Sales: React.FC = () => {
 
     return map;
   }, [subProducts, articles]);
+
+  /** Une vente sans règlement renseigné est considérée impayée. */
+  const getPaiementBadge = (paiement: VentePaiement) => (
+    <Badge bg={paiement === 'paye' ? 'success' : 'danger'}>
+      {paiement === 'paye' ? 'Payé' : 'Impayé'}
+    </Badge>
+  );
 
   const getStatusBadge = (statut: VenteStatut) => {
     const config = STATUT_CONFIG[statut] || STATUT_CONFIG.pending;
@@ -412,22 +426,19 @@ const Sales: React.FC = () => {
                   <table className="table table-hover align-middle">
                     <thead className="table-light">
                       <tr>
-                        <th style={{ width: '13%' }}>Référence</th>
-                        <th style={{ width: '13%' }}>Client</th>
-                        <th style={{ width: '25%' }}>Produits</th>
+                        <th style={{ width: '12%' }}>Client</th>
+                        <th style={{ width: '33%' }}>Produits</th>
                         <th style={{ width: '9%' }}>Total</th>
                         <th style={{ width: '9%' }}>Statut</th>
+                        <th style={{ width: '9%' }}>Paiement</th>
                         <th style={{ width: '9%' }}>Date</th>
-                        <th style={{ width: '10%' }}>Facture</th>
-                        <th style={{ width: '12%' }}>Actions</th>
+                        <th style={{ width: '9%' }}>Facture</th>
+                        <th style={{ width: '10%' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredVentes.map((vente) => (
                         <tr key={vente.id}>
-                          <td>
-                            <strong className="text-primary">{vente.referenceVente}</strong>
-                          </td>
                           <td>
                             <div className="customer-info">
                               <div className="customer-name">{vente.client.nom || 'Client non renseigné'}</div>
@@ -437,6 +448,7 @@ const Sales: React.FC = () => {
                             </div>
                           </td>
                           <td>
+                            <div className="vente-reference">{vente.referenceVente}</div>
                             <div className="products-info">
                               {vente.produits.map((ligne, index) => {
                                 // L'image saisie sur la ligne prime ; à défaut,
@@ -479,6 +491,7 @@ const Sales: React.FC = () => {
                             <span className="order-total">{formatPrice(vente.total)}</span>
                           </td>
                           <td>{getStatusBadge(vente.statut)}</td>
+                          <td>{getPaiementBadge(vente.paiement)}</td>
                           <td>
                             <div className="date-info">{formatDate(vente.dateVente)}</div>
                           </td>
@@ -660,6 +673,10 @@ const Sales: React.FC = () => {
                       <div className="preview-row">
                         <dt>Statut</dt>
                         <dd>{getStatusBadge(selectedVente.statut)}</dd>
+                      </div>
+                      <div className="preview-row">
+                        <dt>Paiement</dt>
+                        <dd>{getPaiementBadge(selectedVente.paiement)}</dd>
                       </div>
                       <div className="preview-row">
                         <dt>Ventes</dt>

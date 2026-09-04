@@ -345,7 +345,7 @@
 
 .sales-page .table {
   table-layout: fixed;
-  min-width: 1080px;
+  min-width: 1120px;
 }
 
 .sales-page .table-light th,
@@ -458,4 +458,27 @@
   border-style: dashed;
   background-color: #f8f9fb;
   font-size: 1.3rem;
+}
+
+/* ── Contenu des lignes aligné en haut ────────────────────
+   Une vente à plusieurs produits rend la ligne haute ; centrer
+   verticalement éloignait le total, les badges et les actions du
+   client resté en haut à gauche. */
+.sales-page .table tbody td {
+  vertical-align: top;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+/* Référence, désormais en tête de la colonne Produits */
+.vente-reference {
+  font-family: 'Courier New', monospace;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #424272;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px dashed #e9ecef;
+  white-space: nowrap;
 }

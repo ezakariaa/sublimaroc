@@ -17,6 +17,7 @@ import {
   VenteLigne,
   VenteSourceType,
   VenteStatut,
+  VentePaiement,
 } from '../../types';
 import {
   VenteService,
@@ -79,6 +80,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
   const [client, setClient] = useState<VenteClient>(EMPTY_CLIENT);
   const [lignes, setLignes] = useState<LigneSaisie[]>([emptyLigne(1)]);
   const [statut, setStatut] = useState<VenteStatut>('pending');
+  const [paiement, setPaiement] = useState<VentePaiement>('impaye');
   const [dateVente, setDateVente] = useState<Date>(new Date());
   const [referenceVente, setReferenceVente] = useState('');
   const [notes, setNotes] = useState('');
@@ -107,6 +109,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
         }))
       );
       setStatut(initialVente.statut || 'pending');
+      setPaiement(initialVente.paiement || 'impaye');
       const date = initialVente.dateVente ? new Date(initialVente.dateVente) : new Date();
       setDateVente(isNaN(date.getTime()) ? new Date() : date);
       setReferenceVente(initialVente.referenceVente || generateReference());
@@ -115,6 +118,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
       setClient(EMPTY_CLIENT);
       setLignes([emptyLigne(1)]);
       setStatut('pending');
+      setPaiement('impaye');
       setDateVente(new Date());
       setReferenceVente(generateReference());
       setNotes('');
@@ -279,6 +283,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
       }),
       total: lignesValides.reduce((sum, l) => sum + l.prixUnitaire * l.quantite, 0),
       statut,
+      paiement,
       dateVente: isNaN(dateVente.getTime()) ? new Date() : dateVente,
       notes: notes.trim(),
     };
@@ -301,7 +306,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [client, lignes, referenceVente, statut, dateVente, notes, isEditMode, initialVente, onAlert, onVenteSaved, onHide]);
+  }, [client, lignes, referenceVente, statut, paiement, dateVente, notes, isEditMode, initialVente, onAlert, onVenteSaved, onHide]);
 
   return (
     <Modal show={show} onHide={onHide} size="xl">
@@ -590,10 +595,10 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
           <div className="mb-4">
             <h5 className="text-primary mb-3">
               <i className="bi bi-calendar-event me-2"></i>
-              Section 3: Statut et Date
+              Section 3 : Statut, Paiement et Date
             </h5>
             <Row>
-              <Col md={4}>
+              <Col md={3}>
                 <Form.Group className="mb-3">
                   <Form.Label>Date de vente *</Form.Label>
                   <Form.Control
@@ -608,7 +613,7 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
                   />
                 </Form.Group>
               </Col>
-              <Col md={4}>
+              <Col md={3}>
                 <Form.Group className="mb-3">
                   <Form.Label>Statut *</Form.Label>
                   <CustomSelect
@@ -624,7 +629,21 @@ const AddVenteModal: React.FC<AddVenteModalProps> = ({
                   </CustomSelect>
                 </Form.Group>
               </Col>
-              <Col md={4}>
+              <Col md={3}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Paiement *</Form.Label>
+                  <CustomSelect
+                    value={paiement}
+                    onChange={(e) => setPaiement(e.target.value as VentePaiement)}
+                    required
+                  >
+                    <option value="impaye">Impayé</option>
+                    <option value="paye">Payé</option>
+                  </CustomSelect>
+                </Form.Group>
+              </Col>
+
+              <Col md={3}>
                 <Form.Group className="mb-3">
                   <Form.Label>Notes (visibles sur la facture)</Form.Label>
                   <Form.Control

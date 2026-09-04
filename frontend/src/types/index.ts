@@ -118,6 +118,9 @@ export interface Order {
 /** Statuts d'une vente. Les clés restent celles déjà utilisées par la page. */
 export type VenteStatut = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 
+/** État du règlement, indépendant de l'avancement de la commande. */
+export type VentePaiement = 'paye' | 'impaye';
+
 /** Client d'une vente, tel qu'il apparaît sur la facture. */
 export interface VenteClient {
   nom: string;
@@ -164,6 +167,8 @@ export interface Vente {
   produits: VenteLigne[];
   total: number;
   statut: VenteStatut;
+  /** « Impayé » par défaut : une vente non renseignée n'est pas réglée. */
+  paiement: VentePaiement;
   dateVente: Date;
   notes?: string;
   createdAt?: any;
